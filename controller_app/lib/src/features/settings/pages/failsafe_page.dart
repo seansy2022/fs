@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 import 'package:rc_ui/rc_ui.dart';
@@ -41,17 +41,19 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
 
     return Column(
       children: [
-        const _FailsafeChannelStrip(title: '油门'),
+        const _FailsafeChannelStrip(title: '娌归棬'),
         const SizedBox(height: 8),
-        const _FailsafeChannelStrip(title: '方向'),
+                    const _FailsafeChannelStrip(title: '方向'),
         const Spacer(),
         Center(
           child: SizedBox(
-            width: 360,
+            width: 174,
+            height: 44,
             child: PrimaryButton(
-              text: '开始',
+              text: 'TEST',
               type: PrimaryButtonType.normal,
               enabled: connected,
+              padding: EdgeInsets.zero,
               onTap: connected
                   ? () => Navigator.of(context).pushNamed(AppRoutes.control)
                   : null,

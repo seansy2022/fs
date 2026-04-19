@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:rc_ui/src/core/theme/app_theme.dart';
 
@@ -28,9 +27,12 @@ class HomeMetric extends StatelessWidget {
     );
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-      decoration: AppDecorations.metricBase,
+      decoration: AppDecorations.metricBase.copyWith(
+        color: const Color.fromRGBO(0, 16, 36, 0.4),
+      ),
       foregroundDecoration: const MetricBorderDecoration(),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(

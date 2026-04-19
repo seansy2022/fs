@@ -59,4 +59,7 @@ class AppAssets {
 
   static const refresh = '$_asset/refresh.svg';
   static const back = '$_asset/back.svg';
+  static const alertCheck = '$_asset/alert_check.svg';
+  static const alertClose = '$_asset/alert_close.svg';
+  static const controlSliderThumb = '$_asset/control_slider_thumb.svg';
 }

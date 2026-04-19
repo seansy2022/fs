@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_ui/rc_ui.dart';
@@ -11,6 +11,7 @@ import 'alarm_settings_page.dart';
 import 'channel_settings_page.dart';
 import 'failsafe_page.dart';
 import 'firmware_upgrade_page.dart';
+import 'help_center_page.dart';
 import 'tank_mixing_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -30,6 +31,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     AppRoutes.tankMixing,
     AppRoutes.alarms,
     AppRoutes.firmware,
+    AppRoutes.help,
   ];
 
   late String _activeRoute;
@@ -57,6 +59,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           TankMixingContent(),
           AlarmSettingsContent(),
           FirmwareUpgradeContent(),
+          HelpCenterContent(),
         ],
       ),
     );
@@ -79,19 +82,18 @@ class BasicSettingsContent extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 1180;
-        // final cardWidth = compact ? 138.0 : 176.0;
         const gyroOptions = ['关闭', '方向', 'ALL'];
         final selectedGyroLabel = switch (settings.gyroMode) {
           GyroMode.off => '关闭',
           GyroMode.directionOnly => '方向',
           GyroMode.all => 'ALL',
         };
+
         return SingleChildScrollView(
           child: Column(
             children: [
               SettingsStrip(
                 child: Row(
-                  // crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
                       child: Column(
@@ -100,10 +102,7 @@ class BasicSettingsContent extends ConsumerWidget {
                         children: const [
                           Text(
                             '手型设置',
-                            style: TextStyle(
-                              color: AppColors.text,
-                              fontSize: 14,
-                            ),
+                            style: TextStyle(color: AppColors.text, fontSize: 14),
                           ),
                           SizedBox(height: 10),
                           Text(
@@ -121,23 +120,16 @@ class BasicSettingsContent extends ConsumerWidget {
                       children: [
                         _HandModeCard(
                           title: '左手油门',
-                          // width: cardWidth,
-                          selected:
-                              settings.handedness == Handedness.leftThrottle,
+                          selected: settings.handedness == Handedness.leftThrottle,
                           iconAsset: 'lib/src/assets/svg/l_youmen.svg',
-                          onTap: () =>
-                              controller.setHandedness(Handedness.leftThrottle),
+                          onTap: () => controller.setHandedness(Handedness.leftThrottle),
                         ),
                         const SizedBox(width: 12),
                         _HandModeCard(
                           title: '右手油门',
-                          // width: cardWidth,
-                          selected:
-                              settings.handedness == Handedness.rightThrottle,
+                          selected: settings.handedness == Handedness.rightThrottle,
                           iconAsset: 'lib/src/assets/svg/r_youmen.svg',
-                          onTap: () => controller.setHandedness(
-                            Handedness.rightThrottle,
-                          ),
+                          onTap: () => controller.setHandedness(Handedness.rightThrottle),
                         ),
                       ],
                     ),
@@ -147,7 +139,6 @@ class BasicSettingsContent extends ConsumerWidget {
               const SizedBox(height: 8),
               SettingsStrip(
                 child: Row(
-                  // crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
                       child: Column(
@@ -156,14 +147,11 @@ class BasicSettingsContent extends ConsumerWidget {
                         children: const [
                           Text(
                             '操控模式',
-                            style: TextStyle(
-                              color: AppColors.text,
-                              fontSize: 14,
-                            ),
+                            style: TextStyle(color: AppColors.text, fontSize: 14),
                           ),
                           SizedBox(height: 10),
                           Text(
-                            '固定位置表示从固定起点开始操控 隐藏可变位置表示任意起点开始。',
+                            '固定位置表示从固定起点开始操控，\n隐藏可变位置表示任意起点开始。',
                             style: TextStyle(
                               color: AppColors.textDim,
                               fontSize: 12,
@@ -176,24 +164,17 @@ class BasicSettingsContent extends ConsumerWidget {
                     Row(
                       children: [
                         _HandModeCard(
-                          // width: cardWidth,
                           title: '固定位置',
                           iconAsset: 'lib/src/assets/svg/guding.svg',
-                          selected:
-                              settings.controlMode == ControlMode.fixedPosition,
-                          onTap: () => controller.setControlMode(
-                            ControlMode.fixedPosition,
-                          ),
+                          selected: settings.controlMode == ControlMode.fixedPosition,
+                          onTap: () => controller.setControlMode(ControlMode.fixedPosition),
                         ),
                         const SizedBox(width: 12),
                         _HandModeCard(
-                          // width: cardWidth,
                           title: '隐藏可变位置',
                           iconAsset: 'lib/src/assets/svg/hidden.svg',
-                          selected:
-                              settings.controlMode == ControlMode.floating,
-                          onTap: () =>
-                              controller.setControlMode(ControlMode.floating),
+                          selected: settings.controlMode == ControlMode.floating,
+                          onTap: () => controller.setControlMode(ControlMode.floating),
                         ),
                       ],
                     ),
@@ -202,7 +183,6 @@ class BasicSettingsContent extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               SettingsStrip(
-                // height: 96,
                 child: Row(
                   children: [
                     const Expanded(
@@ -217,35 +197,25 @@ class BasicSettingsContent extends ConsumerWidget {
                       width: compact ? 180 : 220,
                       height: 34,
                       fontSize: 14,
-                      onChanged: (value) =>
-                          controller.setGyroMode(switch (value) {
-                            '关闭' => GyroMode.off,
-                            '方向' => GyroMode.directionOnly,
-                            _ => GyroMode.all,
-                          }),
+                      onChanged: (value) => controller.setGyroMode(
+                        switch (value) {
+                          '关闭' => GyroMode.off,
+                          '方向' => GyroMode.directionOnly,
+                          _ => GyroMode.all,
+                        },
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 8),
-              SettingsStrip(
-                // height: 120,
+              const SettingsStrip(
                 child: Row(
                   children: [
-                    const Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '设置接收机退出蓝牙模式',
-                            style: TextStyle(
-                              color: AppColors.text,
-                              fontSize: 14,
-                            ),
-                          ),
-                          // SizedBox(height: 8),
-                        ],
+                    Expanded(
+                      child: Text(
+                        '设置接收机退出蓝牙模式',
+                        style: TextStyle(color: AppColors.text, fontSize: 14),
                       ),
                     ),
                   ],
@@ -262,14 +232,12 @@ class BasicSettingsContent extends ConsumerWidget {
 class _HandModeCard extends StatelessWidget {
   const _HandModeCard({
     required this.title,
-    // required this.width,
     required this.selected,
     required this.iconAsset,
     required this.onTap,
   });
 
   final String title;
-  // final double width;
   final bool selected;
   final String iconAsset;
   final VoidCallback onTap;

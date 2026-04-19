@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
@@ -45,10 +46,10 @@ class HomePage extends ConsumerWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 背景图铺满全屏
+          // 鑳屾櫙鍥鹃摵婊″叏灞?
           Positioned.fill(
             child: Image.asset(
-              'assets/images/home.png',
+              'lib/src/assets/image_enhanced.png',
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => const DecoratedBox(
                 decoration: BoxDecoration(
@@ -66,11 +67,11 @@ class HomePage extends ConsumerWidget {
               ),
             ),
           ),
-          // 内容
+          // 鍐呭
           SafeArea(
             child: Stack(
               children: [
-                // 右上角蓝牙连接按钮
+                // 鍙充笂瑙掕摑鐗欒繛鎺ユ寜閽?
                 Positioned(
                   top: 16,
                   left: 16,
@@ -101,12 +102,12 @@ class HomePage extends ConsumerWidget {
                     },
                   ),
                 ),
-                // 中间内容
+                // 涓棿鍐呭
                 Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // RX电压 和 信号强度
+                      // RX鐢靛帇 鍜?淇″彿寮哄害
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -114,7 +115,7 @@ class HomePage extends ConsumerWidget {
                             width: 112,
                             height: 120,
                             child: HomeMetric(
-                              label: 'RX电压',
+                              label: 'RX鐢靛帇',
                               value: batteryLevel != null
                                   ? '$batteryLevel'
                                   : '--',
@@ -127,7 +128,7 @@ class HomePage extends ConsumerWidget {
                             width: 112,
                             height: 120,
                             child: HomeMetric(
-                              label: '信号强度',
+                              label: '淇″彿寮哄害',
                               value: rssi != null ? '$rssi' : '--',
                               unit: 'dBm',
                               emphasize: connected,
@@ -136,23 +137,52 @@ class HomePage extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 48),
-                      // 设置 和 开始 按钮
+                      // 璁剧疆 鍜?寮€濮?鎸夐挳
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          PrimaryButton(
+                          _HomeActionButton(
                             text: '设置',
-                            width: 120,
+                            width: 174,
+                            height: 44,
+                            backgroundColor: const Color.fromRGBO(
+                              27,
+                              45,
+                              77,
+                              1,
+                            ),
+                            icon: SvgPicture.asset(
+                              'assets/icons/home_settings.svg',
+                              width: 15,
+                              height: 15,
+                            ),
                             onTap: () {
                               Navigator.of(
                                 context,
                               ).pushNamed(AppRoutes.settings);
                             },
                           ),
-                          const SizedBox(width: 32),
-                          PrimaryButton(
-                            text: '开始',
-                            width: 120,
+                          const SizedBox(width: 20),
+                          _HomeActionButton(
+                            text: 'TEST',
+                            width: 160,
+                            height: 44,
+                            enabled: connected || kDebugMode,
+                            gradient: const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                AppColors.primaryBright,
+                                AppColors.primary,
+                              ],
+                            ),
+                            disabledColor: const Color.fromRGBO(27, 45, 77, 1),
+                            textColor: AppColors.bg,
+                            icon: SvgPicture.asset(
+                              'assets/icons/home_start.svg',
+                              width: 20,
+                              height: 17,
+                            ),
                             onTap: () {
                               Navigator.of(
                                 context,
@@ -186,8 +216,8 @@ class HomePage extends ConsumerWidget {
             status: d.connected
                 ? '已连接'
                 : d.rssi > -120
-                ? '在线'
-                : '离线',
+                ? '鍦ㄧ嚎'
+                : '绂荤嚎',
             statusColor: d.connected
                 ? const Color(0xFF67E600)
                 : d.rssi > -120
@@ -199,14 +229,74 @@ class HomePage extends ConsumerWidget {
 
     AlertBlueWidget.show(
       context,
-      title: '蓝牙设备',
+      title: '钃濈墮璁惧',
       items: items,
       onRefresh: () {
         ref.read(receiverRepositoryProvider).startScan();
       },
       onDelete: (item) {
-        // 可以添加删除设备逻辑
+        // 鍙互娣诲姞鍒犻櫎璁惧閫昏緫
       },
+    );
+  }
+}
+
+class _HomeActionButton extends StatelessWidget {
+  const _HomeActionButton({
+    required this.text,
+    required this.onTap,
+    required this.icon,
+    this.width = 174,
+    this.height = 44,
+    this.enabled = true,
+    this.backgroundColor,
+    this.disabledColor,
+    this.gradient,
+    this.textColor = AppColors.onPrimary,
+  });
+
+  final String text;
+  final VoidCallback onTap;
+  final Widget icon;
+  final double width;
+  final double height;
+  final bool enabled;
+  final Color? backgroundColor;
+  final Color? disabledColor;
+  final Gradient? gradient;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: enabled
+              ? backgroundColor
+              : (disabledColor ?? const Color.fromRGBO(27, 45, 77, 1)),
+          gradient: enabled ? gradient : null,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            icon,
+            const SizedBox(width: 8),
+            Text(
+              text,
+              style: TextStyle(
+                color: enabled ? textColor : AppColors.textDim,
+                fontSize: AppFonts.s16,
+                fontWeight: AppFonts.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

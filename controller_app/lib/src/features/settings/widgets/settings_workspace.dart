@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_ui/rc_ui.dart';
 
@@ -175,4 +175,6 @@ const _menus = <({String label, String route})>[
   (label: '履带混控', route: AppRoutes.tankMixing),
   (label: '报警提示', route: AppRoutes.alarms),
   (label: '固件升级', route: AppRoutes.firmware),
+  (label: '帮助中心', route: AppRoutes.help),
 ];
+

@@ -97,6 +97,7 @@ export 'src/features/mixing/four_c_layout_grid.dart';
 // Control
 export 'src/features/control/control_slider.dart';
 export 'src/features/controller_buttons/rc_drive_mode_switch.dart';
+export 'src/features/controll_sider/rc_controll_sider.dart';
 
 // ─── Layout ─────────────────────────────────────────────────────────────────
 // Shell
@@ -125,4 +126,5 @@ export 'src/overlay/dialogs/alert/alert_widget.dart';
 export 'src/overlay/dialogs/alert/alert_model_widget.dart';
 export 'src/overlay/dialogs/alert/alert_input_widget.dart';
 export 'src/overlay/dialogs/alert/alert_blue_widget.dart';
-export 'src/overlay/dialogs/alert/alert_blue_widget.dart';
+export 'src/overlay/dialogs/alert/alert_icon_widget.dart';
+export 'src/overlay/dialogs/alert/alert_list_dialog.dart';

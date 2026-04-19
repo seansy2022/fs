@@ -1,24 +1,12 @@
-import 'dart:async';
-
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rc_c_ble/rc_c_ble.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
-import '../../../core/app_constants.dart';
-import '../../../core/providers.dart';
 import '../widgets/settings_workspace.dart';
 
-class FirmwareUpgradePage extends ConsumerStatefulWidget {
+class FirmwareUpgradePage extends StatelessWidget {
   const FirmwareUpgradePage({super.key});
 
-  @override
-  ConsumerState<FirmwareUpgradePage> createState() =>
-      _FirmwareUpgradePageState();
-}
-
-class _FirmwareUpgradePageState extends ConsumerState<FirmwareUpgradePage> {
   @override
   Widget build(BuildContext context) {
     return SettingsWorkspace(
@@ -29,241 +17,233 @@ class _FirmwareUpgradePageState extends ConsumerState<FirmwareUpgradePage> {
   }
 }
 
-class FirmwareUpgradeContent extends ConsumerStatefulWidget {
+class FirmwareUpgradeContent extends StatelessWidget {
   const FirmwareUpgradeContent({super.key});
 
   @override
-  ConsumerState<FirmwareUpgradeContent> createState() =>
-      _FirmwareUpgradeContentState();
-}
-
-class _FirmwareUpgradeContentState
-    extends ConsumerState<FirmwareUpgradeContent> {
-  DemoFirmwarePackage _selectedPackage = demoFirmwarePackages.first;
-  ReceiverUpgradeProgress? _progress;
-  bool _readingVersion = false;
-  bool _upgrading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_readVersion());
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final repository = ref.watch(receiverRepositoryProvider);
-    final firmwareInfo =
-        ref.watch(receiverFirmwareInfoProvider).valueOrNull ??
-        repository.firmwareInfo;
-    final connected =
-        repository.connectionState == ReceiverConnectionState.connected;
-
     return ListView(
       children: [
-        SettingsStrip(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                connected ? '已连接设备' : '未连接设备',
-                style: const TextStyle(
-                  color: AppColors.text,
-                  fontSize: AppFonts.s16,
-                  fontWeight: AppFonts.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                connected
-                    ? (repository.receiverInfo?.modelLabel ?? '接收机已连接')
-                    : '请先连接接收机后再读取固件信息。',
-                style: const TextStyle(
-                  color: AppColors.textDim,
-                  fontSize: 13,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-              PrimaryButton(
-                text: _readingVersion ? '读取中...' : '读取当前固件版本',
-                enabled: connected && !_readingVersion,
-                onTap: _readVersion,
-              ),
-              if (firmwareInfo != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '当前版本：${firmwareInfo.versionLabel}',
-                  style: const TextStyle(
-                    color: AppColors.primaryBright,
-                    fontSize: AppFonts.s16,
-                    fontWeight: AppFonts.w700,
-                  ),
-                ),
-              ],
-            ],
+        const SettingsStrip(
+          child: Text(
+            '固件升级',
+            style: TextStyle(
+              color: AppColors.text,
+              fontSize: 14,
+              fontWeight: AppFonts.w600,
+            ),
           ),
         ),
-        const SizedBox(height: 12),
-        SettingsStrip(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '演示固件包',
-                style: TextStyle(
-                  color: AppColors.text,
-                  fontSize: AppFonts.s16,
-                  fontWeight: AppFonts.w700,
-                ),
+        const SizedBox(height: 8),
+        _ArrowItem(
+          label: 'FGR4 1.0.1',
+          onTap: () => _showConfirmDialog(context),
+        ),
+        const SizedBox(height: 8),
+        _ArrowItem(
+          label: 'FGR4 1.0.2',
+          onTap: () => _showConfirmDialog(context),
+        ),
+        const SizedBox(height: 8),
+        const SettingsStrip(
+          child: Text(
+            '帮助中心',
+            style: TextStyle(
+              color: AppColors.text,
+              fontSize: 14,
+              fontWeight: AppFonts.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _ArrowItem(
+          label: '说明书中文',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const _ManualDetailPage(
+                topRightTitle: '中文说明书',
+                contentTitle: '中文输出标题',
+                content: _zhManualText,
               ),
-              const SizedBox(height: 12),
-              ...demoFirmwarePackages.map((package) {
-                final selected = package.id == _selectedPackage.id;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _selectedPackage = package),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? const Color(0x2200C8FF)
-                            : AppColors.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: selected
-                              ? AppColors.primaryBright
-                              : const Color(0xFF233854),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${package.label} ${package.versionLabel}',
-                                  style: const TextStyle(
-                                    color: AppColors.text,
-                                    fontSize: 15,
-                                    fontWeight: AppFonts.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '大小 ${package.size} bytes',
-                                  style: const TextStyle(
-                                    color: AppColors.textDim,
-                                    fontSize: AppFonts.s12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (selected)
-                            const Icon(
-                              Icons.check_circle,
-                              color: AppColors.primaryBright,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }),
-              const SizedBox(height: 6),
-              PrimaryButton(
-                text: _upgrading ? '升级中...' : '开始升级',
-                enabled: connected && !_upgrading,
-                onTap: () => _startUpgrade(context),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _ArrowItem(
+          label: '说明书英文',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const _ManualDetailPage(
+                topRightTitle: '英文说明书',
+                contentTitle: 'English Manual Title',
+                content: _enManualText,
               ),
-              if (_progress != null) ...[
-                const SizedBox(height: 16),
-                LinearProgressIndicator(
-                  value: _progress!.fraction,
-                  minHeight: 8,
-                  backgroundColor: AppColors.surface,
-                  color: _progress!.stage == ReceiverUpgradeStage.failed
-                      ? Colors.redAccent
-                      : AppColors.primaryBright,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _progressLabel(_progress!),
-                  style: const TextStyle(
-                    color: AppColors.textDim,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Future<void> _readVersion() async {
-    final repository = ref.read(receiverRepositoryProvider);
-    if (repository.connectionState != ReceiverConnectionState.connected) {
-      return;
-    }
-    setState(() => _readingVersion = true);
-    try {
-      await repository.readFirmwareInfo();
-    } finally {
-      if (mounted) {
-        setState(() => _readingVersion = false);
-      }
-    }
-  }
-
-  Future<void> _startUpgrade(BuildContext context) async {
-    final repository = ref.read(receiverRepositoryProvider);
-    setState(() {
-      _upgrading = true;
-      _progress = const ReceiverUpgradeProgress(
-        stage: ReceiverUpgradeStage.idle,
-        sentChunks: 0,
-        totalChunks: 0,
-      );
-    });
-    await for (final progress in repository.startUpgrade(
-      _selectedPackage.buildBytes(),
-    )) {
-      if (!mounted) {
-        break;
-      }
-      setState(() {
-        _progress = progress;
-      });
-    }
-    if (mounted) {
-      setState(() => _upgrading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_progressLabel(_progress!))));
-    }
-  }
-
-  String _progressLabel(ReceiverUpgradeProgress progress) {
-    switch (progress.stage) {
-      case ReceiverUpgradeStage.idle:
-        return '等待开始升级';
-      case ReceiverUpgradeStage.enteringBoot:
-        return '正在让接收机进入 Boot 模式';
-      case ReceiverUpgradeStage.sendingLength:
-        return '正在发送升级包长度';
-      case ReceiverUpgradeStage.sendingPayload:
-        return '正在发送固件数据 ${progress.sentChunks}/${progress.totalChunks}';
-      case ReceiverUpgradeStage.completed:
-        return '升级完成';
-      case ReceiverUpgradeStage.failed:
-        return progress.message ?? '升级失败';
-    }
+  Future<void> _showConfirmDialog(BuildContext context) async {
+    await AlertIconWidget.show(
+      context,
+      title: '',
+      message: '固件确定更新为旧版',
+      cancelText: '取消',
+      confirmText: '确定',
+      barrierDismissible: true,
+    );
   }
 }
+
+class _ArrowItem extends StatelessWidget {
+  const _ArrowItem({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsStrip(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: 14,
+                  fontWeight: AppFonts.w600,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              color: AppColors.textDim,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ManualDetailPage extends StatelessWidget {
+  const _ManualDetailPage({
+    required this.topRightTitle,
+    required this.contentTitle,
+    required this.content,
+  });
+
+  final String topRightTitle;
+  final String contentTitle;
+  final String content;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: TechShell(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      topRightTitle,
+                      style: const TextStyle(
+                        color: AppColors.text,
+                        fontSize: 14,
+                        fontWeight: AppFonts.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: AppColors.text),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  height: 2,
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      stops: [0, 0.3334, 0.5092, 0.678, 1],
+                      colors: [
+                        Color.fromRGBO(126, 162, 207, 1),
+                        Color.fromRGBO(0, 198, 255, 1),
+                        Color.fromRGBO(146, 254, 157, 1),
+                        Color.fromRGBO(0, 200, 255, 1),
+                        Color.fromRGBO(125, 162, 206, 1),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      SettingsStrip(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              contentTitle,
+                              style: const TextStyle(
+                                color: AppColors.text,
+                                fontSize: 14,
+                                fontWeight: AppFonts.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              content,
+                              style: const TextStyle(
+                                color: AppColors.textDim,
+                                fontSize: 14,
+                                height: 1.6,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const String _zhManualText =
+    '1. 设备开机后，请先确认电量与信号状态。\n'
+    '2. 进入控制前，建议先完成通道与失控保护设置。\n'
+    '3. 固件升级时请保持设备供电稳定，避免中断。\n\n'
+    '安全提示：\n'
+    '- 升级过程中请勿断电或退出应用。\n'
+    '- 若升级失败，请重启设备后重试。\n'
+    '- 如需更多帮助，请联系技术支持。';
+
+const String _enManualText =
+    '1. Check battery and signal status before operation.\n'
+    '2. Configure channels and failsafe before driving.\n'
+    '3. Keep stable power during firmware update.\n\n'
+    'Safety Notes:\n'
+    '- Do not power off during update.\n'
+    '- Restart and retry if update fails.\n'
+    '- Contact support for additional assistance.';

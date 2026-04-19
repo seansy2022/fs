@@ -6,6 +6,7 @@ import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
 import '../controllers/settings_controller.dart';
 import '../models/app_settings_state.dart';
+import '../widgets/select_option_toggle.dart';
 import '../widgets/settings_workspace.dart';
 
 class ChannelSettingsPage extends ConsumerWidget {
@@ -48,6 +49,7 @@ class _ChannelSettingsContentState
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
     final controller = ref.read(appSettingsProvider.notifier);
+
     final ch1 = _channelAt(
       settings.channels,
       0,
@@ -70,7 +72,7 @@ class _ChannelSettingsContentState
       settings.channels,
       3,
       channelLabel: 'CH4',
-      title: '无',
+      title: '鸣笛',
     );
 
     return SingleChildScrollView(
@@ -81,9 +83,9 @@ class _ChannelSettingsContentState
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Row(
               children: [
-                Expanded(
+                const Expanded(
                   flex: 22,
-                  child: const Text(
+                  child: Text(
                     '方向(CH1)',
                     style: TextStyle(color: AppColors.text, fontSize: 14),
                   ),
@@ -116,7 +118,16 @@ class _ChannelSettingsContentState
                   ),
                 ),
                 const SizedBox(width: 12),
-                const SizedBox(width: 120, child: _OptionBox(label: '方向')),
+                SelectOptionToggle(
+                  selected: ch1.reversed,
+                  label: '反向',
+                  onTap: () {
+                    controller.updateChannel(
+                      0,
+                      ch1.copyWith(reversed: !ch1.reversed),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -126,9 +137,9 @@ class _ChannelSettingsContentState
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Row(
               children: [
-                Expanded(
+                const Expanded(
                   flex: 22,
-                  child: const Text(
+                  child: Text(
                     '油门(CH2)',
                     style: TextStyle(color: AppColors.text, fontSize: 14),
                   ),
@@ -161,7 +172,16 @@ class _ChannelSettingsContentState
                   ),
                 ),
                 const SizedBox(width: 12),
-                const SizedBox(width: 120, child: _OptionBox(label: '方向')),
+                SelectOptionToggle(
+                  selected: ch2.reversed,
+                  label: '反向',
+                  onTap: () {
+                    controller.updateChannel(
+                      1,
+                      ch2.copyWith(reversed: !ch2.reversed),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -171,9 +191,9 @@ class _ChannelSettingsContentState
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Row(
               children: [
-                Expanded(
+                const Expanded(
                   flex: 28,
-                  child: const Text(
+                  child: Text(
                     '大灯(CH3)',
                     style: TextStyle(color: AppColors.text, fontSize: 14),
                   ),
@@ -216,7 +236,7 @@ class _ChannelSettingsContentState
               children: [
                 const Expanded(
                   child: Text(
-                    '无(CH4)',
+                    '鸣笛(CH4)',
                     style: TextStyle(color: AppColors.text, fontSize: 14),
                   ),
                 ),
@@ -231,19 +251,6 @@ class _ChannelSettingsContentState
               ],
             ),
           ),
-          SettingsStrip(
-            height: 88,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '点击数值单元可切换选中状态，点击通道末尾可配置辅助功能。',
-                style: TextStyle(
-                  color: AppColors.textDim.withValues(alpha: 0.9),
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -255,18 +262,27 @@ class _ChannelSettingsContentState
     ChannelSetting channel,
     SettingsController controller,
   ) {
-    AlertSelectionSheet.show(
+    final options = index == 2
+        ? const <AuxiliaryFunction>[
+            AuxiliaryFunction.none,
+            AuxiliaryFunction.headlight,
+            AuxiliaryFunction.warningLight,
+            AuxiliaryFunction.gearControl,
+            AuxiliaryFunction.gyro,
+          ]
+        : AuxiliaryFunction.values;
+
+    AlertListDialog.show(
       context,
       title: '选择辅助功能',
-      options: AuxiliaryFunction.values
-          .map(_functionLabel)
-          .toList(growable: false),
+      width: 350,
+      options: options.map(_functionLabel).toList(growable: false),
       selectedOption: _functionLabel(channel.function),
       onOptionSelected: (selection) {
         controller.updateChannel(
           index,
           channel.copyWith(
-            function: AuxiliaryFunction.values.firstWhere(
+            function: options.firstWhere(
               (value) => _functionLabel(value) == selection,
             ),
           ),
@@ -356,26 +372,6 @@ class _ChannelValueButton extends StatelessWidget {
         selected: active,
         fontSize: 14,
         onTap: onTap,
-      ),
-    );
-  }
-}
-
-class _OptionBox extends StatelessWidget {
-  const _OptionBox({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return RCButton(
-      onTap: null,
-      enableRepeat: false,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      textWidget: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: AppColors.text, fontSize: 14),
       ),
     );
   }
