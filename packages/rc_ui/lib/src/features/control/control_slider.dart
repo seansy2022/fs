@@ -22,8 +22,8 @@ enum ControlSliderDirection { vertical, horizontal }
 /// 控制手柄组件
 /// 支持垂直和水平两种模式
 /// 手柄点默认在中间，可以移动，松手后回到原位置
-class ControlSlider extends StatefulWidget {
-  const ControlSlider({
+class Control extends StatefulWidget {
+  const Control({
     super.key,
     required this.direction,
     required this.onChanged,
@@ -57,10 +57,10 @@ class ControlSlider extends StatefulWidget {
   final double thumbSize;
 
   @override
-  State<ControlSlider> createState() => _ControlSliderState();
+  State<Control> createState() => _ControlState();
 }
 
-class _ControlSliderState extends State<ControlSlider> {
+class _ControlState extends State<Control> {
   double _value = 0; // -100 到 100
 
   void _updateValue(Offset localPosition) {
