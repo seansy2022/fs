@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,6 +57,11 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     final rssi = connectedDevice?.rssi;
 
     final leftPadIsThrottle = settings.handedness == Handedness.leftThrottle;
+    const topControlAnchorTop = 65.0;
+    const audioButtonsSize = 36.0;
+    const driveModeSwitchHeight = 48.0;
+    const driveModeTop =
+        topControlAnchorTop - ((driveModeSwitchHeight - audioButtonsSize) / 2);
 
     return Scaffold(
       body: Stack(
@@ -86,7 +91,6 @@ class _ControlPageState extends ConsumerState<ControlPage> {
           SafeArea(
             child: Stack(
               children: [
-        
                 Positioned(
                   top: 0,
                   left: 0,
@@ -103,7 +107,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                   ),
                 ),
                 Positioned(
-                  top: 65, // 49(back button height) + 16
+                  top: topControlAnchorTop, // 49(back button height) + 16
                   left: 40,
                   child: _TopLowerBar(
                     musicOn: controlState.backgroundMusicOn,
@@ -112,10 +116,21 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                     onSound: controlController.toggleSoundEffects,
                   ),
                 ),
+                Positioned(
+                  top: driveModeTop,
+                  right: 40,
+                  child: RcDriveModeSwitch(
+                    mode: controlState.highGear
+                        ? RcDriveMode.high
+                        : RcDriveMode.low,
+                    onChanged: (mode) {
+                      controlController.toggleGear(mode == RcDriveMode.high);
+                    },
+                  ),
+                ),
                 // 涓诲唴瀹?
                 Column(
                   children: [
-              
                     _TopBar(
                       battery: batteryLevel,
                       rssi: rssi,
@@ -127,7 +142,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                       networkOn: controlState.gyroEnabled,
                     ),
                     const SizedBox(height: 52),
-            
+
                     Expanded(
                       child: _ControlArea(
                         leftPadIsThrottle: leftPadIsThrottle,
@@ -145,7 +160,6 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     );
   }
 }
-
 
 class _TopBar extends StatelessWidget {
   const _TopBar({
@@ -174,7 +188,7 @@ class _TopBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          const SizedBox(width: 129), // 
+          const SizedBox(width: 129), //
           RCButton(
             iconWidget: Icon(
               Icons.network_wifi,
@@ -205,7 +219,7 @@ class _TopBar extends StatelessWidget {
             onTap: () {},
           ),
           const Spacer(),
-   
+
           Row(
             children: [
               _CircleIconBtn(
@@ -233,7 +247,6 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-// 椤朵笅閮?
 class _TopLowerBar extends StatelessWidget {
   const _TopLowerBar({
     required this.musicOn,
@@ -308,6 +321,10 @@ class _CircleIconBtn extends StatelessWidget {
 
 // 涓笅閮ㄦ帶鍒跺尯鍩?
 class _ControlArea extends StatelessWidget {
+  static const _controlGap = 35.0;
+  static const _verticalControlLeft = 40.0;
+  static const _horizontalControlBottom = 20.0;
+
   const _ControlArea({
     required this.leftPadIsThrottle,
     required this.controlState,
@@ -318,65 +335,70 @@ class _ControlArea extends StatelessWidget {
   final ControlScreenState controlState;
   final ControlController controlController;
 
+  Widget _buildVerticalArea() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        RCControllSider(
+          direction: RCControllSiderDirection.vertical,
+          initialValue: controlState.throttle,
+          onChanged: (value) {
+            controlController.setThrottle(value);
+          },
+        ),
+        const SizedBox(width: _controlGap),
+        Control(
+          direction: ControlSliderDirection.vertical,
+          onChanged: (value) {
+            controlController.setThrottle(value / 100);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHorizontalArea() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Control(
+          direction: ControlSliderDirection.horizontal,
+          onChanged: (value) {
+            controlController.setSteering(value / 100);
+          },
+        ),
+        const SizedBox(height: _controlGap),
+        RCControllSider(
+          direction: RCControllSiderDirection.horizontal,
+          initialValue: controlState.steering,
+          onChanged: (value) {
+            controlController.setSteering(value);
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final leftArea = leftPadIsThrottle
+        ? _buildVerticalArea()
+        : _buildHorizontalArea();
+    final rightArea = leftPadIsThrottle
+        ? _buildHorizontalArea()
+        : _buildVerticalArea();
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.only(
+        left: _verticalControlLeft,
+        right: 16,
+        bottom: _horizontalControlBottom,
+      ),
       child: Row(
-        children: [
-          // 宸﹁竟锛氭搷浣滄潯 + 鍨傜洿鎺у埗鎸夐挳
-          Expanded(
-            child: Column(
-              children: [
-
-                Expanded(
-                  child: RCControllSider(
-                    direction: RCControllSiderDirection.vertical,
-                    initialValue: controlState.throttle,
-                    onChanged: (value) {
-                      controlController.setThrottle(value);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
- 
-          const SizedBox(width: 16),
-
-          Expanded(
-            child: Column(
-              children: [
-                RcDriveModeSwitch(
-                  mode: controlState.highGear
-                      ? RcDriveMode.high
-                      : RcDriveMode.low,
-                  onChanged: (mode) {
-                    controlController.toggleGear(mode == RcDriveMode.high);
-                  },
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: RCControllSider(
-                          direction: RCControllSiderDirection.horizontal,
-                          initialValue: controlState.steering,
-                          onChanged: (value) {
-                            controlController.setSteering(value);
-                          },
-                        ),
-                      ),
-
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [leftArea, rightArea],
       ),
     );
   }

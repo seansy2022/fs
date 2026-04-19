@@ -6,6 +6,10 @@ import 'package:rc_ui/src/core/theme/app_theme.dart';
 
 const _kControlWidth = 100.0;
 const _kControlHeight = 206.0;
+const _kClickButtonActiveSvgAsset =
+    'packages/rc_ui/lib/src/assets/assets/\u70b9\u51fb.svg';
+const _kClickButtonInactiveSvgAsset =
+    'packages/rc_ui/lib/src/assets/assets/\u70b9\u51fb_wei.svg';
 const _kClickButtonSvgAsset = 'packages/rc_ui/lib/src/assets/assets/点击.svg';
 
 const _kThumbSvg = '''
@@ -62,6 +66,7 @@ class Control extends StatefulWidget {
 
 class _ControlState extends State<Control> {
   double _value = 0; // -100 到 100
+  bool _isDragging = false;
 
   void _updateValue(Offset localPosition) {
     final isVertical = widget.direction == ControlSliderDirection.vertical;
@@ -93,13 +98,23 @@ class _ControlState extends State<Control> {
       widget.onChanged(0);
     }
   }
+  String _buttonAsset({required bool positiveSide}) {
+    final isActive =
+        _isDragging && ((positiveSide && _value > 0) || (!positiveSide && _value < 0));
+    return isActive ? _kClickButtonActiveSvgAsset : _kClickButtonInactiveSvgAsset;
+  }
 
   @override
   Widget build(BuildContext context) {
     final isVertical = widget.direction == ControlSliderDirection.vertical;
 
     return GestureDetector(
-      onPanStart: (details) => _updateValue(details.localPosition),
+      onPanStart: (details) {
+        if (!_isDragging) {
+          setState(() => _isDragging = true);
+        }
+        _updateValue(details.localPosition);
+      },
       onPanUpdate: (details) => _updateValue(details.localPosition),
       onPanEnd: (_) => _reset(),
       onPanCancel: _reset,
@@ -120,7 +135,7 @@ class _ControlState extends State<Control> {
                   child: Transform.rotate(
                     angle: -math.pi / 2, // -90度
                     child: SvgPicture.asset(
-                      _kClickButtonSvgAsset,
+                      _buttonAsset(positiveSide: true),
                       width: widget.width,
                       height: widget.width,
                       fit: BoxFit.contain,
@@ -138,7 +153,7 @@ class _ControlState extends State<Control> {
                   child: Transform.rotate(
                     angle: math.pi / 2, // 90度
                     child: SvgPicture.asset(
-                      _kClickButtonSvgAsset,
+                      _buttonAsset(positiveSide: false),
                       width: widget.width,
                       height: widget.width,
                       fit: BoxFit.contain,
@@ -154,14 +169,11 @@ class _ControlState extends State<Control> {
                 child: SizedBox(
                   width: widget.height,
                   height: widget.height,
-                  child: Transform.rotate(
-                    angle: -math.pi, // -180度
-                    child: SvgPicture.asset(
-                      _kClickButtonSvgAsset,
-                      width: widget.height,
-                      height: widget.height,
-                      fit: BoxFit.contain,
-                    ),
+                  child: SvgPicture.asset(
+                    _buttonAsset(positiveSide: false),
+                    width: widget.height,
+                    height: widget.height,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
@@ -173,16 +185,19 @@ class _ControlState extends State<Control> {
                 child: SizedBox(
                   width: widget.height,
                   height: widget.height,
-                  child: SvgPicture.asset(
-                    _kClickButtonSvgAsset,
-                    width: widget.height,
-                    height: widget.height,
-                    fit: BoxFit.contain,
+                  child: Transform.rotate(
+                    angle: -math.pi, // -180度
+                    child: SvgPicture.asset(
+                      _buttonAsset(positiveSide: true),
+                      width: widget.height,
+                      height: widget.height,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
               ),
             // 手柄点
-            _buildThumb(isVertical),
+            if (_isDragging) _buildThumb(isVertical),
           ],
         ),
       ),

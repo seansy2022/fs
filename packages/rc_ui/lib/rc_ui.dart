@@ -95,7 +95,7 @@ export 'src/features/mixing/four_c_layout_option.dart';
 export 'src/features/mixing/four_c_layout_grid.dart';
 
 // Control
-export 'src/features/control/control_slider.dart';
+export 'src/features/control/control.dart';
 export 'src/features/controller_buttons/rc_drive_mode_switch.dart';
 export 'src/features/controll_sider/rc_controll_sider.dart';
 
