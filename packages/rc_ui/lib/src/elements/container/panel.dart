@@ -1,0 +1,23 @@
+import 'package:flutter/material.dart';
+
+import 'package:rc_ui/src/core/theme/app_theme.dart';
+
+class Panel extends StatelessWidget {
+  const Panel({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(AppDimens.gapL),
+  });
+
+  final Widget child;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding,
+      decoration: AppDecorations.panel,
+      child: child,
+    );
+  }
+}

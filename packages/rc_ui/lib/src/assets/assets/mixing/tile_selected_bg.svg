@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="332" height="324" viewBox="0 0 332 324" fill="none">
+  <g filter="url(#selected_filter)">
+    <rect x="0" y="0" width="332" height="324" rx="16" fill="#1B2D4D" fill-opacity="0.4"/>
+    <rect x="0" y="0" width="332" height="324" rx="16" fill="url(#selected_fill)"/>
+    <path fill-rule="evenodd" d="M316 0H16C7.16344 0 0 7.16344 0 16V308C0 316.837 7.16344 324 16 324H316C324.837 324 332 316.837 332 308V16C332 7.16344 324.837 0 316 0ZM1 16C1 7.71573 7.71573 1 16 1H316C324.284 1 331 7.71573 331 16V308C331 316.284 324.284 323 316 323H16C7.71573 323 1 316.284 1 308V16Z" fill="url(#selected_border)"/>
+  </g>
+  <defs>
+    <linearGradient id="selected_fill" x1="166" y1="324" x2="166" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0072FF" stop-opacity="0.48"/>
+      <stop offset="1" stop-color="#0073FF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="selected_border" x1="166" y1="324" x2="166" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7DA2CE" stop-opacity="0.4"/>
+      <stop offset="0.2807" stop-color="#7DA2CE" stop-opacity="0.64"/>
+      <stop offset="0.5394" stop-color="#7DA2CE"/>
+      <stop offset="0.7815" stop-color="#7DA2CE" stop-opacity="0.64"/>
+      <stop offset="1" stop-color="#7DA2CE" stop-opacity="0.4"/>
+    </linearGradient>
+    <filter id="selected_filter" x="0" y="0" width="332" height="324" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="flood"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="flood" result="shape"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dx="0" dy="0"/>
+      <feGaussianBlur stdDeviation="4"/>
+      <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0.4470588235 0 0 0 0 1 0 0 0 0.64 0"/>
+      <feBlend mode="normal" in2="shape" result="innerShadow"/>
+    </filter>
+  </defs>
+</svg>

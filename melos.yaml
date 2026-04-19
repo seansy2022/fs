@@ -1,0 +1,6 @@
+name: rc_workspace
+packages:
+  - "packages/**"
+  - "rc_configurator_flutter"
+  - "controller_app"
+  - "rc_ui_gallery"
