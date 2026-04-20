@@ -17,6 +17,7 @@ import 'package:rc_configurator_flutter/src/lib/link/link_providers.dart';
 import 'package:rc_configurator_flutter/src/lib/protocol/protocol_adapter.dart';
 import '../types.dart';
 import 'app_state_models.dart';
+import 'control_mapping_options.dart';
 import 'control_mapping_reset_config.dart';
 import 'control_mapping_reset_defaults.dart';
 
@@ -1500,11 +1501,25 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
     RcAppState current,
     ControlMappingState next,
   ) {
+    final normalized = _normalizeControlMapping(next);
     final mappings = Map<String, ControlMappingState>.from(
       current.controlMappings,
     );
-    mappings[next.channel] = next;
-    return current.copyWith(controlMapping: next, controlMappings: mappings);
+    mappings[normalized.channel] = normalized;
+    return current.copyWith(
+      controlMapping: normalized,
+      controlMappings: mappings,
+    );
+  }
+
+  ControlMappingState _normalizeControlMapping(ControlMappingState next) {
+    final type = normalizeControlTypeForChannel(next.channel, next.type);
+    return next.copyWith(
+      type: type,
+      selectedState: type,
+      availableStates: controlTypeOptionsForChannel(next.channel),
+      controlType: controlTypeForSelection(next.channel, type),
+    );
   }
 
   RcProtocolState _nextProtocolForMixing(

@@ -21,7 +21,8 @@ class ControlMappingController extends Notifier<ControlMappingState> {
     final appController = ref.container.read(rcAppStateProvider.notifier);
     final cached = appController.state.controlMappings[channel];
     if (cached != null) {
-      _preview(cached);
+      final type = normalizeControlTypeForChannel(channel, cached.type);
+      _preview(_nextWithType(cached, type));
     } else {
       final types = controlTypeOptionsForChannel(channel);
       final base = initialControlMappingState().copyWith(channel: channel);
@@ -42,7 +43,21 @@ class ControlMappingController extends Notifier<ControlMappingState> {
       );
       final normalizedAction = actions.contains(action)
           ? action
-          : actions.first;
+          : _fallbackAction(state.channel, state.type, actions);
+      if (isChannelFunctionMode(normalizedAction)) {
+        _commit(
+          state.copyWith(
+            action: normalizedAction,
+            functionType: normalizedAction,
+            targetChannel: normalizedAction,
+            mixingFunction: null,
+            mixingMode1: null,
+            mixingMode2: null,
+            mixingMode3: null,
+          ),
+        );
+        return;
+      }
       final mixingFunction = _ch5MixingFunctionForAction(
         normalizedAction,
         fallback: state.mixingFunction,
@@ -109,7 +124,7 @@ class ControlMappingController extends Notifier<ControlMappingState> {
     final actions = functionModeOptionsForChannel(channel, type: type);
     final normalizedAction = actions.contains(current.action)
         ? current.action
-        : '';
+        : _fallbackAction(channel, type, actions);
     final next = current.copyWith(
       type: type,
       selectedState: type,
@@ -130,9 +145,20 @@ class ControlMappingController extends Notifier<ControlMappingState> {
         mixingMode3: null,
       );
     }
-    final action = actions.contains(current.action)
-        ? current.action
-        : actions.first;
+    final action = normalizedAction.isEmpty
+        ? _fallbackAction(channel, type, actions)
+        : normalizedAction;
+    if (isChannelFunctionMode(action)) {
+      return next.copyWith(
+        action: action,
+        functionType: action,
+        targetChannel: action,
+        mixingFunction: null,
+        mixingMode1: null,
+        mixingMode2: null,
+        mixingMode3: null,
+      );
+    }
     final mixingFunction = _ch5MixingFunctionForAction(
       action,
       fallback: current.mixingFunction,
@@ -151,6 +177,20 @@ class ControlMappingController extends Notifier<ControlMappingState> {
       mixingMode2: modes[1],
       mixingMode3: modes[2],
     );
+  }
+
+  String _fallbackAction(String channel, String type, List<String> actions) {
+    if (actions.isEmpty) return '';
+    if (channel == 'CH5' && type == '旋钮' && actions.contains('CH5')) {
+      return 'CH5';
+    }
+    if (channel == 'CH6' && type == '三档' && actions.contains('CH6')) {
+      return 'CH6';
+    }
+    if (channel == 'CH5' && type == '三档开关' && actions.contains('四轮混控')) {
+      return '四轮混控';
+    }
+    return '';
   }
 
   String _ch5MixingFunctionForAction(String action, {String? fallback}) {

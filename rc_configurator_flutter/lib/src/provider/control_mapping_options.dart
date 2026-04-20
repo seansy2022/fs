@@ -13,36 +13,32 @@ const controlMappingChannels = <String>[
 ];
 
 const _buttonTypeOptions = <String>['单击', '双击', '三击', '长按'];
-const _ch5TypeOptions = <String>['无', '旋钮', '三档开关'];
-const _ch9TypeOptions = <String>['无', '旋钮'];
-const _ch6TypeOptions = <String>['无', '1档', '2档', '3档'];
+const _ch5TypeOptions = <String>['旋钮', '三档开关'];
+const _ch9TypeOptions = <String>['旋钮'];
+const _ch6TypeOptions = <String>['三档'];
 const _ch10TypeOptions = <String>['单击', '1档', '2档'];
 const _buttonFunctionModeOptions = <String>[
   ...controlMappingChannels,
-  '四轮转向开关',
-  '履带混控开关',
-  '驱动混控开关',
-  '刹车混控开关',
   '四轮转向模式切换',
-  '履带混控切换',
   '驱动混控切换',
-  '刹车混控切换',
 ];
-const _ch5FunctionModeOptions = <String>['四轮混控', '驱动混控'];
+const _ch5FunctionModeOptions = <String>[
+  ...controlMappingChannels,
+  '四轮混控',
+  '驱动混控',
+];
 const _ch9FunctionModeOptions = <String>[
   ...controlMappingChannels,
   '油门微调',
   '方向微调',
   '四轮转向混控比率',
-  '驱动混控比率',
-  '刹车混控比率',
-];
-const _ch6FunctionModeOptions = <String>[
-  ...controlMappingChannels,
-  '四轮转向模式切换',
-  '履带混控切换',
-  '驱动混控切换',
-  '刹车混控切换',
+  '驱动混控前进比率',
+  '驱动混控后退比率',
+  '刹车混控1比率',
+  '刹车混控2比率',
+  '方向比率',
+  '前进比率',
+  '刹车比率',
 ];
 const _ch10FunctionModeOptions = <String>[
   ...controlMappingChannels,
@@ -89,12 +85,12 @@ List<String> functionModeOptionsForChannel(String channel, {String? type}) {
     case 'CH11':
       return _buttonFunctionModeOptions;
     case 'CH5':
-      if (type == '旋钮' || type == '无') return _ch9FunctionModeOptions;
+      if (type == '旋钮' || type == '无') return controlMappingChannels;
       return _ch5FunctionModeOptions;
     case 'CH9':
       return _ch9FunctionModeOptions;
     case 'CH6':
-      return _ch6FunctionModeOptions;
+      return _ch5FunctionModeOptions;
     case 'CH10':
       return _ch10FunctionModeOptions;
     default:
@@ -115,9 +111,20 @@ ControlType controlTypeForSelection(String channel, String type) {
 }
 
 bool isCh5ThreeWaySwitch(String channel, String type) {
-  return channel == 'CH5' && type == '三档开关';
+  if (channel == 'CH5') return type == '三档开关';
+  if (channel == 'CH6') return type == '三档';
+  return false;
+}
+
+bool isCh5MixingAction(String action) {
+  return action == '四轮混控' || action == '驱动混控';
 }
 
 bool isChannelFunctionMode(String functionMode) {
   return controlMappingChannels.contains(functionMode);
+}
+
+String normalizeControlTypeForChannel(String channel, String type) {
+  final options = controlTypeOptionsForChannel(channel);
+  return options.contains(type) ? type : options.first;
 }

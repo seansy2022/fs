@@ -176,7 +176,8 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
   }
 
   bool _shouldShowCh5SwitchOptions(ControlMappingState state) {
-    return isCh5ThreeWaySwitch(state.channel, state.type);
+    return isCh5ThreeWaySwitch(state.channel, state.type) &&
+        isCh5MixingAction(state.action);
   }
 
   String _ch5MixingFunctionByAction(ControlMappingState state) {

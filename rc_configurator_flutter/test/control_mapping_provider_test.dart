@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rc_configurator_flutter/src/lib/link/link_providers.dart';
+import 'package:rc_configurator_flutter/src/provider/app_state_provider.dart';
+import 'package:rc_configurator_flutter/src/provider/control_mapping_options.dart';
 import 'package:rc_configurator_flutter/src/provider/control_mapping_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rc_ble/rc_ble.dart';
@@ -34,6 +36,16 @@ void main() {
     notifier.selectChannel('CH5');
     notifier.updateType('三档开关');
     var state = container.read(controlMappingProvider);
+    expect(
+      functionModeOptionsForChannel('CH5', type: '三档开关'),
+      ['CH3', 'CH4', 'CH5', 'CH6', 'CH7', 'CH8', 'CH9', 'CH10', 'CH11', '四轮混控', '驱动混控'],
+    );
+    expect(state.action, 'CH5');
+    expect(state.targetChannel, 'CH5');
+    expect(state.mixingFunction, isNull);
+    expect(state.mixingMode1, isNull);
+    notifier.updateAction('四轮混控');
+    state = container.read(controlMappingProvider);
     expect(state.action, '四轮混控');
     expect(state.mixingFunction, '四轮');
     expect(state.mixingMode1, '四轮转向前面');
@@ -55,6 +67,15 @@ void main() {
     expect(state.mixingMode3, '驱动混控前后混控');
     final unique = {state.mixingMode1, state.mixingMode2, state.mixingMode3};
     expect(unique.length, 3);
+
+    notifier.updateAction('CH8');
+    state = container.read(controlMappingProvider);
+    expect(state.action, 'CH8');
+    expect(state.targetChannel, 'CH8');
+    expect(state.mixingFunction, isNull);
+    expect(state.mixingMode1, isNull);
+    expect(state.mixingMode2, isNull);
+    expect(state.mixingMode3, isNull);
   });
 
   test('channel action writes targetChannel and non-channel clears it', () {
@@ -72,22 +93,40 @@ void main() {
     expect(state.targetChannel, isNull);
   });
 
-  test('CH5 knob uses CH9 function mode options', () {
+  test('CH5 knob only uses channel function modes and defaults to CH5', () {
     final container = _createContainer();
     addTearDown(container.dispose);
     final notifier = container.read(controlMappingProvider.notifier);
 
     notifier.selectChannel('CH5');
     notifier.updateType('旋钮');
-    notifier.updateAction('方向微调');
     var state = container.read(controlMappingProvider);
-    expect(state.action, '方向微调');
-    expect(state.targetChannel, isNull);
+    expect(state.action, 'CH5');
+    expect(state.targetChannel, 'CH5');
+    final options = functionModeOptionsForChannel('CH5', type: '旋钮');
+    expect(options, controlMappingChannels);
 
     notifier.updateAction('CH8');
     state = container.read(controlMappingProvider);
     expect(state.action, 'CH8');
     expect(state.targetChannel, 'CH8');
+  });
+
+  test('CH9 function mode options include trim and ratio actions', () {
+    final options = functionModeOptionsForChannel('CH9', type: '旋钮');
+    expect(options, [
+      ...controlMappingChannels,
+      '油门微调',
+      '方向微调',
+      '四轮转向混控比率',
+      '驱动混控前进比率',
+      '驱动混控后退比率',
+      '刹车混控1比率',
+      '刹车混控2比率',
+      '方向比率',
+      '前进比率',
+      '刹车比率',
+    ]);
   });
 
   test('switching channels restores saved mapping state', () {
@@ -114,6 +153,31 @@ void main() {
     expect(restoredCh5.channel, 'CH5');
     expect(restoredCh5.type, '三档开关');
     expect(restoredCh5.action, '驱动混控');
+  });
+
+  test('CH5 legacy "无" type is normalized to knob on selection', () {
+    final container = _createContainer();
+    addTearDown(container.dispose);
+    final app = container.read(rcAppStateProvider);
+    final notifier = container.read(controlMappingProvider.notifier);
+    final appNotifier = container.read(rcAppStateProvider.notifier);
+    final legacyCh5 = app.controlMapping.copyWith(
+      channel: 'CH5',
+      type: '无',
+      selectedState: '无',
+      availableStates: <String>['无', '旋钮', '三档开关'],
+    );
+    appNotifier.state = app.copyWith(
+      controlMappings: <String, ControlMappingState>{
+        ...app.controlMappings,
+        'CH5': legacyCh5,
+      },
+    );
+    notifier.selectChannel('CH5');
+    final state = container.read(controlMappingProvider);
+    expect(state.type, '旋钮');
+    expect(state.selectedState, '旋钮');
+    expect(state.availableStates, ['旋钮', '三档开关']);
   });
 }
 

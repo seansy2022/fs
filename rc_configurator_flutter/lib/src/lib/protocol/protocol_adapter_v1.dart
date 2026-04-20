@@ -613,20 +613,23 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
       fallback: state.controlMapping.channel,
     );
     final base = _controlMappingBaseState(state, channel);
-    if (channel == 'CH5' && _isCh5MixingFunctionCode(payload[7])) {
+    if ((channel == 'CH5' || channel == 'CH6') &&
+        _isCh5MixingFunctionCode(payload[7])) {
       final mixingFunction = _ch5MixingFunctionText(payload[7]);
       final action = _ch5ActionText(payload[8], mixingFunction);
       final targetChannel = action == '通道分配'
           ? _functionChannel(payload[8])
           : null;
+      final type = channel == 'CH6' ? '三档' : '三档开关';
+      final states = controlTypeOptionsForChannel(channel);
       final next = base.copyWith(
         channel: channel,
-        type: '三档开关',
+        type: type,
         action: action,
         mode: payload[3] == 1 ? '触发' : '翻转',
         controlType: ControlType.threeWaySwitch,
-        availableStates: const <String>['旋钮', '三档开关'],
-        selectedState: '三档开关',
+        availableStates: states,
+        selectedState: type,
         functionType: action,
         targetChannel: targetChannel,
         mixingFunction: mixingFunction,
@@ -638,13 +641,20 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     }
     final action = _controlActionText(payload[7], functionCode: payload[8]);
     final targetChannel = _functionChannel(payload[8]);
+    final type = normalizeControlTypeForChannel(
+      channel,
+      _controlStateText(payload[2]),
+    );
     final next = base.copyWith(
       channel: channel,
-      type: _controlStateText(payload[2]),
+      type: type,
       action: action == '通道输出' && targetChannel != null
           ? targetChannel
           : action,
       mode: payload[3] == 1 ? '触发' : '翻转',
+      controlType: controlTypeForSelection(channel, type),
+      availableStates: controlTypeOptionsForChannel(channel),
+      selectedState: type,
       functionType: action,
       targetChannel: targetChannel,
       mixingMode1: _mixingModeText(payload[4]),
@@ -992,7 +1002,8 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
   }
 
   bool _isCh5ThreeWayState(ControlMappingState state) {
-    return state.channel == 'CH5' && state.type == '三档开关';
+    return isCh5ThreeWaySwitch(state.channel, state.type) &&
+        isCh5MixingAction(state.action);
   }
 
   bool _isCh5MixingFunctionCode(int value) {
@@ -1050,11 +1061,15 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     if (value == 1 && functionCode != null) {
       return controlMappingSwitchActionByCode(functionCode) ?? '混控功能切换';
     }
+    if (value == 2) {
+      return _trimActionFromCode(functionCode) ?? '方向微调';
+    }
+    if (value == 3) {
+      return _ratioActionFromCode(functionCode) ?? '方向比率';
+    }
     return switch (value) {
       0 => '通道输出',
       1 => '混控功能切换',
-      2 => '方向普通微调',
-      3 => '方向比率控制',
       _ => '无',
     };
   }
@@ -1078,10 +1093,11 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     }
     final switchCode = controlMappingSwitchActionCode(state.action);
     if (switchCode != null) return switchCode;
+    final trimCode = _trimActionCode(state.action);
+    if (trimCode != null) return trimCode;
+    final ratioCode = _ratioActionCode(state.action);
+    if (ratioCode != null) return ratioCode;
     if (state.action == '四轮混控' || state.action == '驱动混控') return 17;
-    if (state.action == '方向普通微调' || state.action == '方向微调') return 15;
-    if (state.action == '油门普通微调' || state.action == '油门微调') return 16;
-    if (_isRatioAction(state.action)) return 17;
     return 0;
   }
 
@@ -1106,23 +1122,54 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
   }
 
   bool _isTrimAction(String action) {
-    return switch (action) {
-      '方向普通微调' || '油门普通微调' || '方向微调' || '油门微调' => true,
-      _ => false,
-    };
+    return _trimActionCode(action) != null;
   }
 
   bool _isRatioAction(String action) {
+    return _ratioActionCode(action) != null;
+  }
+
+  int? _trimActionCode(String action) {
     return switch (action) {
-      '方向比率控制' ||
-      '油门比率控制' ||
-      '四轮转向比率控制' ||
-      '驱动混控比率控制' ||
-      '刹车混控比率控制' ||
-      '四轮转向混控比率' ||
-      '驱动混控比率' ||
-      '刹车混控比率' => true,
-      _ => false,
+      '方向普通微调' || '方向微调' => 15,
+      '油门普通微调' || '油门微调' => 16,
+      _ => null,
+    };
+  }
+
+  String? _trimActionFromCode(int? code) {
+    return switch (code) {
+      15 => '方向微调',
+      16 => '油门微调',
+      _ => null,
+    };
+  }
+
+  int? _ratioActionCode(String action) {
+    return switch (action) {
+      '方向比率' || '方向比率控制' => 17,
+      '前进比率' || '油门前进比率' || '油门比率控制' => 18,
+      '刹车比率' || '油门刹车比率' => 19,
+      '四轮转向混控比率' || '四轮转向比率控制' => 20,
+      '驱动混控前进比率' || '驱动混控比率' || '驱动混控比率控制' => 21,
+      '驱动混控后退比率' => 22,
+      '刹车混控1比率' || '刹车混控比率' || '刹车混控比率控制' => 23,
+      '刹车混控2比率' => 24,
+      _ => null,
+    };
+  }
+
+  String? _ratioActionFromCode(int? code) {
+    return switch (code) {
+      17 => '方向比率',
+      18 => '前进比率',
+      19 => '刹车比率',
+      20 => '四轮转向混控比率',
+      21 => '驱动混控前进比率',
+      22 => '驱动混控后退比率',
+      23 => '刹车混控1比率',
+      24 => '刹车混控2比率',
+      _ => null,
     };
   }
 }

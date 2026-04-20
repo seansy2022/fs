@@ -19,7 +19,6 @@ class ControlMappingResetConfig {
 const _defaultAction = '通道输出';
 const _defaultMode = '翻转';
 const _singleClick = '单击';
-const _noneType = '无';
 
 const controlMappingResetSeedPayloads = <List<int>>[
   <int>[0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -45,7 +44,7 @@ const controlMappingResetConfigs = <ControlMappingResetConfig>[
   ),
   ControlMappingResetConfig(
     channel: 'CH5',
-    type: _noneType,
+    type: '旋钮',
     action: _defaultAction,
     mode: _defaultMode,
     targetChannel: 'CH5',
@@ -53,7 +52,7 @@ const controlMappingResetConfigs = <ControlMappingResetConfig>[
   ),
   ControlMappingResetConfig(
     channel: 'CH6',
-    type: _noneType,
+    type: '三档',
     action: _defaultAction,
     mode: _defaultMode,
     targetChannel: 'CH6',
@@ -77,7 +76,7 @@ const controlMappingResetConfigs = <ControlMappingResetConfig>[
   ),
   ControlMappingResetConfig(
     channel: 'CH9',
-    type: _noneType,
+    type: '旋钮',
     action: _defaultAction,
     mode: _defaultMode,
     targetChannel: 'CH9',

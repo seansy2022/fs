@@ -50,10 +50,10 @@ void main() {
       final ch5 = app.controlMappings['CH5'];
 
       expect(next.channel, 'CH5');
-      expect(next.type, '无');
-      expect(next.action, '通道输出');
+      expect(next.type, '旋钮');
+      expect(next.action, 'CH5');
       expect(next.mode, '翻转');
-      expect(next.selectedState, '无');
+      expect(next.selectedState, '旋钮');
       expect(next.targetChannel, 'CH5');
       expect(next.mixingFunction, isNull);
       expect(next.mixingMode1, '四轮转向');
@@ -62,7 +62,7 @@ void main() {
       expect(ch3?.channel, 'CH3');
       expect(ch3?.targetChannel, 'CH3');
       expect(ch5?.channel, 'CH5');
-      expect(ch5?.type, '无');
+      expect(ch5?.type, '旋钮');
     },
   );
 
