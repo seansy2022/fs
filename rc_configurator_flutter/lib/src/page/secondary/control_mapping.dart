@@ -168,7 +168,7 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
   }
 
   bool _shouldShowMode(ControlMappingState state) {
-    return state.type == '单击';
+    return state.channel != 'CH10' && state.type == '单击';
   }
 
   String _toggleMode(String mode) {

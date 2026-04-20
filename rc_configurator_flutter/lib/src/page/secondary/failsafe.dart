@@ -50,7 +50,7 @@ class Failsafe extends StatelessWidget {
               value: value.toDouble(),
               max: 120,
               scale: 0.6,
-              showSignedLabels: true,
+              showSignedLabels: false,
               highlightPlus: false,
               onMinus: () => _step(ch, -1),
               onPlus: () => _step(ch, 1),

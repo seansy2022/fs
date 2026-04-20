@@ -330,10 +330,10 @@ class _BluetoothState extends State<Bluetooth> {
       if (hasPermissions) {
         widget.onStartScan();
       }
-    } on MissingPluginException catch (error) {
-      debugPrint('request permissions missing plugin: $error');
-    } on PlatformException catch (error) {
-      debugPrint('request permissions platform error: $error');
+    } on MissingPluginException {
+      return;
+    } on PlatformException {
+      return;
     }
   }
 
@@ -346,8 +346,9 @@ class _BluetoothState extends State<Bluetooth> {
       if (defaultTargetPlatform == TargetPlatform.android) {
         await FlutterBluePlus.turnOn(timeout: 15);
       }
-    } on Object catch (error) {
-      debugPrint('enable bluetooth failed: $error');
+    } on Object {
+      widget.onStartScan();
+      return;
     }
     widget.onStartScan();
   }

@@ -614,8 +614,11 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     );
     final base = _controlMappingBaseState(state, channel);
     if ((channel == 'CH5' || channel == 'CH6') &&
-        _isCh5MixingFunctionCode(payload[7])) {
-      final mixingFunction = _ch5MixingFunctionText(payload[7]);
+        _isCh5MixingPayload(payload[7], payload[8])) {
+      final mixingFunction = _ch5MixingFunctionFromPayload(
+        payload[7],
+        payload[8],
+      );
       final action = _ch5ActionText(payload[8], mixingFunction);
       final targetChannel = action == '通道分配'
           ? _functionChannel(payload[8])
@@ -648,8 +651,8 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     final next = base.copyWith(
       channel: channel,
       type: type,
-      action: action == '通道输出' && targetChannel != null
-          ? targetChannel
+      action: action == '通道输出'
+          ? (payload[8] == 25 ? '未设置' : (targetChannel ?? action))
           : action,
       mode: payload[3] == 1 ? '触发' : '翻转',
       controlType: controlTypeForSelection(channel, type),
@@ -896,7 +899,7 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
           ? _ch5MixingModeCode(state.mixingFunction, state.mixingMode3)
           : _mixingModeCode(state.mixingMode3),
       isCh5ThreeWay
-          ? _ch5MixingFunctionCode(state.mixingFunction)
+          ? _controlActionCode(state.action)
           : _controlActionCode(state.action),
       _controlFunctionCode(state),
     ];
@@ -1010,13 +1013,22 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     return value == 1 || value == 2;
   }
 
+  bool _isCh5MixingPayload(int actionCode, int functionCode) {
+    final legacy = _isCh5MixingFunctionCode(actionCode) && functionCode == 17;
+    final current = actionCode == 1 && (functionCode == 11 || functionCode == 13);
+    final transitional = actionCode == 2 && functionCode == 11;
+    return legacy || current || transitional;
+  }
+
+  String _ch5MixingFunctionFromPayload(int actionCode, int functionCode) {
+    if (functionCode == 11) return '四轮';
+    if (functionCode == 13) return '混动';
+    return _ch5MixingFunctionText(actionCode);
+  }
+
   String _ch5MixingFunctionText(int value) {
     if (value == 1) return '混动';
     return '四轮';
-  }
-
-  int _ch5MixingFunctionCode(String? value) {
-    return value == '混动' ? 1 : 2;
   }
 
   String _ch5MixingModeText(String mixingFunction, int value) {
@@ -1076,6 +1088,7 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
 
   int _controlActionCode(String action) {
     if (action == '通道输出' || _isChannelAction(action)) return 0;
+    if (action == '四轮混控' || action == '驱动混控') return 1;
     if (_isSwitchAction(action)) return 1;
     if (_isTrimAction(action)) return 2;
     if (_isRatioAction(action)) return 3;
@@ -1091,13 +1104,14 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     if (state.targetChannel != null) {
       return _controlChannelToIndex(state.targetChannel!);
     }
+    if (state.action == '四轮混控') return 11;
+    if (state.action == '驱动混控') return 13;
     final switchCode = controlMappingSwitchActionCode(state.action);
     if (switchCode != null) return switchCode;
     final trimCode = _trimActionCode(state.action);
     if (trimCode != null) return trimCode;
     final ratioCode = _ratioActionCode(state.action);
     if (ratioCode != null) return ratioCode;
-    if (state.action == '四轮混控' || state.action == '驱动混控') return 17;
     return 0;
   }
 

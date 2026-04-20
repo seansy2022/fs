@@ -112,6 +112,45 @@ void main() {
     expect(state.targetChannel, 'CH8');
   });
 
+  test('CH6 uses only three-way type and mirrors CH5 three-way actions', () {
+    final container = _createContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(controlMappingProvider.notifier);
+    notifier.selectChannel('CH6');
+    var state = container.read(controlMappingProvider);
+    final ch6Types = controlTypeOptionsForChannel('CH6');
+    final ch5ThreeWayType = controlTypeOptionsForChannel('CH5').last;
+    expect(ch6Types, hasLength(1));
+    expect(state.type, ch6Types.first);
+    expect(state.availableStates, ch6Types);
+    expect(state.action, 'CH6');
+    expect(state.targetChannel, 'CH6');
+    expect(
+      functionModeOptionsForChannel('CH6', type: ch6Types.first),
+      functionModeOptionsForChannel('CH5', type: ch5ThreeWayType),
+    );
+    notifier.updateAction('CH8');
+    state = container.read(controlMappingProvider);
+    expect(state.action, 'CH8');
+    expect(state.targetChannel, 'CH8');
+  });
+
+  test('CH10 uses only two-way type and defaults function mode to CH10', () {
+    final container = _createContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(controlMappingProvider.notifier);
+    notifier.selectChannel('CH10');
+    final state = container.read(controlMappingProvider);
+    final ch10Types = controlTypeOptionsForChannel('CH10');
+    expect(ch10Types, hasLength(1));
+    expect(state.type, ch10Types.first);
+    expect(state.availableStates, ch10Types);
+    expect(functionModeOptionsForChannel('CH10', type: state.type), controlMappingChannels);
+    expect(state.action, 'CH10');
+    expect(state.targetChannel, 'CH10');
+    expect(state.mode, isEmpty);
+  });
+
   test('CH9 function mode options include trim and ratio actions', () {
     final options = functionModeOptionsForChannel('CH9', type: '旋钮');
     expect(options, [

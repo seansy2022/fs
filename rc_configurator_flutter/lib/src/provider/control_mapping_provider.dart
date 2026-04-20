@@ -187,6 +187,9 @@ class ControlMappingController extends Notifier<ControlMappingState> {
     if (channel == 'CH6' && type == '三档' && actions.contains('CH6')) {
       return 'CH6';
     }
+    if (channel == 'CH10' && type == '二档' && actions.contains('CH10')) {
+      return 'CH10';
+    }
     if (channel == 'CH5' && type == '三档开关' && actions.contains('四轮混控')) {
       return '四轮混控';
     }

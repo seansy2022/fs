@@ -84,11 +84,11 @@ const controlMappingResetConfigs = <ControlMappingResetConfig>[
   ),
   ControlMappingResetConfig(
     channel: 'CH10',
-    type: _singleClick,
+    type: '二档',
     action: _defaultAction,
     mode: _defaultMode,
     targetChannel: 'CH10',
-    payload: <int>[0, 9, 1, 0, 0, 0, 0, 0, 9],
+    payload: <int>[0, 9, 0, 0, 0, 0, 0, 0, 9],
   ),
   ControlMappingResetConfig(
     channel: 'CH11',

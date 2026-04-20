@@ -119,6 +119,25 @@ void main() {
     expect(next.controlMapping.targetChannel, isNull);
   });
 
+  test('control mapping read shows unset when function code is 25', () {
+    final adapter = ProtocolAdapterV1();
+    final state = RcAppState.initial().copyWith(
+      controlMapping: RcAppState.initial().controlMapping.copyWith(
+        channel: 'CH3',
+      ),
+    );
+    final frame = BluetoothFrame(
+      seq: 1,
+      command: BluetoothCommand.controlMapping.id,
+      length: 9,
+      data: const [0, 2, 1, 0, 0, 0, 0, 0, 25],
+    );
+    final next = adapter.applyToState(state, adapter.decodeFrame(frame));
+    expect(next.controlMapping.channel, 'CH3');
+    expect(next.controlMapping.action, '未设置');
+    expect(next.controlMapping.targetChannel, isNull);
+  });
+
   test('mixing read keeps only one mode enabled', () {
     final adapter = ProtocolAdapterV1();
     var state = RcAppState.initial();

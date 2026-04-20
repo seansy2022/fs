@@ -20,8 +20,8 @@ void main() {
     expect(payload[4], 0);
     expect(payload[5], 1);
     expect(payload[6], 3);
-    expect(payload[7], 2);
-    expect(payload[8], 17);
+    expect(payload[7], 1);
+    expect(payload[8], 11);
   });
 
   test('CH5三档混动映射到5/6/7与8', () {
@@ -41,7 +41,7 @@ void main() {
     expect(payload[5], 1);
     expect(payload[6], 2);
     expect(payload[7], 1);
-    expect(payload[8], 17);
+    expect(payload[8], 13);
   });
 
   test('CH5三档选择通道输出时按普通功能编码', () {
@@ -92,7 +92,7 @@ void main() {
       seq: 1,
       command: BluetoothCommand.controlMapping.id,
       length: 9,
-      data: const [0, 4, 0, 0, 0, 1, 3, 2, 17],
+      data: const [0, 4, 0, 0, 0, 1, 3, 1, 11],
     );
     final next = adapter.applyToState(state, adapter.decodeFrame(frame));
     expect(next.controlMapping.type, '三档开关');
@@ -103,6 +103,38 @@ void main() {
     expect(next.controlMapping.action, '四轮混控');
     expect(next.controlMappings['CH5']?.action, '四轮混控');
     expect(next.controlMappings['CH5']?.mixingMode3, '四轮转向后面');
+  });
+
+  test('CH5三档回包兼容旧格式7/8编码', () {
+    final adapter = ProtocolAdapterV1();
+    final frame = BluetoothFrame(
+      seq: 1,
+      command: BluetoothCommand.controlMapping.id,
+      length: 9,
+      data: const [0, 4, 0, 0, 0, 1, 3, 2, 17],
+    );
+    final next = adapter.applyToState(
+      RcAppState.initial(),
+      adapter.decodeFrame(frame),
+    );
+    expect(next.controlMapping.action, '四轮混控');
+    expect(next.controlMapping.mixingFunction, '四轮');
+  });
+
+  test('CH5三档回包兼容过渡格式2/11编码', () {
+    final adapter = ProtocolAdapterV1();
+    final frame = BluetoothFrame(
+      seq: 1,
+      command: BluetoothCommand.controlMapping.id,
+      length: 9,
+      data: const [0, 4, 0, 0, 0, 1, 3, 2, 11],
+    );
+    final next = adapter.applyToState(
+      RcAppState.initial(),
+      adapter.decodeFrame(frame),
+    );
+    expect(next.controlMapping.action, '四轮混控');
+    expect(next.controlMapping.mixingFunction, '四轮');
   });
 
   test('CH5回包状态0归一化为旋钮', () {

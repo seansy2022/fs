@@ -4,6 +4,7 @@ import 'package:rc_ble/rc_ble.dart';
 import 'package:rc_configurator_flutter/src/lib/link/link_providers.dart';
 import 'package:rc_configurator_flutter/src/provider/app_state_models.dart';
 import 'package:rc_configurator_flutter/src/provider/app_state_provider.dart';
+import 'package:rc_configurator_flutter/src/provider/control_mapping_options.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -14,26 +15,21 @@ void main() {
     final container = _createContainer();
     addTearDown(container.dispose);
     final notifier = container.read(rcAppStateProvider.notifier);
-    const cases = <(String, String)>[
-      ('CH3', '单击'),
-      ('CH5', '旋钮'),
-      ('CH6', '1档'),
-      ('CH9', '旋钮'),
-      ('CH10', '单击'),
-    ];
-    for (final c in cases) {
+    const channels = <String>['CH3', 'CH5', 'CH6', 'CH9', 'CH10'];
+    for (final channel in channels) {
+      final expectedType = controlTypeOptionsForChannel(channel).first;
       final legacy = notifier.state.controlMapping.copyWith(
-        channel: c.$1,
-        type: '无',
-        selectedState: '无',
-        availableStates: const <String>['无'],
+        channel: channel,
+        type: 'legacy_invalid',
+        selectedState: 'legacy_invalid',
+        availableStates: const <String>['legacy_invalid'],
       );
       notifier.dispatch(ControlMappingPreviewIntent(legacy));
       final next = container.read(rcAppStateProvider).controlMapping;
-      expect(next.channel, c.$1);
-      expect(next.type, c.$2);
-      expect(next.selectedState, c.$2);
-      expect(next.availableStates.contains('无'), isFalse);
+      expect(next.channel, channel);
+      expect(next.type, expectedType);
+      expect(next.selectedState, expectedType);
+      expect(next.availableStates.contains('legacy_invalid'), isFalse);
     }
   });
 }

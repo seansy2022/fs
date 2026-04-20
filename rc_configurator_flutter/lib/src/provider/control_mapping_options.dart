@@ -16,7 +16,7 @@ const _buttonTypeOptions = <String>['单击', '双击', '三击', '长按'];
 const _ch5TypeOptions = <String>['旋钮', '三档开关'];
 const _ch9TypeOptions = <String>['旋钮'];
 const _ch6TypeOptions = <String>['三档'];
-const _ch10TypeOptions = <String>['单击', '1档', '2档'];
+const _ch10TypeOptions = <String>['二档'];
 const _buttonFunctionModeOptions = <String>[
   ...controlMappingChannels,
   '四轮转向模式切换',
@@ -42,9 +42,6 @@ const _ch9FunctionModeOptions = <String>[
 ];
 const _ch10FunctionModeOptions = <String>[
   ...controlMappingChannels,
-  '四轮转向开关',
-  '驱动混控开关',
-  '刹车混控开关',
 ];
 const ch5MixingFunctionOptions = <String>['四轮', '混动'];
 const _ch5FourWheelOptions = <String>[

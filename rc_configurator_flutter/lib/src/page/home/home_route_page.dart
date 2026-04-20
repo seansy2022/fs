@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rc_ble/rc_ble.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../../provider/app_state_provider.dart';
@@ -36,7 +35,6 @@ class _HomeRoutePageState extends ConsumerState<HomeRoutePage> {
   static const _secretTapCount = 5;
   static const _secretTapWindow = Duration(seconds: 2);
   int _secretTaps = 0;
-  String _lastLoggedDashboardChannels = '';
   Timer? _secretTapTimer;
 
   @override
@@ -134,7 +132,6 @@ class _HomeRoutePageState extends ConsumerState<HomeRoutePage> {
     final telemetry = ref.watch(telemetryProvider);
     final channels = ref.watch(channelsProvider);
     final bluetoothState = ref.watch(bluetoothProvider);
-    if (screen == Screen.dashboard) _logDashboardChannels(channels);
     return KeyedSubtree(
       key: ValueKey(screen),
       child: switch (screen) {
@@ -158,14 +155,6 @@ class _HomeRoutePageState extends ConsumerState<HomeRoutePage> {
         _ => const SizedBox.shrink(),
       },
     );
-  }
-
-  void _logDashboardChannels(List<ChannelState> channels) {
-    if (channels.isEmpty) return;
-    final snapshot = channels.map((ch) => '${ch.id}=${ch.value}').join(', ');
-    if (_lastLoggedDashboardChannels == snapshot) return;
-    _lastLoggedDashboardChannels = snapshot;
-    RcLogging.link('首页通道值: $snapshot', scope: 'HomeDashboard');
   }
 
   String _connectedDeviceName(BluetoothSettings settings) {
