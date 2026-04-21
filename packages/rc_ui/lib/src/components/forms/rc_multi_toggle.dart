@@ -68,9 +68,7 @@ class RcMultiToggle<T> extends StatelessWidget {
                           ? const Radius.circular(3.5)
                           : Radius.zero,
                     ),
-                    color: isSelected
-                        ? const Color(0x661B2D4D)
-                        : AppColors.surfaceHigh,
+                    color: const Color(0x661B2D4D),
                     gradient: isSelected
                         ? const LinearGradient(
                             begin: Alignment.topCenter,
@@ -111,28 +109,19 @@ class RcMultiToggle<T> extends StatelessWidget {
                             )
                           : BorderSide.none,
                     ),
-                    boxShadow: [
-                      if (isSelected)
-                        BoxShadow(
-                          color: const Color(0xFF00C6FF).withValues(alpha: 0.2),
-                          blurRadius: 4,
-                          spreadRadius: 1,
-                        )
-                      else
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                    ],
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: const Color(
+                                0xFF00C6FF,
+                              ).withValues(alpha: 0.2),
+                              blurRadius: 4,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
                   ),
-                  foregroundDecoration: MetricBorderDecoration(
-                    hasInnerShadow: true,
-                    innerShadowColor: const Color(0xA30072FF),
-                    blurRadius: 4.0,
-                    radius: 0,
-                    // radius: index == 0 ? 3.5 : (index == options.length - 1 ? 3.5 : 0),
-                  ),
+                  foregroundDecoration: null,
                   alignment: Alignment.center,
                   child: Text(
                     value is bool
