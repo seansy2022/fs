@@ -1009,20 +1009,13 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
         isCh5MixingAction(state.action);
   }
 
-  bool _isCh5MixingFunctionCode(int value) {
-    return value == 1 || value == 2;
-  }
-
   bool _isCh5MixingPayload(int actionCode, int functionCode) {
-    final legacy = _isCh5MixingFunctionCode(actionCode) && functionCode == 17;
-    final current = actionCode == 1 && (functionCode == 11 || functionCode == 13);
-    final transitional = actionCode == 2 && functionCode == 11;
-    return legacy || current || transitional;
+    return actionCode == 1 && (functionCode == 12 || functionCode == 14);
   }
 
   String _ch5MixingFunctionFromPayload(int actionCode, int functionCode) {
-    if (functionCode == 11) return '四轮';
-    if (functionCode == 13) return '混动';
+    if (functionCode == 12) return '四轮';
+    if (functionCode == 14) return '混动';
     return _ch5MixingFunctionText(actionCode);
   }
 
@@ -1104,8 +1097,8 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     if (state.targetChannel != null) {
       return _controlChannelToIndex(state.targetChannel!);
     }
-    if (state.action == '四轮混控') return 11;
-    if (state.action == '驱动混控') return 13;
+    if (state.action == '四轮混控') return 12;
+    if (state.action == '驱动混控') return 14;
     final switchCode = controlMappingSwitchActionCode(state.action);
     if (switchCode != null) return switchCode;
     final trimCode = _trimActionCode(state.action);
@@ -1167,8 +1160,10 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
       '四轮转向混控比率' || '四轮转向比率控制' => 20,
       '驱动混控前进比率' || '驱动混控比率' || '驱动混控比率控制' => 21,
       '驱动混控后退比率' => 22,
-      '刹车混控1比率' || '刹车混控比率' || '刹车混控比率控制' => 23,
-      '刹车混控2比率' => 24,
+      '刹车混控1比率' ||
+      '刹车混控2比率' ||
+      '刹车混控比率' ||
+      '刹车混控比率控制' => 23,
       _ => null,
     };
   }
@@ -1181,8 +1176,7 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
       20 => '四轮转向混控比率',
       21 => '驱动混控前进比率',
       22 => '驱动混控后退比率',
-      23 => '刹车混控1比率',
-      24 => '刹车混控2比率',
+      23 || 24 => '刹车混控比率',
       _ => null,
     };
   }

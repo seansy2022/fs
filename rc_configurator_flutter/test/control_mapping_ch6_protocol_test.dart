@@ -35,7 +35,7 @@ void main() {
       seq: 1,
       command: BluetoothCommand.controlMapping.id,
       length: 9,
-      data: const [0, 5, 0, 0, 0, 1, 3, 1, 11],
+      data: const [0, 5, 0, 0, 0, 1, 3, 1, 12],
     );
     final next = adapter.applyToState(RcAppState.initial(), adapter.decodeFrame(frame));
     expect(next.controlMapping.channel, 'CH6');
