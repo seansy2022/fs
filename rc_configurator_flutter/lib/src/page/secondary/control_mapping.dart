@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_ui/rc_ui.dart';
@@ -51,7 +53,7 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
           Positioned(
             bottom: -10,
             left: 0,
-            child: _channelHeader(state.channel),
+            child: _channelHeader('${state.channel}控件'),
           ),
         ],
       ),
@@ -82,7 +84,7 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
           '功能模式',
           functionModeOptions,
           selectedAction,
-          c.updateAction,
+          (v) => _onActionSelected(context, c, v),
         ),
       ),
       const SizedBox(height: AppDimens.gapM),
@@ -167,6 +169,41 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
     );
   }
 
+  void _onActionSelected(
+    BuildContext context,
+    ControlMappingController controller,
+    String action,
+  ) {
+    final duplicateChannel = controller.duplicateActionOwner(action);
+    if (duplicateChannel == null) {
+      controller.updateAction(action);
+      return;
+    }
+    unawaited(
+      _confirmDuplicateAction(context, controller, action, duplicateChannel),
+    );
+  }
+
+  Future<void> _confirmDuplicateAction(
+    BuildContext context,
+    ControlMappingController controller,
+    String action,
+    String duplicateChannel,
+  ) async {
+    await Future<void>.delayed(Duration.zero);
+    if (!context.mounted) return;
+    final confirmed = await AlertIconWidget.show(
+      context,
+      title: '提示',
+      message: '已重复分配功能，前一个分配该功能的控件功能模式将会变成“无”',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+    if (confirmed == true) {
+      controller.updateActionResolvingDuplicate(action, duplicateChannel);
+    }
+  }
+
   bool _shouldShowMode(ControlMappingState state) {
     return state.channel != 'CH10' && state.type == '单击';
   }
@@ -186,7 +223,7 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
     return state.mixingFunction ?? ch5MixingFunctionOptions.first;
   }
 
-  Widget _channelHeader(String channel) {
+  Widget _channelHeader(String label) {
     return ShaderMask(
       shaderCallback: (bounds) => const LinearGradient(
         begin: Alignment.topCenter,
@@ -195,7 +232,7 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
       ).createShader(bounds),
       blendMode: BlendMode.srcIn,
       child: Text(
-        channel.toUpperCase(),
+        label.toUpperCase(),
         style: AppTextStyles.controlMappingHeader,
       ),
     );

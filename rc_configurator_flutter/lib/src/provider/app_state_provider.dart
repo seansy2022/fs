@@ -47,6 +47,17 @@ const _lastConnectedBluetoothMacPrefsKey = 'rc_last_connected_bluetooth_mac';
 const _sessionReadyTimeout = Duration(seconds: 2);
 const _sessionReadyPoll = Duration(milliseconds: 80);
 const _screenRefreshDedupWindow = Duration(milliseconds: 200);
+const _controlMappingReadChannels = <String>[
+  'CH11',
+  'CH3',
+  'CH4',
+  'CH5',
+  'CH6',
+  'CH7',
+  'CH8',
+  'CH9',
+  'CH10',
+];
 const _protocolRequestPolicy = BluetoothRequestPolicy(
   defaultTimeout: Duration(milliseconds: 900),
   controlMappingWriteTimeout: Duration(milliseconds: 1200),
@@ -393,7 +404,7 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
               enabled: false,
               selectedChannel: 'CH3',
               ratio: 100,
-              direction: '',
+              direction: '4WS_FRONT_SAME',
             ),
             'TRACK' => working.mixingSettings.copyWith(
               activeMode: mode,
@@ -432,7 +443,7 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
                   activeMode: originalMode,
                   selectedChannel: 'CH3',
                   ratio: 100,
-                  direction: '',
+                  direction: '4WS_FRONT_SAME',
                 )
               : originalMode == 'TRACK'
               ? working.mixingSettings.copyWith(
@@ -496,7 +507,7 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
             enabled: false,
             selectedChannel: 'CH3',
             ratio: 100,
-            direction: '',
+            direction: '4WS_FRONT_SAME',
           ),
           'TRACK' => working.mixingSettings.copyWith(
             activeMode: mode,
@@ -936,7 +947,7 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
       return _syncMixingReads();
     }
     if (screen == Screen.controlMapping) {
-      return _syncControlMappingRead(channel: 'CH11');
+      return _syncControlMappingReads();
     }
     final commands = _adapter
         .readCommandsForScreen(screen)
@@ -989,6 +1000,37 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
       scope: 'RcAppController',
     );
     return _readControlMappingPayload(client, payload, reportFailure: true);
+  }
+
+  Future<bool> _syncControlMappingReads() async {
+    final client = _client;
+    if (client == null) return false;
+    _logSecondaryReadCommands(Screen.controlMapping, const [
+      BluetoothCommand.controlMapping,
+    ]);
+    var allSuccess = true;
+    for (final channel in _controlMappingReadChannels) {
+      final payload = [0, _controlMappingChannelIndex(channel)];
+      RcLogging.protocol(
+        '控件分配读取 channel=$channel len=0 payload=${RcLogging.hex(payload)}',
+        scope: 'RcAppController',
+      );
+      final success = await _readControlMappingPayload(
+        client,
+        payload,
+        reportFailure: false,
+      );
+      if (!success) allSuccess = false;
+    }
+    _showCachedControlMapping('CH11');
+    if (!allSuccess) _onError(_screenReadFailedMessage);
+    return allSuccess;
+  }
+
+  void _showCachedControlMapping(String channel) {
+    final cached = state.controlMappings[channel];
+    if (cached == null) return;
+    state = state.copyWith(controlMapping: cached);
   }
 
   void _logSecondaryReadCommands(
@@ -1479,6 +1521,9 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
     if (intent is ControlMappingUpdatedIntent) {
       return _reduceControlMapping(current, intent.next);
     }
+    if (intent is ControlMappingBatchUpdatedIntent) {
+      return _reduceControlMappingBatch(current, intent.items);
+    }
     if (intent is ControlMappingPreviewIntent) {
       return _reduceControlMapping(current, intent.next);
     }
@@ -1510,6 +1555,17 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
       controlMapping: normalized,
       controlMappings: mappings,
     );
+  }
+
+  RcAppState _reduceControlMappingBatch(
+    RcAppState current,
+    List<ControlMappingState> items,
+  ) {
+    var next = current;
+    for (final item in items) {
+      next = _reduceControlMapping(next, item);
+    }
+    return next;
   }
 
   ControlMappingState _normalizeControlMapping(ControlMappingState next) {

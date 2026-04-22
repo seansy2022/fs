@@ -8,8 +8,8 @@ void main() {
     final adapter = ProtocolAdapterV1();
     final state = RcAppState.initial();
     final data = List<int>.filled(24, 0);
-    data[0] = 0x07;
-    data[1] = 0xD0;
+    data[0] = 0xD0;
+    data[1] = 0x07;
     final frame = BluetoothFrame(
       seq: 1,
       command: BluetoothCommand.channelDisplay.id,
@@ -119,7 +119,7 @@ void main() {
     expect(next.controlMapping.targetChannel, isNull);
   });
 
-  test('control mapping read shows unset when function code is 25', () {
+  test('control mapping read shows no action when function code is 25', () {
     final adapter = ProtocolAdapterV1();
     final state = RcAppState.initial().copyWith(
       controlMapping: RcAppState.initial().controlMapping.copyWith(
@@ -134,7 +134,7 @@ void main() {
     );
     final next = adapter.applyToState(state, adapter.decodeFrame(frame));
     expect(next.controlMapping.channel, 'CH3');
-    expect(next.controlMapping.action, '未设置');
+    expect(next.controlMapping.action, '无');
     expect(next.controlMapping.targetChannel, isNull);
   });
 

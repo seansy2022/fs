@@ -42,10 +42,10 @@ void main() {
 
   test('codec parses channel display and telemetry packets', () {
     final chData = List<int>.filled(24, 0);
-    chData[0] = 0x03;
-    chData[1] = 0xE8;
-    chData[2] = 0x07;
-    chData[3] = 0xD0;
+    chData[0] = 0xE8;
+    chData[1] = 0x03;
+    chData[2] = 0xD0;
+    chData[3] = 0x07;
     final chFrame = BluetoothFrame(
       seq: 1,
       command: BluetoothCommand.channelDisplay.id,
@@ -92,5 +92,21 @@ void main() {
     expect(telemetry!.values[0].rawValue, 0x0034);
     expect(telemetry.values[1].rawValue, 0x002F);
     expect(telemetry.values[2].rawValue, 0x3E);
+  });
+
+  test('channel display decodes pwm words as little endian', () {
+    final chData = List<int>.filled(24, 0);
+    chData[0] = 0x08;
+    chData[1] = 0x07;
+    final chFrame = BluetoothFrame(
+      seq: 1,
+      command: BluetoothCommand.channelDisplay.id,
+      length: 22,
+      data: chData,
+    );
+
+    final channels = parseChannelDisplay(chFrame);
+
+    expect(channels!.values[0], 0x0708);
   });
 }

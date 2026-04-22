@@ -39,7 +39,7 @@ ChannelSnapshot? parseChannelDisplay(BluetoothFrame frame) {
   if (frame.length < 22) return null;
   final values = <int>[];
   for (var i = 0; i < 22; i += 2) {
-    values.add(_decodePwmWord(frame.data[i], frame.data[i + 1]));
+    values.add(_decodeChannelWord(frame.data[i], frame.data[i + 1]));
   }
   return ChannelSnapshot(values: values);
 }
@@ -88,6 +88,10 @@ PassthroughPacket? parsePassthrough(BluetoothFrame frame) {
       ? bluetoothDataLength
       : frame.length;
   return PassthroughPacket(payload: frame.data.sublist(0, len));
+}
+
+int _decodeChannelWord(int first, int second) {
+  return (first & 0xFF) | ((second & 0xFF) << 8);
 }
 
 int _decodePwmWord(int first, int second) {

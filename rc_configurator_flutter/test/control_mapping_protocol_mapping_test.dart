@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rc_configurator_flutter/src/lib/protocol/protocol_adapter_v1.dart';
 import 'package:rc_configurator_flutter/src/provider/app_state_models.dart';
+import 'package:rc_configurator_flutter/src/provider/control_mapping_options.dart';
 import 'package:rc_ble/rc_ble.dart';
 
 void main() {
@@ -56,6 +57,19 @@ void main() {
     final payload = _controlMappingPayload(state);
     expect(payload[7], 0);
     expect(payload[8], 7);
+  });
+
+  test('控件分配无功能编码为25', () {
+    final state = RcAppState.initial().copyWith(
+      controlMapping: RcAppState.initial().controlMapping.copyWith(
+        channel: 'CH3',
+        type: '单击',
+        action: controlMappingNoAction,
+      ),
+    );
+    final payload = _controlMappingPayload(state);
+    expect(payload[7], 0);
+    expect(payload[8], 25);
   });
 
   test('CH9微调与比率按payload[7]/[8]编码', () {
@@ -219,6 +233,36 @@ void main() {
     expect(next.controlMapping.channel, 'CH11');
     expect(next.controlMapping.action, '驱动混控切换');
     expect(next.controlMapping.functionType, '驱动混控切换');
+  });
+  test('duplicate control mapping batch writes previous no then current', () {
+    final adapter = ProtocolAdapterV1();
+    final base = RcAppState.initial().controlMapping;
+    final previous = base.copyWith(
+      channel: 'CH3',
+      type: '单击',
+      action: controlMappingNoAction,
+    );
+    final current = base.copyWith(
+      channel: 'CH4',
+      type: '单击',
+      action: 'CH3',
+      targetChannel: 'CH3',
+    );
+
+    final writes = adapter.writesForIntent(
+      ControlMappingBatchUpdatedIntent([previous, current]),
+      RcAppState.initial(),
+    );
+
+    expect(writes, hasLength(2));
+    expect(
+      writes.every((e) => e.command == BluetoothCommand.controlMapping),
+      true,
+    );
+    expect(writes[0].payload[1], 2);
+    expect(writes[0].payload[8], 25);
+    expect(writes[1].payload[1], 3);
+    expect(writes[1].payload[8], 2);
   });
 }
 

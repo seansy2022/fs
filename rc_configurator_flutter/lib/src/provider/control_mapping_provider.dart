@@ -36,56 +36,32 @@ class ControlMappingController extends Notifier<ControlMappingState> {
   }
 
   void updateAction(String action) {
-    if (isCh5ThreeWaySwitch(state.channel, state.type)) {
-      final actions = functionModeOptionsForChannel(
-        state.channel,
-        type: state.type,
-      );
-      final normalizedAction = actions.contains(action)
-          ? action
-          : _fallbackAction(state.channel, state.type, actions);
-      if (isChannelFunctionMode(normalizedAction)) {
-        _commit(
-          state.copyWith(
-            action: normalizedAction,
-            functionType: normalizedAction,
-            targetChannel: normalizedAction,
-            mixingFunction: null,
-            mixingMode1: null,
-            mixingMode2: null,
-            mixingMode3: null,
-          ),
-        );
-        return;
-      }
-      final mixingFunction = _ch5MixingFunctionForAction(
-        normalizedAction,
-        fallback: state.mixingFunction,
-      );
-      final modes = _normalizedModes(
-        state,
-        ch5DirectionOptions(mixingFunction),
-      );
-      _commit(
-        state.copyWith(
-          action: normalizedAction,
-          functionType: normalizedAction,
-          targetChannel: null,
-          mixingFunction: mixingFunction,
-          mixingMode1: modes[0],
-          mixingMode2: modes[1],
-          mixingMode3: modes[2],
-        ),
-      );
+    _commit(_nextWithAction(state, action));
+  }
+
+  String? duplicateActionOwner(String action) {
+    if (action == state.action || !_shouldCheckDuplicateAction(action)) {
+      return null;
+    }
+    final mappings = ref.container.read(rcAppStateProvider).controlMappings;
+    for (final channel in controlMappingChannels) {
+      if (channel == state.channel) continue;
+      if (mappings[channel]?.action == action) return channel;
+    }
+    return null;
+  }
+
+  void updateActionResolvingDuplicate(String action, String previousChannel) {
+    final mappings = ref.container.read(rcAppStateProvider).controlMappings;
+    final previous = mappings[previousChannel];
+    if (previous == null) {
+      updateAction(action);
       return;
     }
-    _commit(
-      state.copyWith(
-        action: action,
-        functionType: action,
-        targetChannel: isChannelFunctionMode(action) ? action : null,
-      ),
-    );
+    _commitBatch([
+      _nextWithAction(previous, controlMappingNoAction),
+      _nextWithAction(state, action),
+    ]);
   }
 
   void updateMode(String mode) {
@@ -159,6 +135,7 @@ class ControlMappingController extends Notifier<ControlMappingState> {
         mixingMode3: null,
       );
     }
+    if (isNoFunctionMode(action)) return _withoutMixingModes(next);
     final mixingFunction = _ch5MixingFunctionForAction(
       action,
       fallback: current.mixingFunction,
@@ -176,6 +153,85 @@ class ControlMappingController extends Notifier<ControlMappingState> {
       mixingMode1: modes[0],
       mixingMode2: modes[1],
       mixingMode3: modes[2],
+    );
+  }
+
+  ControlMappingState _nextWithAction(
+    ControlMappingState current,
+    String action,
+  ) {
+    if (isCh5ThreeWaySwitch(current.channel, current.type)) {
+      return _nextCh5Action(current, action);
+    }
+    final next = current.copyWith(
+      action: action,
+      functionType: action,
+      targetChannel: isChannelFunctionMode(action) ? action : null,
+    );
+    return isNoFunctionMode(action) ? _withoutMixingModes(next) : next;
+  }
+
+  ControlMappingState _nextCh5Action(
+    ControlMappingState current,
+    String action,
+  ) {
+    final actions = functionModeOptionsForChannel(
+      current.channel,
+      type: current.type,
+    );
+    final normalizedAction = actions.contains(action)
+        ? action
+        : _fallbackAction(current.channel, current.type, actions);
+    if (isChannelFunctionMode(normalizedAction)) {
+      return _clearMixingModes(
+        current.copyWith(
+          action: normalizedAction,
+          functionType: normalizedAction,
+          targetChannel: normalizedAction,
+        ),
+      );
+    }
+    if (isNoFunctionMode(normalizedAction)) {
+      return _withoutMixingModes(current.copyWith(action: normalizedAction));
+    }
+    return _nextCh5MixingAction(current, normalizedAction);
+  }
+
+  ControlMappingState _nextCh5MixingAction(
+    ControlMappingState current,
+    String action,
+  ) {
+    final mixingFunction = _ch5MixingFunctionForAction(
+      action,
+      fallback: current.mixingFunction,
+    );
+    final modes = _normalizedModes(
+      current,
+      ch5DirectionOptions(mixingFunction),
+    );
+    return current.copyWith(
+      action: action,
+      functionType: action,
+      targetChannel: null,
+      mixingFunction: mixingFunction,
+      mixingMode1: modes[0],
+      mixingMode2: modes[1],
+      mixingMode3: modes[2],
+    );
+  }
+
+  ControlMappingState _withoutMixingModes(ControlMappingState current) {
+    return _clearMixingModes(
+      current.copyWith(functionType: current.action, targetChannel: null),
+    );
+  }
+
+  ControlMappingState _clearMixingModes(ControlMappingState current) {
+    return current.copyWith(
+      mixingFunction: null,
+      mixingMode1: null,
+      mixingMode2: null,
+      mixingMode3: null,
     );
   }
 
@@ -225,10 +281,20 @@ class ControlMappingController extends Notifier<ControlMappingState> {
         .dispatch(ControlMappingUpdatedIntent(next));
   }
 
+  void _commitBatch(List<ControlMappingState> next) {
+    ref.container
+        .read(rcAppStateProvider.notifier)
+        .dispatch(ControlMappingBatchUpdatedIntent(next));
+  }
+
   void _preview(ControlMappingState next) {
     ref.container
         .read(rcAppStateProvider.notifier)
         .dispatch(ControlMappingPreviewIntent(next));
+  }
+
+  bool _shouldCheckDuplicateAction(String action) {
+    return action.isNotEmpty && !isNoFunctionMode(action);
   }
 }
 

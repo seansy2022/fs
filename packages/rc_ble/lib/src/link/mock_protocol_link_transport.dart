@@ -134,8 +134,8 @@ class MockProtocolLinkTransport implements LinkTransport {
       final wave = sin((_tick + i * 3) / 8.0);
       final value = (1500 + (wave * 500).round()).clamp(1000, 2000);
       final idx = i * 2;
-      data[idx] = (value >> 8) & 0xFF;
-      data[idx + 1] = value & 0xFF;
+      data[idx] = value & 0xFF;
+      data[idx + 1] = (value >> 8) & 0xFF;
     }
     _tick++;
     _emitFrame(

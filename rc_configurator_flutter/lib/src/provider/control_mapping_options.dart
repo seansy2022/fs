@@ -11,6 +11,7 @@ const controlMappingChannels = <String>[
   'CH10',
   'CH11',
 ];
+const controlMappingNoAction = '无';
 
 const _buttonTypeOptions = <String>['单击', '双击', '三击', '长按'];
 const _ch5TypeOptions = <String>['旋钮', '三档开关'];
@@ -21,11 +22,13 @@ const _buttonFunctionModeOptions = <String>[
   ...controlMappingChannels,
   '四轮转向模式切换',
   '驱动混控切换',
+  controlMappingNoAction,
 ];
 const _ch5FunctionModeOptions = <String>[
   ...controlMappingChannels,
   '四轮混控',
   '驱动混控',
+  controlMappingNoAction,
 ];
 const _ch9FunctionModeOptions = <String>[
   ...controlMappingChannels,
@@ -38,9 +41,11 @@ const _ch9FunctionModeOptions = <String>[
   '方向比率',
   '前进比率',
   '刹车比率',
+  controlMappingNoAction,
 ];
 const _ch10FunctionModeOptions = <String>[
   ...controlMappingChannels,
+  controlMappingNoAction,
 ];
 const ch5MixingFunctionOptions = <String>['四轮', '混动'];
 const _ch5FourWheelOptions = <String>[
@@ -81,7 +86,9 @@ List<String> functionModeOptionsForChannel(String channel, {String? type}) {
     case 'CH11':
       return _buttonFunctionModeOptions;
     case 'CH5':
-      if (type == '旋钮' || type == '无') return controlMappingChannels;
+      if (type == '旋钮' || type == '无') {
+        return const [...controlMappingChannels, controlMappingNoAction];
+      }
       return _ch5FunctionModeOptions;
     case 'CH9':
       return _ch9FunctionModeOptions;
@@ -118,6 +125,10 @@ bool isCh5MixingAction(String action) {
 
 bool isChannelFunctionMode(String functionMode) {
   return controlMappingChannels.contains(functionMode);
+}
+
+bool isNoFunctionMode(String functionMode) {
+  return functionMode == controlMappingNoAction;
 }
 
 String normalizeControlTypeForChannel(String channel, String type) {

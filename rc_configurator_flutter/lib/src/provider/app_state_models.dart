@@ -499,6 +499,11 @@ class ControlMappingUpdatedIntent extends RcAppIntent {
   final ControlMappingState next;
 }
 
+class ControlMappingBatchUpdatedIntent extends RcAppIntent {
+  const ControlMappingBatchUpdatedIntent(this.items);
+  final List<ControlMappingState> items;
+}
+
 class ControlMappingPreviewIntent extends RcAppIntent {
   const ControlMappingPreviewIntent(this.next);
   final ControlMappingState next;

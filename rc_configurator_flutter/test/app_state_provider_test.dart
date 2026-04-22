@@ -4,6 +4,7 @@ import 'package:rc_configurator_flutter/src/lib/link/link_providers.dart';
 import 'package:rc_configurator_flutter/src/lib/protocol/protocol_adapter_v1.dart';
 import 'package:rc_configurator_flutter/src/provider/app_state_provider.dart';
 import 'package:rc_configurator_flutter/src/provider/app_state_models.dart';
+import 'package:rc_configurator_flutter/src/provider/control_mapping_options.dart';
 import 'package:rc_configurator_flutter/src/types.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rc_ble/rc_ble.dart';
@@ -253,6 +254,51 @@ void main() {
     expect(thirdCount, 2);
   });
 
+  test('control mapping refresh reads CH11 first then all channels', () async {
+    final transport = _RefreshAckingMemoryLinkTransport();
+    final container = ProviderContainer(
+      overrides: [
+        linkTransportProvider.overrideWithValue(transport),
+        protocolAdapterProvider.overrideWithValue(_NoStartupProtocolAdapter()),
+      ],
+    );
+    addTearDown(() async {
+      await transport.dispose();
+      container.dispose();
+    });
+
+    final notifier = container.read(rcAppStateProvider.notifier);
+    notifier.startScan();
+    await Future<void>.delayed(Duration.zero);
+    transport.emitScanResults([
+      const BluetoothScanDevice(remoteId: 'B-4', name: 'MG11 Test', rssi: -44),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    final deviceId = container
+        .read(rcAppStateProvider)
+        .bluetooth
+        .devices
+        .first
+        .id;
+    notifier.toggleConnection(deviceId);
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    transport.sentPackets.clear();
+
+    final success = await notifier.refreshForScreen(Screen.controlMapping);
+    expect(success, isTrue);
+
+    final indexes = transport.sentPackets
+        .map(BluetoothFrame.tryParse)
+        .whereType<BluetoothFrame>()
+        .where((f) => f.command == BluetoothCommand.controlMapping.id)
+        .map((f) => f.data[1])
+        .toList();
+    expect(indexes, [10, 2, 3, 4, 5, 6, 7, 8, 9]);
+    final state = container.read(rcAppStateProvider);
+    expect(state.controlMapping.channel, 'CH11');
+    expect(state.controlMappings.keys, containsAll(controlMappingChannels));
+  });
+
   test('mixing reset restores four wheel steer defaults', () async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -289,7 +335,33 @@ void main() {
     expect(next.mixingSettings.enabled, isFalse);
     expect(next.mixingSettings.selectedChannel, 'CH3');
     expect(next.mixingSettings.ratio, 100);
-    expect(next.mixingSettings.direction, '');
+    expect(next.mixingSettings.direction, '4WS_FRONT_SAME');
+  });
+
+  test('mixing reset all restores four wheel steer front selection', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(rcAppStateProvider.notifier);
+    notifier.state = RcAppState.initial().copyWith(
+      mixingSettings: const MixingSettings(
+        activeMode: '4WS',
+        enabled: true,
+        ratio: 33,
+        curve: 0,
+        direction: '4WS_REAR_OPPOSITE',
+        selectedChannel: 'CH8',
+      ),
+    );
+
+    await notifier.resetDefaultsForScreen(
+      Screen.mixing,
+      resetAllMixingModes: true,
+    );
+    final next = container.read(rcAppStateProvider);
+
+    expect(next.protocol.fourWheelSteer.mode, 0);
+    expect(next.mixingSettings.activeMode, '4WS');
+    expect(next.mixingSettings.direction, '4WS_FRONT_SAME');
   });
 
   test('mixing reset restores track mixing defaults', () async {
@@ -386,6 +458,18 @@ class _RefreshAckingMemoryLinkTransport extends MemoryLinkTransport {
     if (frame == null) return;
     if (frame.length != 0) return;
 
+    if (frame.command == BluetoothCommand.controlMapping.id) {
+      final channelIndex = frame.data.length > 1 ? frame.data[1] : 10;
+      emitIncoming(
+        BluetoothFrame(
+          seq: frame.seq,
+          command: frame.command,
+          length: 9,
+          data: [0, channelIndex, 1, 0, 0, 0, 0, 1, 25],
+        ).toBytes(),
+      );
+      return;
+    }
     if (frame.command == BluetoothCommand.channelDisplay.id) {
       emitIncoming(
         BluetoothFrame(

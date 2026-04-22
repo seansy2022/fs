@@ -248,6 +248,15 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
         ),
       ];
     }
+    if (intent is ControlMappingBatchUpdatedIntent) {
+      return [
+        for (final item in intent.items)
+          ProtocolWriteRequest(
+            command: BluetoothCommand.controlMapping,
+            payload: _buildControlMappingPayload(item),
+          ),
+      ];
+    }
     return const [];
   }
 
@@ -652,7 +661,9 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
       channel: channel,
       type: type,
       action: action == '通道输出'
-          ? (payload[8] == 25 ? '未设置' : (targetChannel ?? action))
+          ? (payload[8] == 25
+                ? controlMappingNoAction
+                : (targetChannel ?? action))
           : action,
       mode: payload[3] == 1 ? '触发' : '翻转',
       controlType: controlTypeForSelection(channel, type),
@@ -1081,6 +1092,7 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
 
   int _controlActionCode(String action) {
     if (action == '通道输出' || _isChannelAction(action)) return 0;
+    if (isNoFunctionMode(action)) return 0;
     if (action == '四轮混控' || action == '驱动混控') return 1;
     if (_isSwitchAction(action)) return 1;
     if (_isTrimAction(action)) return 2;
@@ -1097,6 +1109,7 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     if (state.targetChannel != null) {
       return _controlChannelToIndex(state.targetChannel!);
     }
+    if (isNoFunctionMode(state.action)) return 25;
     if (state.action == '四轮混控') return 12;
     if (state.action == '驱动混控') return 14;
     final switchCode = controlMappingSwitchActionCode(state.action);
@@ -1160,10 +1173,7 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
       '四轮转向混控比率' || '四轮转向比率控制' => 20,
       '驱动混控前进比率' || '驱动混控比率' || '驱动混控比率控制' => 21,
       '驱动混控后退比率' => 22,
-      '刹车混控1比率' ||
-      '刹车混控2比率' ||
-      '刹车混控比率' ||
-      '刹车混控比率控制' => 23,
+      '刹车混控1比率' || '刹车混控2比率' || '刹车混控比率' || '刹车混控比率控制' => 23,
       _ => null,
     };
   }

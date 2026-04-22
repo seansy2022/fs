@@ -36,10 +36,12 @@ void main() {
     notifier.selectChannel('CH5');
     notifier.updateType('三档开关');
     var state = container.read(controlMappingProvider);
-    expect(
-      functionModeOptionsForChannel('CH5', type: '三档开关'),
-      ['CH3', 'CH4', 'CH5', 'CH6', 'CH7', 'CH8', 'CH9', 'CH10', 'CH11', '四轮混控', '驱动混控'],
-    );
+    expect(functionModeOptionsForChannel('CH5', type: '三档开关'), [
+      ...controlMappingChannels,
+      '四轮混控',
+      '驱动混控',
+      controlMappingNoAction,
+    ]);
     expect(state.action, 'CH5');
     expect(state.targetChannel, 'CH5');
     expect(state.mixingFunction, isNull);
@@ -76,6 +78,12 @@ void main() {
     expect(state.mixingMode1, isNull);
     expect(state.mixingMode2, isNull);
     expect(state.mixingMode3, isNull);
+
+    notifier.updateAction(controlMappingNoAction);
+    state = container.read(controlMappingProvider);
+    expect(state.action, controlMappingNoAction);
+    expect(state.targetChannel, isNull);
+    expect(state.mixingFunction, isNull);
   });
 
   test('channel action writes targetChannel and non-channel clears it', () {
@@ -104,12 +112,17 @@ void main() {
     expect(state.action, 'CH5');
     expect(state.targetChannel, 'CH5');
     final options = functionModeOptionsForChannel('CH5', type: '旋钮');
-    expect(options, controlMappingChannels);
+    expect(options, [...controlMappingChannels, controlMappingNoAction]);
 
     notifier.updateAction('CH8');
     state = container.read(controlMappingProvider);
     expect(state.action, 'CH8');
     expect(state.targetChannel, 'CH8');
+
+    notifier.updateAction(controlMappingNoAction);
+    state = container.read(controlMappingProvider);
+    expect(state.action, controlMappingNoAction);
+    expect(state.targetChannel, isNull);
   });
 
   test('CH6 uses only three-way type and mirrors CH5 three-way actions', () {
@@ -145,7 +158,10 @@ void main() {
     expect(ch10Types, hasLength(1));
     expect(state.type, ch10Types.first);
     expect(state.availableStates, ch10Types);
-    expect(functionModeOptionsForChannel('CH10', type: state.type), controlMappingChannels);
+    expect(functionModeOptionsForChannel('CH10', type: state.type), [
+      ...controlMappingChannels,
+      controlMappingNoAction,
+    ]);
     expect(state.action, 'CH10');
     expect(state.targetChannel, 'CH10');
     expect(state.mode, isEmpty);
@@ -164,7 +180,28 @@ void main() {
       '方向比率',
       '前进比率',
       '刹车比率',
+      controlMappingNoAction,
     ]);
+  });
+
+  test('duplicate function confirm clears previous mapping', () {
+    final container = _createContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(controlMappingProvider.notifier);
+
+    notifier.selectChannel('CH3');
+    notifier.updateAction('CH3');
+    notifier.selectChannel('CH4');
+
+    expect(notifier.duplicateActionOwner('CH3'), 'CH3');
+    notifier.updateActionResolvingDuplicate('CH3', 'CH3');
+
+    final app = container.read(rcAppStateProvider);
+    expect(app.controlMappings['CH3']?.action, controlMappingNoAction);
+    expect(app.controlMappings['CH3']?.targetChannel, isNull);
+    expect(app.controlMappings['CH4']?.action, 'CH3');
+    expect(app.controlMappings['CH4']?.targetChannel, 'CH3');
+    expect(container.read(controlMappingProvider).channel, 'CH4');
   });
 
   test('switching channels restores saved mapping state', () {
