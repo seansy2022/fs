@@ -10,12 +10,14 @@ class Mixing extends StatelessWidget {
     super.key,
     required this.settings,
     required this.protocol,
+    required this.channels,
     required this.onUpdateSettings,
     this.onReset,
   });
 
   final MixingSettings settings;
   final RcProtocolState protocol;
+  final List<ChannelState> channels;
   final ValueChanged<MixingSettings> onUpdateSettings;
   final VoidCallback? onReset;
   static const _channels = [
@@ -114,6 +116,8 @@ class Mixing extends StatelessWidget {
         backwardRatio: protocol.trackMixing.backwardRatio,
         leftRatio: protocol.trackMixing.leftRatio,
         rightRatio: protocol.trackMixing.rightRatio,
+        leftTrackValue: _channelValue(0),
+        rightTrackValue: _channelValue(1),
         onControlChange: (ratio, direction) => onUpdateSettings(
           _modeSettings(
             mode,
@@ -244,6 +248,11 @@ class Mixing extends StatelessWidget {
     ];
     values.sort((a, b) => b.$1.abs().compareTo(a.$1.abs()));
     return values.first;
+  }
+
+  int _channelValue(int index) {
+    if (index < 0 || index >= channels.length) return 0;
+    return channels[index].value.clamp(-120, 120);
   }
 
   String _fourWheelDirectionFromMode(int mode) {

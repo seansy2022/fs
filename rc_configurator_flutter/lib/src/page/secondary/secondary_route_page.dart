@@ -192,6 +192,7 @@ class _SecondaryRoutePageState extends ConsumerState<SecondaryRoutePage> {
               Screen.mixing => Mixing(
                 settings: mixingSettings,
                 protocol: protocol,
+                channels: channels,
                 onUpdateSettings: _updateMixingSettings,
                 onReset: () =>
                     unawaited(_resetScreenDefaults(resetAllMixingModes: false)),

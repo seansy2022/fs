@@ -20,6 +20,7 @@ class RcProgressTrack extends StatelessWidget {
     this.absoluteLabels = false,
     this.reverseLabelSide = false,
     this.overlayVerticalLabels = false,
+    this.showIntermediateLabels = true,
   }) : controlMax = controlMax ?? max;
 
   const RcProgressTrack.dashboard({
@@ -30,6 +31,7 @@ class RcProgressTrack extends StatelessWidget {
     this.absoluteLabels = true,
     this.showLabels = true,
     this.showUnsignedRange = false,
+    this.showIntermediateLabels = true,
   }) : axis = RcProgressAxis.horizontal,
        controlMax = controlMax ?? max,
        highlightFill = true,
@@ -51,6 +53,7 @@ class RcProgressTrack extends StatelessWidget {
     this.highlightFill = true,
     this.showLabels = true,
     this.absoluteLabels = false,
+    this.showIntermediateLabels = true,
   }) : axis = RcProgressAxis.horizontal,
        controlMax = controlMax ?? max,
        positiveValue = null,
@@ -69,6 +72,7 @@ class RcProgressTrack extends StatelessWidget {
     this.absoluteLabels = false,
     this.reverseLabelSide = false, // mirrors to right if true
     this.overlayVerticalLabels = false,
+    this.showIntermediateLabels = true,
   }) : axis = RcProgressAxis.vertical,
        controlMax = controlMax ?? max,
        leftValue = null,
@@ -90,6 +94,7 @@ class RcProgressTrack extends StatelessWidget {
   final bool absoluteLabels;
   final bool reverseLabelSide; // Labels on top/right
   final bool overlayVerticalLabels;
+  final bool showIntermediateLabels;
 
   static const double trackThickness = 10.0;
   static const double textFontSize = 8.0;
@@ -481,6 +486,9 @@ class RcProgressTrack extends StatelessWidget {
     if (max == 100) {
       final bottom = absoluteLabels ? '100' : '-100';
       labels = [('100', 0.0), ('0', 0.5), (bottom, 1.0)];
+    } else if (!showIntermediateLabels) {
+      final bottom = absoluteLabels ? '$max' : '-$max';
+      labels = [('$max', 0.0), ('0', 0.5), (bottom, 1.0)];
     } else {
       final v80 = (max == 120) ? 100 : (max * 0.8).round();
       final bottom80 = absoluteLabels ? '$v80' : '-$v80';

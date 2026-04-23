@@ -15,6 +15,8 @@ class TankControl extends StatelessWidget {
     required this.backwardRatio,
     required this.leftRatio,
     required this.rightRatio,
+    this.leftTrackValue = 0,
+    this.rightTrackValue = 0,
     required this.onControlChange,
   });
 
@@ -25,6 +27,8 @@ class TankControl extends StatelessWidget {
   final int backwardRatio;
   final int leftRatio;
   final int rightRatio;
+  final int leftTrackValue;
+  final int rightTrackValue;
   final void Function(int ratio, String direction) onControlChange;
 
   static const _step = 1;
@@ -68,10 +72,7 @@ class TankControl extends StatelessWidget {
           SizedBox(width: _trackToCenterGap),
           SizedBox(
             height: _trackHeight,
-            child: TankProgressTrack(
-              topValue: forwardRatio,
-              bottomValue: leftRatio,
-            ),
+            child: TankProgressTrack(value: leftTrackValue),
           ),
           // SizedBox(width: 6),
           // 中间Column：前进 → 坦克 → 后退
@@ -117,11 +118,7 @@ class TankControl extends StatelessWidget {
           // SizedBox(width: 4),
           SizedBox(
             height: _trackHeight,
-            child: TankProgressTrack(
-              topValue: rightRatio,
-              bottomValue: backwardRatio,
-              flipX: true,
-            ),
+            child: TankProgressTrack(value: rightTrackValue, flipX: true),
           ),
           // 右转控制 - 垂直居中
           SizedBox(width: _trackToCenterGap),

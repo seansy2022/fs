@@ -166,6 +166,39 @@ void main() {
     expect(next.protocol.brakeMixing.curve, 0);
     expect(next.mixingSettings.activeMode, 'BRAKE');
   });
+
+  test('channel realtime updates do not change track mixing ratios', () {
+    final container = _container();
+    addTearDown(container.dispose);
+    final notifier = container.read(rcAppStateProvider.notifier);
+    notifier.state = RcAppState.initial().copyWith(
+      protocol: const RcProtocolState(
+        rawPayloadByCommand: <int, List<int>>{},
+        curveValues: <int>[0, 0, 0],
+        trackMixing: TrackMixingSnapshot(
+          enabled: true,
+          forwardRatio: 11,
+          backwardRatio: 22,
+          leftRatio: 33,
+          rightRatio: 44,
+        ),
+      ),
+    );
+    final channels = container.read(rcAppStateProvider).channels;
+
+    notifier.dispatch(
+      ChannelUpdatedIntent(id: 'CH1', next: channels[0].copyWith(value: 57)),
+    );
+    notifier.dispatch(
+      ChannelUpdatedIntent(id: 'CH2', next: channels[1].copyWith(value: -32)),
+    );
+
+    final track = container.read(rcAppStateProvider).protocol.trackMixing;
+    expect(track.forwardRatio, 11);
+    expect(track.backwardRatio, 22);
+    expect(track.leftRatio, 33);
+    expect(track.rightRatio, 44);
+  });
 }
 
 ProviderContainer _container() {

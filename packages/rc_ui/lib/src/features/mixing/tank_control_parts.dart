@@ -30,30 +30,22 @@ class TankTurnControl extends StatelessWidget {
 }
 
 class TankProgressTrack extends StatelessWidget {
-  const TankProgressTrack({
-    super.key,
-    required this.topValue,
-    required this.bottomValue,
-    this.flipX = false,
-  });
+  const TankProgressTrack({super.key, required this.value, this.flipX = false});
 
-  final int topValue;
-  final int bottomValue;
+  final int value;
   final bool flipX;
   static const _displayMax = 120;
-  static const _controlMax = 100;
 
   @override
   Widget build(BuildContext context) {
     return RcProgressTrack.vertical(
-      value: 0,
+      value: value.clamp(-_displayMax, _displayMax).toDouble(),
       max: _displayMax,
-      controlMax: _controlMax,
+      controlMax: _displayMax,
       absoluteLabels: true,
       reverseLabelSide: flipX,
       overlayVerticalLabels: true,
-      positiveValue: topValue.toDouble(),
-      negativeValue: bottomValue.toDouble(),
+      showIntermediateLabels: false,
     );
   }
 }
