@@ -100,6 +100,7 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
   RcAppIntent? _pendingDebouncedIntent;
   bool _realtimeReadInFlight = false;
   bool _blockWritesUntilReverseRead = false;
+  String? _pinnedControlMappingChannel;
   bool _connectRetryInProgress = false;
   final Map<String, int> _deviceIds = <String, int>{};
   int _nextId = 1;
@@ -1005,24 +1006,31 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
   Future<bool> _syncControlMappingReads() async {
     final client = _client;
     if (client == null) return false;
+    const currentChannel = 'CH11';
+    _showCachedControlMapping(currentChannel);
+    _pinnedControlMappingChannel = currentChannel;
     _logSecondaryReadCommands(Screen.controlMapping, const [
       BluetoothCommand.controlMapping,
     ]);
     var allSuccess = true;
-    for (final channel in _controlMappingReadChannels) {
-      final payload = [0, _controlMappingChannelIndex(channel)];
-      RcLogging.protocol(
-        '控件分配读取 channel=$channel len=0 payload=${RcLogging.hex(payload)}',
-        scope: 'RcAppController',
-      );
-      final success = await _readControlMappingPayload(
-        client,
-        payload,
-        reportFailure: false,
-      );
-      if (!success) allSuccess = false;
+    try {
+      for (final channel in _controlMappingReadChannels) {
+        final payload = [0, _controlMappingChannelIndex(channel)];
+        RcLogging.protocol(
+          '控件分配读取 channel=$channel len=0 payload=${RcLogging.hex(payload)}',
+          scope: 'RcAppController',
+        );
+        final success = await _readControlMappingPayload(
+          client,
+          payload,
+          reportFailure: false,
+        );
+        if (!success) allSuccess = false;
+      }
+      _showCachedControlMapping(currentChannel);
+    } finally {
+      _pinnedControlMappingChannel = null;
     }
-    _showCachedControlMapping('CH11');
     if (!allSuccess) _onError(_screenReadFailedMessage);
     return allSuccess;
   }
@@ -1262,6 +1270,10 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
   void _onFrame(BluetoothFrame frame) {
     final event = _adapter.decodeFrame(frame);
     state = _adapter.applyToState(state, event);
+    final pinned = _pinnedControlMappingChannel;
+    if (pinned != null && event.command == BluetoothCommand.controlMapping) {
+      _showCachedControlMapping(pinned);
+    }
   }
 
   void _onScan(List<BluetoothScanDevice> list) {

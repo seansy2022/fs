@@ -282,6 +282,14 @@ void main() {
         .id;
     notifier.toggleConnection(deviceId);
     await Future<void>.delayed(const Duration(milliseconds: 30));
+    notifier.state = container
+        .read(rcAppStateProvider)
+        .copyWith(
+          controlMapping: container
+              .read(rcAppStateProvider)
+              .controlMapping
+              .copyWith(channel: 'CH3'),
+        );
     transport.sentPackets.clear();
 
     final success = await notifier.refreshForScreen(Screen.controlMapping);
