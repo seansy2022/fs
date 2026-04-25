@@ -100,6 +100,7 @@ class RcProgressTrack extends StatelessWidget {
   static const double textFontSize = 8.0;
   static const double textGap = 2.0;
   static const double verticalLabelGap = 4.0;
+  static const Color _tickGray = Color(0xFF6B7280);
 
   @override
   Widget build(BuildContext context) {
@@ -354,19 +355,17 @@ class RcProgressTrack extends StatelessWidget {
     final double top;
     if (isCenter) {
       // 0 刻度居中对齐
-      top = trackTop + (trackThickness - h) / 2;
+      top = trackTop + (trackThickness - h) / 2 - 0.5;
     } else {
       // 其它刻度维持之前的“底部对齐”逻辑
       top = trackTop + trackThickness - h;
     }
 
     final displayX = x.clamp(0.0, double.infinity) - (isEnd && i == 12 ? 2 : 0);
-    const tickStroke = 0.5;
+    const tickStroke = 0.25;
     const tickTotalWidth = tickStroke * 2;
     final tickLeft = isCenter ? displayX - (tickTotalWidth / 2) : displayX;
-    final tickMainColor = const Color(
-      0xFF465D7A,
-    ).withValues(alpha: isCenter ? 0.7 : 1);
+    final tickMainColor = _tickGray.withValues(alpha: isCenter ? 0.7 : 1);
     final tickShadowColor = const Color(
       0xFF001024,
     ).withValues(alpha: isCenter ? 0.7 : 1);
@@ -398,10 +397,11 @@ class RcProgressTrack extends StatelessWidget {
       w = 4.0;
 
     final left = trackThickness - w;
-    final displayY = y.clamp(0.0, double.infinity) - (isEnd && i == 10 ? 2 : 0);
-    final tickMainColor = const Color(
-      0xFF465D7A,
-    ).withValues(alpha: isCenter ? 0.7 : 1);
+    final displayY =
+        y.clamp(0.0, double.infinity) -
+        (isEnd && i == 10 ? 2 : 0) -
+        (isCenter ? 0.5 : 0);
+    final tickMainColor = _tickGray.withValues(alpha: isCenter ? 0.7 : 1);
     final tickShadowColor = const Color(
       0xFF001024,
     ).withValues(alpha: isCenter ? 0.7 : 1);
@@ -412,7 +412,7 @@ class RcProgressTrack extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(height: 1, width: w, color: tickMainColor),
+          Container(height: 0.2, width: w, color: tickMainColor),
           Container(height: 1, width: w, color: tickShadowColor),
         ],
       ),
