@@ -29,8 +29,8 @@ class TankMixingContent extends ConsumerWidget {
     final settings = ref.watch(appSettingsProvider);
     final controller = ref.read(appSettingsProvider.notifier);
 
-    final left = settings.trackMixLeft.round().clamp(-100, 100);
-    final right = settings.trackMixRight.round().clamp(-100, 100);
+    final left = settings.trackMixLeft.round().clamp(-100, 100).toInt();
+    final right = settings.trackMixRight.round().clamp(-100, 100).toInt();
     final forwardActive = left > 0 && right > 0;
     final backwardActive = left < 0 && right < 0;
     final leftActive = left < 0 && right > 0;
@@ -38,18 +38,19 @@ class TankMixingContent extends ConsumerWidget {
 
     return Column(
       children: [
-       
         Expanded(
-            child: _TankMixingPanel(
-              forwardActive: forwardActive,
-              backwardActive: backwardActive,
-              leftActive: leftActive,
-              rightActive: rightActive,
-              onForwardTap: () => _toggleForward(controller, forwardActive),
-              onBackwardTap: () => _toggleBackward(controller, backwardActive),
-              onLeftTap: () => _toggleLeft(controller, leftActive),
-              onRightTap: () => _toggleRight(controller, rightActive),
-            ),
+          child: _TankMixingPanel(
+            forwardActive: forwardActive,
+            backwardActive: backwardActive,
+            leftActive: leftActive,
+            rightActive: rightActive,
+            leftTrackValue: left,
+            rightTrackValue: right,
+            onForwardTap: () => _toggleForward(controller, forwardActive),
+            onBackwardTap: () => _toggleBackward(controller, backwardActive),
+            onLeftTap: () => _toggleLeft(controller, leftActive),
+            onRightTap: () => _toggleRight(controller, rightActive),
+          ),
         ),
       ],
     );
@@ -94,6 +95,8 @@ class _TankMixingPanel extends StatelessWidget {
     required this.backwardActive,
     required this.leftActive,
     required this.rightActive,
+    required this.leftTrackValue,
+    required this.rightTrackValue,
     required this.onForwardTap,
     required this.onBackwardTap,
     required this.onLeftTap,
@@ -104,6 +107,8 @@ class _TankMixingPanel extends StatelessWidget {
   final bool backwardActive;
   final bool leftActive;
   final bool rightActive;
+  final int leftTrackValue;
+  final int rightTrackValue;
   final VoidCallback onForwardTap;
   final VoidCallback onBackwardTap;
   final VoidCallback onLeftTap;
@@ -125,10 +130,7 @@ class _TankMixingPanel extends StatelessWidget {
           const SizedBox(width: 12),
           SizedBox(
             height: 220,
-            child: TankProgressTrack(
-              topValue: leftActive ? 100 : 0,
-              bottomValue: backwardActive ? 100 : 0,
-            ),
+            child: TankProgressTrack(value: leftTrackValue),
           ),
           // const SizedBox(width: 6),
           Expanded(
@@ -168,8 +170,7 @@ class _TankMixingPanel extends StatelessWidget {
           SizedBox(
             height: 220,
             child: TankProgressTrack(
-              topValue: forwardActive ? 100 : 0,
-              bottomValue: rightActive ? 100 : 0,
+              value: rightTrackValue,
               flipX: true,
             ),
           ),

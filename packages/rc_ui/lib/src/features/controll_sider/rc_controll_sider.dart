@@ -12,6 +12,7 @@ class RCControllSider extends StatefulWidget {
     this.direction = RCControllSiderDirection.horizontal,
     this.initialValue = 0,
     this.step = 0.1,
+    this.showButtons = true,
     this.onChanged,
   });
 
@@ -22,6 +23,8 @@ class RCControllSider extends StatefulWidget {
 
   /// Button increment/decrement step.
   final double step;
+
+  final bool showButtons;
 
   final ValueChanged<double>? onChanged;
 
@@ -91,11 +94,11 @@ class _RCControllSiderState extends State<RCControllSider> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildButton(plus: false, onTap: _minus),
+          _buildButtonSlot(child: _buildButton(plus: false, onTap: _minus)),
           const SizedBox(width: 8),
           _buildTrack(),
           const SizedBox(width: 8),
-          _buildButton(plus: true, onTap: _plus),
+          _buildButtonSlot(child: _buildButton(plus: true, onTap: _plus)),
         ],
       );
     }
@@ -103,12 +106,22 @@ class _RCControllSiderState extends State<RCControllSider> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildButton(plus: true, onTap: _plus),
+        _buildButtonSlot(child: _buildButton(plus: true, onTap: _plus)),
         const SizedBox(height: 8),
         _buildTrack(),
         const SizedBox(height: 8),
-        _buildButton(plus: false, onTap: _minus),
+        _buildButtonSlot(child: _buildButton(plus: false, onTap: _minus)),
       ],
+    );
+  }
+
+  Widget _buildButtonSlot({required Widget child}) {
+    return Visibility(
+      visible: widget.showButtons,
+      maintainState: true,
+      maintainAnimation: true,
+      maintainSize: true,
+      child: child,
     );
   }
 

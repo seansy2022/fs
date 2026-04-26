@@ -5,10 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 import 'package:rc_ui/rc_ui.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../core/providers.dart';
 import '../../settings/models/app_settings_state.dart';
 import '../controllers/control_controller.dart';
+import '../widgets/floating_control_zone.dart';
 
 class ControlPage extends ConsumerStatefulWidget {
   const ControlPage({super.key});
@@ -18,12 +20,58 @@ class ControlPage extends ConsumerStatefulWidget {
 }
 
 class _ControlPageState extends ConsumerState<ControlPage> {
+  static const _backgroundVideoAsset =
+      'assets/wepb/control_bg_forward_loop.mp4';
+  static const _forwardBackgroundAsset = 'assets/wepb/control_forward.webp';
+  static const _forwardLeftBackgroundAsset =
+      'assets/wepb/control_forward_left.webp';
+  static const _forwardRightBackgroundAsset =
+      'assets/wepb/control_forward_right.webp';
+  static const _reverseBackgroundAsset = 'assets/wepb/control_reverse.webp';
+  static const _reverseLeftBackgroundAsset =
+      'assets/wepb/control_reverse_left.webp';
+  static const _reverseRightBackgroundAsset =
+      'assets/wepb/control_reverse_right.webp';
+  static const _movementThreshold = 0.15;
+  static const _overlayAnimationWidth = 136.0;
+  static const _overlayAnimationHeight = 216.0;
+
+  VideoPlayerController? _backgroundVideoController;
+  bool _backgroundVideoReady = false;
+
   @override
   void initState() {
     super.initState();
+    unawaited(_initializeBackgroundVideo());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_activate());
     });
+  }
+
+  Future<void> _initializeBackgroundVideo() async {
+    final controller = VideoPlayerController.asset(_backgroundVideoAsset);
+    _backgroundVideoController = controller;
+    try {
+      await controller.setLooping(true);
+      await controller.setVolume(0);
+      await controller.initialize();
+      await controller.play();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() {
+        _backgroundVideoReady = true;
+      });
+    } catch (_) {
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() {
+        _backgroundVideoReady = false;
+      });
+    }
   }
 
   Future<void> _activate() async {
@@ -35,8 +83,99 @@ class _ControlPageState extends ConsumerState<ControlPage> {
 
   @override
   void dispose() {
+    final backgroundVideoController = _backgroundVideoController;
+    _backgroundVideoController = null;
+    unawaited(backgroundVideoController?.dispose());
     unawaited(ref.read(controlControllerProvider.notifier).deactivate());
     super.dispose();
+  }
+
+  String? _movementBackgroundAsset(ControlScreenState controlState) {
+    final throttle = controlState.throttle;
+    final steering = controlState.steering;
+
+    if (throttle > _movementThreshold) {
+      if (steering < -_movementThreshold) {
+        return _forwardLeftBackgroundAsset;
+      }
+      if (steering > _movementThreshold) {
+        return _forwardRightBackgroundAsset;
+      }
+      return _forwardBackgroundAsset;
+    }
+
+    if (throttle < -_movementThreshold) {
+      if (steering < -_movementThreshold) {
+        return _reverseLeftBackgroundAsset;
+      }
+      if (steering > _movementThreshold) {
+        return _reverseRightBackgroundAsset;
+      }
+      return _reverseBackgroundAsset;
+    }
+
+    return null;
+  }
+
+  Widget _buildBackground(ControlScreenState controlState) {
+    final movementBackgroundAsset = _movementBackgroundAsset(controlState);
+    final controller = _backgroundVideoController;
+
+    final baseBackground =
+        _backgroundVideoReady &&
+            controller != null &&
+            controller.value.isInitialized
+        ? FittedBox(
+            fit: BoxFit.cover,
+            clipBehavior: Clip.hardEdge,
+            child: SizedBox(
+              width: controller.value.size.width,
+              height: controller.value.size.height,
+              child: VideoPlayer(controller),
+            ),
+          )
+        : Image.asset(
+            'lib/src/assets/image_enhanced.png',
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF0D1B2A),
+                    Color(0xFF1B263B),
+                    Color(0xFF0A1320),
+                  ],
+                ),
+              ),
+              child: SizedBox.expand(),
+            ),
+          );
+
+    if (movementBackgroundAsset == null) {
+      return baseBackground;
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(child: baseBackground),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: SizedBox(
+            width: _overlayAnimationWidth,
+            height: _overlayAnimationHeight,
+            child: Image.asset(
+              movementBackgroundAsset,
+              key: ValueKey<String>(movementBackgroundAsset),
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -67,26 +206,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Positioned.fill(
-            child: Image.asset(
-              'lib/src/assets/image_enhanced.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0xFF0D1B2A),
-                      Color(0xFF1B263B),
-                      Color(0xFF0A1320),
-                    ],
-                  ),
-                ),
-                child: SizedBox.expand(),
-              ),
-            ),
-          ),
+          Positioned.fill(child: _buildBackground(controlState)),
 
           SafeArea(
             child: Stack(
@@ -136,8 +256,8 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                       rssi: rssi,
                       onLight: controlController.toggleHeadlights,
                       lightOn: controlState.headlightsOn,
-                      onDirection: () {},
-                      directionOn: false,
+                      onDirection: controlController.toggleSliderButtons,
+                      directionOn: controlState.sliderButtonsVisible,
                       onNetwork: controlController.toggleGyro,
                       networkOn: controlState.gyroEnabled,
                     ),
@@ -146,6 +266,8 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                     Expanded(
                       child: _ControlArea(
                         leftPadIsThrottle: leftPadIsThrottle,
+                        controlMode: settings.controlMode,
+                        gyroMode: settings.gyroMode,
                         controlState: controlState,
                         controlController: controlController,
                       ),
@@ -327,51 +449,89 @@ class _ControlArea extends StatelessWidget {
 
   const _ControlArea({
     required this.leftPadIsThrottle,
+    required this.controlMode,
+    required this.gyroMode,
     required this.controlState,
     required this.controlController,
   });
 
   final bool leftPadIsThrottle;
+  final ControlMode controlMode;
+  final GyroMode gyroMode;
   final ControlScreenState controlState;
   final ControlController controlController;
 
-  Widget _buildVerticalArea() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        RCControllSider(
-          direction: RCControllSiderDirection.vertical,
-          initialValue: controlState.throttle,
-          onChanged: (value) {
-            controlController.setThrottle(value);
-          },
-        ),
-        const SizedBox(width: _controlGap),
-        Control(
-          direction: ControlSliderDirection.vertical,
-          onChanged: (value) {
-            controlController.setThrottle(value / 100);
-          },
-        ),
-      ],
+  bool get _useFloatingStickStyle =>
+      controlMode == ControlMode.floating || gyroMode == GyroMode.all;
+
+  Widget _buildVerticalStick() {
+    if (_useFloatingStickStyle) {
+      return FloatingControlZone(
+        direction: FloatingControlDirection.vertical,
+        onChanged: (value) {
+          unawaited(controlController.setThrottle(value));
+        },
+      );
+    }
+
+    return Control(
+      direction: ControlSliderDirection.vertical,
+      onChanged: (value) {
+        controlController.setThrottle(value / 100);
+      },
     );
   }
 
-  Widget _buildHorizontalArea() {
+  Widget _buildHorizontalStick() {
+    if (_useFloatingStickStyle) {
+      return FloatingControlZone(
+        direction: FloatingControlDirection.horizontal,
+        onChanged: (value) {
+          unawaited(controlController.setSteering(value));
+        },
+      );
+    }
+
+    return Control(
+      direction: ControlSliderDirection.horizontal,
+      onChanged: (value) {
+        controlController.setSteering(value / 100);
+      },
+    );
+  }
+
+  Widget _buildVerticalArea({
+    required bool sliderOnOuterSide,
+    Widget? controlOverride,
+  }) {
+    final slider = RCControllSider(
+      direction: RCControllSiderDirection.vertical,
+      showButtons: controlState.sliderButtonsVisible,
+      onChanged: (value) {
+        controlController.setThrottle(value);
+      },
+    );
+
+    final stick = controlOverride ?? _buildVerticalStick();
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: sliderOnOuterSide
+          ? [slider, const SizedBox(width: _controlGap), stick]
+          : [stick, const SizedBox(width: _controlGap), slider],
+    );
+  }
+
+  Widget _buildHorizontalArea({Widget? controlOverride}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Control(
-          direction: ControlSliderDirection.horizontal,
-          onChanged: (value) {
-            controlController.setSteering(value / 100);
-          },
-        ),
+        controlOverride ?? _buildHorizontalStick(),
         const SizedBox(height: _controlGap),
         RCControllSider(
           direction: RCControllSiderDirection.horizontal,
-          initialValue: controlState.steering,
+          showButtons: controlState.sliderButtonsVisible,
           onChanged: (value) {
             controlController.setSteering(value);
           },
@@ -380,14 +540,43 @@ class _ControlArea extends StatelessWidget {
     );
   }
 
+  Widget _buildDirectionalStick({required bool positiveThrottle}) {
+    return SizedBox(
+      width: 160,
+      height: 260,
+      child: FloatingControlZone(
+        direction: FloatingControlDirection.vertical,
+        allowPositive: positiveThrottle,
+        allowNegative: !positiveThrottle,
+        onChanged: (value) {
+          final nextValue = positiveThrottle ? value : -value;
+          unawaited(controlController.setThrottle(nextValue));
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final leftControlOverride = gyroMode == GyroMode.directionOnly
+        ? _buildDirectionalStick(positiveThrottle: false)
+        : null;
+    final rightControlOverride = gyroMode == GyroMode.directionOnly
+        ? _buildDirectionalStick(positiveThrottle: true)
+        : null;
+
     final leftArea = leftPadIsThrottle
-        ? _buildVerticalArea()
-        : _buildHorizontalArea();
+        ? _buildVerticalArea(
+            sliderOnOuterSide: true,
+            controlOverride: leftControlOverride,
+          )
+        : _buildHorizontalArea(controlOverride: leftControlOverride);
     final rightArea = leftPadIsThrottle
-        ? _buildHorizontalArea()
-        : _buildVerticalArea();
+        ? _buildHorizontalArea(controlOverride: rightControlOverride)
+        : _buildVerticalArea(
+            sliderOnOuterSide: false,
+            controlOverride: rightControlOverride,
+          );
 
     return Padding(
       padding: const EdgeInsets.only(

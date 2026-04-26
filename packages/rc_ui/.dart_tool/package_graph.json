@@ -176,13 +176,6 @@
       ]
     },
     {
-      "name": "lucide_icons_flutter",
-      "version": "3.1.12",
-      "dependencies": [
-        "flutter"
-      ]
-    },
-    {
       "name": "lints",
       "version": "5.1.1",
       "dependencies": []
@@ -198,6 +191,13 @@
       "dependencies": [
         "source_span",
         "string_scanner"
+      ]
+    },
+    {
+      "name": "lucide_icons_flutter",
+      "version": "3.1.13",
+      "dependencies": [
+        "flutter"
       ]
     },
     {

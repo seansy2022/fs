@@ -37,6 +37,8 @@ dependencies:
   flutter_riverpod: ^2.5.1
   shared_preferences: ^2.3.2
   flutter_svg: ^2.0.10+1
+  video_player: ^2.11.1
+  video_player_win: ^3.2.2
 
   rc_ui:
     path: ../packages/rc_ui

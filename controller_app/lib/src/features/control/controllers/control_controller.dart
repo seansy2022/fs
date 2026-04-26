@@ -16,6 +16,7 @@ class ControlScreenState {
     this.highGear = false,
     this.leftSignalOn = false,
     this.rightSignalOn = false,
+    this.sliderButtonsVisible = false,
     this.loopActive = false,
   });
 
@@ -30,6 +31,7 @@ class ControlScreenState {
   final bool highGear;
   final bool leftSignalOn;
   final bool rightSignalOn;
+  final bool sliderButtonsVisible;
   final bool loopActive;
 
   ControlScreenState copyWith({
@@ -44,6 +46,7 @@ class ControlScreenState {
     bool? highGear,
     bool? leftSignalOn,
     bool? rightSignalOn,
+    bool? sliderButtonsVisible,
     bool? loopActive,
   }) {
     return ControlScreenState(
@@ -58,6 +61,7 @@ class ControlScreenState {
       highGear: highGear ?? this.highGear,
       leftSignalOn: leftSignalOn ?? this.leftSignalOn,
       rightSignalOn: rightSignalOn ?? this.rightSignalOn,
+      sliderButtonsVisible: sliderButtonsVisible ?? this.sliderButtonsVisible,
       loopActive: loopActive ?? this.loopActive,
     );
   }
@@ -129,6 +133,10 @@ class ControlController extends StateNotifier<ControlScreenState> {
   }) async {
     state = state.copyWith(leftSignalOn: leftOn, rightSignalOn: rightOn);
     await _push();
+  }
+
+  void toggleSliderButtons() {
+    state = state.copyWith(sliderButtonsVisible: !state.sliderButtonsVisible);
   }
 
   Future<void> _push() async {
