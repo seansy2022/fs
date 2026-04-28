@@ -97,7 +97,23 @@ void main() {
 
     expect(writes, hasLength(1));
     expect(writes.first.command, BluetoothCommand.dualRate);
-    expect(writes.first.payload, [66, 0, 77, 88]);
+    expect(writes.first.payload, [66, 0, 88, 77]);
+  });
+
+  test('dual rate read maps payload[2] to brake and payload[3] to throttle', () {
+    final adapter = ProtocolAdapterV1();
+    final state = RcAppState.initial();
+    final frame = BluetoothFrame(
+      seq: 1,
+      command: BluetoothCommand.dualRate.id,
+      length: 4,
+      data: const [100, 100, 60, 81],
+    );
+
+    final next = adapter.applyToState(state, adapter.decodeFrame(frame));
+    expect(next.channels[0].dualRate, 100);
+    expect(next.channels[1].dualRate, 81);
+    expect(next.channels[2].dualRate, 60);
   });
 
   test('control mapping read keeps selected channel for invalid channel', () {

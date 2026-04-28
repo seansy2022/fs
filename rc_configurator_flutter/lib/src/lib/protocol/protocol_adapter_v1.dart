@@ -384,11 +384,11 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     if (payload.isNotEmpty) {
       channels[0] = channels[0].copyWith(dualRate: payload[0].clamp(0, 100));
     }
-    if (payload.length > 2 && channels.length > 1) {
-      channels[1] = channels[1].copyWith(dualRate: payload[2].clamp(0, 100));
+    if (payload.length > 3 && channels.length > 1) {
+      channels[1] = channels[1].copyWith(dualRate: payload[3].clamp(0, 100));
     }
     if (payload.length > 3 && channels.length > 2) {
-      channels[2] = channels[2].copyWith(dualRate: payload[3].clamp(0, 100));
+      channels[2] = channels[2].copyWith(dualRate: payload[2].clamp(0, 100));
     }
     return state.copyWith(channels: channels);
   }
@@ -817,7 +817,7 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     final third = channels.length > 2
         ? channels[2].dualRate.clamp(0, 100)
         : 100;
-    return [first, 0, second, third];
+    return [first, 0, third, second];
   }
 
   List<int> _buildCurvePayload(RcAppState state) {
