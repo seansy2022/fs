@@ -16,6 +16,7 @@ class SidesControlProgressWidget extends StatefulWidget {
     required this.rightValue,
     this.max = 120,
     this.initialLeftSelected = true,
+    this.leftSelected,
     this.titleLeading = false,
     this.statusButtonWidth = 60,
     this.statusFontSize = AppFonts.s12,
@@ -24,6 +25,7 @@ class SidesControlProgressWidget extends StatefulWidget {
     this.horizontalPadding = 16,
     this.showBottomBorder = true,
     this.onAdjust,
+    this.onSelectedChanged,
     this.onRefresh,
   });
 
@@ -34,6 +36,7 @@ class SidesControlProgressWidget extends StatefulWidget {
   final int rightValue;
   final int max;
   final bool initialLeftSelected;
+  final bool? leftSelected;
   final bool titleLeading;
   final double statusButtonWidth;
   final double statusFontSize;
@@ -42,6 +45,7 @@ class SidesControlProgressWidget extends StatefulWidget {
   final double horizontalPadding;
   final bool showBottomBorder;
   final void Function(bool leftSelected, int delta)? onAdjust;
+  final ValueChanged<bool>? onSelectedChanged;
   final VoidCallback? onRefresh;
 
   @override
@@ -56,12 +60,16 @@ class _SidesControlProgressWidgetState
   @override
   void initState() {
     super.initState();
-    _leftSelected = widget.initialLeftSelected;
+    _leftSelected = widget.leftSelected ?? widget.initialLeftSelected;
   }
 
   @override
   void didUpdateWidget(covariant SidesControlProgressWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.leftSelected != null) {
+      _leftSelected = widget.leftSelected!;
+      return;
+    }
     if (oldWidget.initialLeftSelected != widget.initialLeftSelected) {
       _leftSelected = widget.initialLeftSelected;
     }
@@ -171,6 +179,7 @@ class _SidesControlProgressWidgetState
   void _setSelected({required bool left}) {
     if (_leftSelected == left) return;
     setState(() => _leftSelected = left);
+    widget.onSelectedChanged?.call(left);
   }
 
   double _selectedValue() {

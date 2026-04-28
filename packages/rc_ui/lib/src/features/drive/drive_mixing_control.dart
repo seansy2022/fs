@@ -10,7 +10,9 @@ class DriveMixingControl extends StatelessWidget {
   const DriveMixingControl({
     super.key,
     required this.selectedChannel,
-    required this.ratio,
+    required this.frontRatio,
+    required this.rearRatio,
+    required this.leftSelected,
     required this.mode,
     required this.onRatioChange,
     required this.onModeChange,
@@ -18,30 +20,44 @@ class DriveMixingControl extends StatelessWidget {
   });
 
   final String selectedChannel;
-  final int ratio;
+  final int frontRatio;
+  final int rearRatio;
+  final bool leftSelected;
   final DriveLayout mode;
-  final ValueChanged<int> onRatioChange;
+  final void Function(int frontRatio, int rearRatio, bool leftSelected)
+  onRatioChange;
   final ValueChanged<DriveLayout> onModeChange;
   final VoidCallback? onChannelTap;
   static const _fontSize = 12.0;
 
-  int _clamp(int value) => value.clamp(-100, 100);
-  int _rearRatio() => ratio > 0 ? 100 - ratio : 100;
-  int _frontRatio() => ratio < 0 ? 100 + ratio : 100;
-
-  int _nextRatio({required bool adjustRear, required int delta}) {
-    if (adjustRear) {
-      final nextRear = (_rearRatio() + delta).clamp(0, 100);
-      return _clamp(100 - nextRear);
+  void _adjust(int delta) {
+    if (!leftSelected) {
+      if (delta > 0) {
+        onRatioChange(100, (rearRatio - 1).clamp(0, 100), false);
+        return;
+      }
+      if (rearRatio >= 100) {
+        onRatioChange(frontRatio, rearRatio, true);
+        return;
+      }
+      onRatioChange(100, (rearRatio + 1).clamp(0, 100), false);
+      return;
     }
-    final nextFront = (_frontRatio() + delta).clamp(0, 100);
-    return _clamp(nextFront - 100);
+    if (delta < 0) {
+      onRatioChange((frontRatio - 1).clamp(0, 100), 100, true);
+      return;
+    }
+    if (frontRatio >= 100) {
+      onRatioChange(frontRatio, rearRatio, false);
+      return;
+    }
+    onRatioChange((frontRatio + 1).clamp(0, 100), 100, true);
   }
 
   @override
   Widget build(BuildContext context) {
-    final rear = _rearRatio();
-    final front = _frontRatio();
+    final front = frontRatio.clamp(0, 100);
+    final rear = rearRatio.clamp(0, 100);
     return Container(
       color: AppColors.bg,
       padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
@@ -60,17 +76,17 @@ class DriveMixingControl extends StatelessWidget {
             leftValue: front,
             rightValue: rear,
             max: 100,
-            initialLeftSelected: ratio < 0,
+            initialLeftSelected: leftSelected,
+            leftSelected: leftSelected,
             titleLeading: true,
             statusButtonWidth: 60,
             statusFontSize: AppFonts.s11,
             titleFontSize: _fontSize,
             horizontalPadding: 0,
             showBottomBorder: false,
-            onAdjust: (leftSelected, delta) {
-              final adjustRear = !leftSelected;
-              onRatioChange(_nextRatio(adjustRear: adjustRear, delta: delta));
-            },
+            onAdjust: (_, delta) => _adjust(delta),
+            onSelectedChanged: (nextLeftSelected) =>
+                onRatioChange(front, rear, nextLeftSelected),
           ),
           const SizedBox(height: 4),
           DriveModeRow(value: mode, onChanged: onModeChange),

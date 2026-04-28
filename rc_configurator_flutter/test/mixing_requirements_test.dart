@@ -159,7 +159,7 @@ void main() {
     expect(next.protocol.driveMixing.channel, 2);
     expect(next.protocol.driveMixing.frontRatio, 100);
     expect(next.protocol.driveMixing.rearRatio, 100);
-    expect(next.protocol.driveMixing.mode, 1);
+    expect(next.protocol.driveMixing.mode, 0);
     expect(next.protocol.brakeMixing.enabled, isFalse);
     expect(next.protocol.brakeMixing.channel, 2);
     expect(next.protocol.brakeMixing.ratio, 100);

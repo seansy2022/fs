@@ -419,6 +419,7 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
               selectedChannel: 'CH3',
               ratio: 0,
               direction: 'REAR',
+              driveRatioSelectedSide: 'R',
             ),
             'BRAKE' => working.mixingSettings.copyWith(
               activeMode: mode,
@@ -458,6 +459,7 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
                   selectedChannel: 'CH3',
                   ratio: 0,
                   direction: 'REAR',
+                  driveRatioSelectedSide: 'R',
                 )
               : originalMode == 'BRAKE'
               ? working.mixingSettings.copyWith(
@@ -522,6 +524,7 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
             selectedChannel: 'CH3',
             ratio: 0,
             direction: 'REAR',
+            driveRatioSelectedSide: 'R',
           ),
           'BRAKE' => working.mixingSettings.copyWith(
             activeMode: mode,
@@ -1628,11 +1631,7 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
       );
     }
     if (mode == 'DRIVE') {
-      final ratio = next.ratio.clamp(-100, 100);
-      var front = 100;
-      var rear = 100;
-      if (ratio >= 0) rear = 100 - ratio;
-      if (ratio < 0) front = 100 + ratio;
+      final ratios = _driveRatios(next.ratio, next.driveRatioSelectedSide);
       final driveMode = next.direction == 'REAR'
           ? 0
           : next.direction == 'MIXED'
@@ -1642,8 +1641,8 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
         driveMixing: protocol.driveMixing.copyWith(
           enabled: next.enabled,
           channel: _uiChannelToProtocol(next.selectedChannel),
-          frontRatio: front.clamp(0, 100),
-          rearRatio: rear.clamp(0, 100),
+          frontRatio: ratios.$1,
+          rearRatio: ratios.$2,
           mode: driveMode,
         ),
       );
@@ -1690,6 +1689,12 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
     if (activeCurve == 'Steering') return 0;
     if (activeCurve == 'Brake') return 2;
     return 1;
+  }
+
+  (int, int) _driveRatios(int ratio, String side) {
+    final clamped = ratio.clamp(-100, 100);
+    if (side == 'F') return ((100 + clamped).clamp(0, 100), 100);
+    return (100, (100 - clamped).clamp(0, 100));
   }
 }
 

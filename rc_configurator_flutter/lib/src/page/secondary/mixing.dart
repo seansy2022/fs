@@ -130,14 +130,28 @@ class Mixing extends StatelessWidget {
     }
     if (mode == 'DRIVE') {
       final value = _modeSettings(mode, enabled: true);
+      final leftSelected = value.driveRatioSelectedSide == 'F';
       return DriveMixingControl(
         selectedChannel: value.selectedChannel,
-        ratio: value.ratio,
+        frontRatio: _driveFrontRatio(value.ratio, value.driveRatioSelectedSide),
+        rearRatio: _driveRearRatio(value.ratio, value.driveRatioSelectedSide),
+        leftSelected: leftSelected,
         mode: _driveModeFromDirection(value.direction),
         onChannelTap: () =>
             _showChannelSheet(context, mode, value.selectedChannel),
-        onRatioChange: (v) =>
-            onUpdateSettings(_modeSettings(mode, enabled: true, ratio: v)),
+        onRatioChange: (frontRatio, rearRatio, nextLeftSelected) =>
+            onUpdateSettings(
+              _modeSettings(
+                mode,
+                enabled: true,
+                ratio: _driveRatioFromValues(
+                  frontRatio,
+                  rearRatio,
+                  nextLeftSelected,
+                ),
+                driveRatioSelectedSide: nextLeftSelected ? 'F' : 'R',
+              ),
+            ),
         onModeChange: (next) => onUpdateSettings(
           _modeSettings(
             mode,
@@ -186,6 +200,7 @@ class Mixing extends StatelessWidget {
     int? curve,
     String? direction,
     String? selectedChannel,
+    String? driveRatioSelectedSide,
   }) {
     if (mode == '4WS') {
       final snap = protocol.fourWheelSteer;
@@ -212,9 +227,11 @@ class Mixing extends StatelessWidget {
     }
     if (mode == 'DRIVE') {
       final snap = protocol.driveMixing;
-      final modeRatio = snap.frontRatio == 100
-          ? 100 - snap.rearRatio
-          : snap.frontRatio - 100;
+      final side =
+          driveRatioSelectedSide ??
+          (settings.activeMode == 'DRIVE'
+              ? settings.driveRatioSelectedSide
+              : _driveSelectedSideFromSnapshot(snap));
       final modeDirection = snap.mode == 0
           ? 'REAR'
           : snap.mode == 1
@@ -224,8 +241,9 @@ class Mixing extends StatelessWidget {
         activeMode: mode,
         enabled: enabled,
         selectedChannel: selectedChannel ?? _protocolChannelToUi(snap.channel),
-        ratio: (ratio ?? modeRatio).clamp(-100, 100),
+        ratio: (ratio ?? _driveRatioFromSnapshot(snap, side)).clamp(-100, 100),
         direction: direction ?? modeDirection,
+        driveRatioSelectedSide: side,
       );
     }
     final brake = protocol.brakeMixing;
@@ -276,6 +294,26 @@ class Mixing extends StatelessWidget {
   }
 
   String _protocolChannelToUi(int idx) => 'CH${idx.clamp(2, 10) + 1}';
+
+  String _driveSelectedSideFromSnapshot(DriveMixingSnapshot snap) {
+    return snap.frontRatio < 100 && snap.rearRatio == 100 ? 'F' : 'R';
+  }
+
+  int _driveRatioFromSnapshot(DriveMixingSnapshot snap, String side) {
+    return side == 'F' ? snap.frontRatio - 100 : 100 - snap.rearRatio;
+  }
+
+  int _driveRatioFromValues(int front, int rear, bool leftSelected) {
+    return leftSelected ? front.clamp(0, 100) - 100 : 100 - rear.clamp(0, 100);
+  }
+
+  int _driveFrontRatio(int ratio, String side) {
+    return side == 'F' ? (100 + ratio).clamp(0, 100) : 100;
+  }
+
+  int _driveRearRatio(int ratio, String side) {
+    return side == 'R' ? (100 - ratio).clamp(0, 100) : 100;
+  }
 
   DriveLayout _driveModeFromDirection(String direction) {
     return switch (direction) {
