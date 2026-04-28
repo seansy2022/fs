@@ -99,7 +99,7 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
       if (_shouldShowCh5SwitchOptions(state)) ...[
         CellIconTextWidget(
           title: '功能:向前',
-          valueText: state.mixingMode1 ?? '未设置',
+          valueText: state.mixingMode3 ?? '未设置',
           enableHighlight: true,
           highlightGradient: AppGradients.v24,
           highlightBaseColor: _mappingCellHighlightBase,
@@ -107,10 +107,10 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
             context,
             '功能:向前',
             ch5DirectionOptionsList,
-            ch5DirectionOptionsList.contains(state.mixingMode1)
-                ? state.mixingMode1
+            ch5DirectionOptionsList.contains(state.mixingMode3)
+                ? state.mixingMode3
                 : null,
-            (v) => c.updateMixingMode(1, v),
+            (v) => c.updateMixingMode(3, v),
           ),
         ),
         const SizedBox(height: AppDimens.gapM),
@@ -133,7 +133,7 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
         const SizedBox(height: AppDimens.gapM),
         CellIconTextWidget(
           title: '功能:向后',
-          valueText: state.mixingMode3 ?? '未设置',
+          valueText: state.mixingMode1 ?? '未设置',
           enableHighlight: true,
           highlightGradient: AppGradients.v24,
           highlightBaseColor: _mappingCellHighlightBase,
@@ -141,10 +141,10 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
             context,
             '功能:向后',
             ch5DirectionOptionsList,
-            ch5DirectionOptionsList.contains(state.mixingMode3)
-                ? state.mixingMode3
+            ch5DirectionOptionsList.contains(state.mixingMode1)
+                ? state.mixingMode1
                 : null,
-            (v) => c.updateMixingMode(3, v),
+            (v) => c.updateMixingMode(1, v),
           ),
         ),
         const SizedBox(height: AppDimens.gapM),

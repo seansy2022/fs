@@ -1038,8 +1038,8 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
   String _ch5MixingModeText(String mixingFunction, int value) {
     if (mixingFunction == '混动') {
       if (value == 0) return '驱动混控后面';
-      if (value == 1) return '驱动混控前面';
-      return '驱动混控前后混控';
+      if (value == 1) return '驱动混控前后混控';
+      return '驱动混控前面';
     }
     if (value == 0) return '四轮转向前面';
     if (value == 1) return '四轮转向前后反向';
@@ -1052,7 +1052,7 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
       if (value == '驱动混控后面' || value == '后驱' || value == '驱动混控后驱') {
         return 0;
       }
-      if (value == '驱动混控前面' || value == '前驱' || value == '驱动混控前驱') {
+      if (value == '驱动混控前后混控' || value == '前后混驱') {
         return 1;
       }
       return 2;

@@ -64,9 +64,9 @@ void main() {
     state = container.read(controlMappingProvider);
     expect(state.action, '驱动混控');
     expect(state.mixingFunction, '混动');
-    expect(state.mixingMode1, '驱动混控前面');
-    expect(state.mixingMode2, '驱动混控后面');
-    expect(state.mixingMode3, '驱动混控前后混控');
+    expect(state.mixingMode1, '驱动混控后面');
+    expect(state.mixingMode2, '驱动混控前后混控');
+    expect(state.mixingMode3, '驱动混控前面');
     final unique = {state.mixingMode1, state.mixingMode2, state.mixingMode3};
     expect(unique.length, 3);
 

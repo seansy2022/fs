@@ -54,7 +54,7 @@ const _ch5FourWheelOptions = <String>[
   '四轮转向前后同向',
   '四轮转向前后反向',
 ];
-const _ch5DriveOptions = <String>['驱动混控前面', '驱动混控后面', '驱动混控前后混控'];
+const _ch5DriveOptions = <String>['驱动混控后面', '驱动混控前后混控', '驱动混控前面'];
 
 List<String> controlTypeOptionsForChannel(String channel) {
   switch (channel) {

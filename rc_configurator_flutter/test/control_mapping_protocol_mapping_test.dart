@@ -32,8 +32,8 @@ void main() {
         type: '三档开关',
         mixingFunction: '混动',
         mixingMode1: '驱动混控后面',
-        mixingMode2: '驱动混控前面',
-        mixingMode3: '驱动混控前后混控',
+        mixingMode2: '驱动混控前后混控',
+        mixingMode3: '驱动混控前面',
         action: '驱动混控',
       ),
     );
@@ -116,6 +116,26 @@ void main() {
     expect(next.controlMapping.action, '四轮混控');
     expect(next.controlMappings['CH5']?.action, '四轮混控');
     expect(next.controlMappings['CH5']?.mixingMode3, '四轮转向后面');
+  });
+
+  test('CH5三档混动回包按向后中前解析0/1/2', () {
+    final adapter = ProtocolAdapterV1();
+    final frame = BluetoothFrame(
+      seq: 1,
+      command: BluetoothCommand.controlMapping.id,
+      length: 9,
+      data: const [0, 4, 0, 0, 0, 1, 2, 1, 14],
+    );
+    final next = adapter.applyToState(
+      RcAppState.initial(),
+      adapter.decodeFrame(frame),
+    );
+    expect(next.controlMapping.type, '三档开关');
+    expect(next.controlMapping.mixingFunction, '混动');
+    expect(next.controlMapping.mixingMode1, '驱动混控后面');
+    expect(next.controlMapping.mixingMode2, '驱动混控前后混控');
+    expect(next.controlMapping.mixingMode3, '驱动混控前面');
+    expect(next.controlMapping.action, '驱动混控');
   });
 
   test('CH5旧格式7/8编码不再按混控解析', () {
