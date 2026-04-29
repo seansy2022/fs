@@ -27,7 +27,7 @@ void main() {
     expect(control.leftSelected, isTrue);
   });
 
-  testWidgets('rear minus at 100 switches to F and immediately changes F', (
+  testWidgets('rear minus at 100 keeps R when front is not 100', (
     tester,
   ) async {
     await _pumpDrive(tester, front: 72, rear: 100, leftSelected: false);
@@ -36,12 +36,12 @@ void main() {
     await tester.pump();
 
     final control = _control(tester);
-    expect(control.frontRatio, 71);
+    expect(control.frontRatio, 72);
     expect(control.rearRatio, 100);
-    expect(control.leftSelected, isTrue);
+    expect(control.leftSelected, isFalse);
   });
 
-  testWidgets('front plus at 100 switches to R and immediately changes R', (
+  testWidgets('front plus at 100 keeps F when rear is not 100', (
     tester,
   ) async {
     await _pumpDrive(tester, front: 100, rear: 81, leftSelected: true);
@@ -51,8 +51,8 @@ void main() {
 
     final control = _control(tester);
     expect(control.frontRatio, 100);
-    expect(control.rearRatio, 80);
-    expect(control.leftSelected, isFalse);
+    expect(control.rearRatio, 81);
+    expect(control.leftSelected, isTrue);
   });
 
   testWidgets('rear minus at dual 100 switches and immediately changes F', (

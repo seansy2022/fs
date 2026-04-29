@@ -37,7 +37,11 @@ class DriveMixingControl extends StatelessWidget {
         return;
       }
       if (rearRatio >= 100) {
-        onRatioChange((frontRatio - 1).clamp(0, 100), rearRatio, true);
+        if (frontRatio >= 100) {
+          onRatioChange((frontRatio - 1).clamp(0, 100), rearRatio, true);
+          return;
+        }
+        onRatioChange(frontRatio, rearRatio, false);
         return;
       }
       onRatioChange(frontRatio, (rearRatio + 1).clamp(0, 100), false);
@@ -48,7 +52,11 @@ class DriveMixingControl extends StatelessWidget {
       return;
     }
     if (frontRatio >= 100) {
-      onRatioChange(frontRatio, (rearRatio - 1).clamp(0, 100), false);
+      if (rearRatio >= 100) {
+        onRatioChange(frontRatio, (rearRatio - 1).clamp(0, 100), false);
+        return;
+      }
+      onRatioChange(frontRatio, rearRatio, true);
       return;
     }
     onRatioChange((frontRatio + 1).clamp(0, 100), rearRatio, true);
