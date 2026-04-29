@@ -19,6 +19,7 @@ class ControlMappingController extends Notifier<ControlMappingState> {
 
   void selectChannel(String channel) {
     final appController = ref.container.read(rcAppStateProvider.notifier);
+    appController.focusControlMappingChannel(channel);
     final cached = appController.state.controlMappings[channel];
     if (cached != null) {
       final type = normalizeControlTypeForChannel(channel, cached.type);

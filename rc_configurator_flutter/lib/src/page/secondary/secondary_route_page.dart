@@ -30,6 +30,7 @@ class SecondaryRoutePage extends ConsumerStatefulWidget {
 class _SecondaryRoutePageState extends ConsumerState<SecondaryRoutePage> {
   static const _subTrimRepeatThreshold = Duration(milliseconds: 140);
   static const _subTrimLockReleaseDelay = Duration(milliseconds: 220);
+  late final RcAppController _appController;
   bool _screenRefreshInFlight = false;
   bool _pendingSyncAfterConnect = false;
   String? _subTrimRapidChannelId;
@@ -40,21 +41,45 @@ class _SecondaryRoutePageState extends ConsumerState<SecondaryRoutePage> {
   @override
   void initState() {
     super.initState();
-    unawaited(_syncScreenConfig());
+    _appController = ref.read(rcAppStateProvider.notifier);
+    _handleControlMappingEnter(widget.screen);
+    _syncScreenRefresh(widget.screen);
   }
 
   @override
   void didUpdateWidget(covariant SecondaryRoutePage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.screen != widget.screen) {
-      unawaited(_syncScreenConfig());
+      _handleControlMappingLeave(oldWidget.screen);
+      _handleControlMappingEnter(widget.screen);
+      _syncScreenRefresh(widget.screen);
     }
   }
 
   @override
   void dispose() {
+    _handleControlMappingLeave(widget.screen);
     _subTrimLockReleaseTimer?.cancel();
     super.dispose();
+  }
+
+  void _handleControlMappingEnter(Screen screen) {
+    if (screen != Screen.controlMapping) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.screen != Screen.controlMapping) return;
+      _appController.enterControlMappingPage();
+      _syncScreenRefresh(widget.screen);
+    });
+  }
+
+  void _handleControlMappingLeave(Screen screen) {
+    if (screen != Screen.controlMapping) return;
+    _appController.leaveControlMappingPage();
+  }
+
+  void _syncScreenRefresh(Screen screen) {
+    if (screen == Screen.controlMapping) return;
+    unawaited(_syncScreenConfig());
   }
 
   Future<void> _syncScreenConfig({bool retry = false}) async {

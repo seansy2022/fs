@@ -254,7 +254,7 @@ void main() {
     expect(thirdCount, 2);
   });
 
-  test('control mapping refresh reads CH11 first then all channels', () async {
+  test('control mapping refresh defaults to CH11 after sync', () async {
     final transport = _RefreshAckingMemoryLinkTransport();
     final container = ProviderContainer(
       overrides: [
@@ -290,6 +290,7 @@ void main() {
               .controlMapping
               .copyWith(channel: 'CH3'),
         );
+    notifier.enterControlMappingPage();
     transport.sentPackets.clear();
 
     final success = await notifier.refreshForScreen(Screen.controlMapping);
@@ -306,6 +307,96 @@ void main() {
     expect(state.controlMapping.channel, 'CH11');
     expect(state.controlMappings.keys, containsAll(controlMappingChannels));
   });
+
+  test('control mapping in-flight sync does not override user focus', () async {
+    final transport = _DelayedControlMappingAckTransport();
+    final container = ProviderContainer(
+      overrides: [
+        linkTransportProvider.overrideWithValue(transport),
+        protocolAdapterProvider.overrideWithValue(_NoStartupProtocolAdapter()),
+      ],
+    );
+    addTearDown(() async {
+      await transport.dispose();
+      container.dispose();
+    });
+    final notifier = container.read(rcAppStateProvider.notifier);
+    notifier.startScan();
+    await Future<void>.delayed(Duration.zero);
+    transport.emitScanResults([
+      const BluetoothScanDevice(remoteId: 'B-5', name: 'MG11 Test', rssi: -44),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    final deviceId = container
+        .read(rcAppStateProvider)
+        .bluetooth
+        .devices
+        .first
+        .id;
+    notifier.toggleConnection(deviceId);
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    notifier.enterControlMappingPage();
+    transport.sentPackets.clear();
+    final syncFuture = notifier.refreshForScreen(Screen.controlMapping);
+    await Future<void>.delayed(const Duration(milliseconds: 8));
+    notifier.focusControlMappingChannel('CH6');
+    final success = await syncFuture;
+    expect(success, isTrue);
+    final state = container.read(rcAppStateProvider);
+    expect(state.controlMapping.channel, 'CH6');
+  });
+
+  test(
+    'control mapping quick re-enter stays CH11 when refresh is deduplicated',
+    () async {
+      final transport = _RefreshAckingMemoryLinkTransport();
+      final container = ProviderContainer(
+        overrides: [
+          linkTransportProvider.overrideWithValue(transport),
+          protocolAdapterProvider.overrideWithValue(
+            _NoStartupProtocolAdapter(),
+          ),
+        ],
+      );
+      addTearDown(() async {
+        await transport.dispose();
+        container.dispose();
+      });
+      final notifier = container.read(rcAppStateProvider.notifier);
+      notifier.startScan();
+      await Future<void>.delayed(Duration.zero);
+      transport.emitScanResults([
+        const BluetoothScanDevice(
+          remoteId: 'B-6',
+          name: 'MG11 Test',
+          rssi: -44,
+        ),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+      final deviceId = container
+          .read(rcAppStateProvider)
+          .bluetooth
+          .devices
+          .first
+          .id;
+      notifier.toggleConnection(deviceId);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      notifier.enterControlMappingPage();
+      final first = await notifier.refreshForScreen(Screen.controlMapping);
+      expect(first, isTrue);
+      notifier.focusControlMappingChannel('CH5');
+      expect(container.read(rcAppStateProvider).controlMapping.channel, 'CH5');
+      notifier.leaveControlMappingPage();
+      notifier.enterControlMappingPage();
+      expect(container.read(rcAppStateProvider).controlMapping.channel, 'CH11');
+      final before = _sentReadCount(transport, BluetoothCommand.controlMapping);
+      final second = await notifier.refreshForScreen(Screen.controlMapping);
+      expect(second, isTrue);
+      final after = _sentReadCount(transport, BluetoothCommand.controlMapping);
+      expect(after, before);
+      expect(container.read(rcAppStateProvider).controlMapping.channel, 'CH11');
+    },
+  );
 
   test('mixing reset restores four wheel steer defaults', () async {
     final container = ProviderContainer();
@@ -467,6 +558,62 @@ class _RefreshAckingMemoryLinkTransport extends MemoryLinkTransport {
     if (frame.length != 0) return;
 
     if (frame.command == BluetoothCommand.controlMapping.id) {
+      final channelIndex = frame.data.length > 1 ? frame.data[1] : 10;
+      emitIncoming(
+        BluetoothFrame(
+          seq: frame.seq,
+          command: frame.command,
+          length: 9,
+          data: [0, channelIndex, 1, 0, 0, 0, 0, 1, 25],
+        ).toBytes(),
+      );
+      return;
+    }
+    if (frame.command == BluetoothCommand.channelDisplay.id) {
+      emitIncoming(
+        BluetoothFrame(
+          seq: frame.seq,
+          command: frame.command,
+          length: 22,
+          data: List<int>.filled(24, 0),
+        ).toBytes(),
+      );
+      return;
+    }
+    if (frame.command == BluetoothCommand.telemetryDisplay.id) {
+      emitIncoming(
+        BluetoothFrame(
+          seq: frame.seq,
+          command: frame.command,
+          length: 12,
+          data: List<int>.filled(24, 0),
+        ).toBytes(),
+      );
+      return;
+    }
+    if (frame.command == BluetoothCommand.channelReverse.id) {
+      emitIncoming(
+        BluetoothFrame(
+          seq: frame.seq,
+          command: frame.command,
+          length: 11,
+          data: List<int>.filled(24, 0),
+        ).toBytes(),
+      );
+    }
+  }
+}
+
+class _DelayedControlMappingAckTransport extends MemoryLinkTransport {
+  _DelayedControlMappingAckTransport() : super(linkType: LinkType.usb);
+
+  @override
+  Future<void> send(List<int> bytes) async {
+    await super.send(bytes);
+    final frame = BluetoothFrame.tryParse(bytes);
+    if (frame == null || frame.length != 0) return;
+    if (frame.command == BluetoothCommand.controlMapping.id) {
+      await Future<void>.delayed(const Duration(milliseconds: 3));
       final channelIndex = frame.data.length > 1 ? frame.data[1] : 10;
       emitIncoming(
         BluetoothFrame(

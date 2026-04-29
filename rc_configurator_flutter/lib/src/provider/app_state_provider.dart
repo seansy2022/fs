@@ -101,6 +101,7 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
   bool _realtimeReadInFlight = false;
   bool _blockWritesUntilReverseRead = false;
   String? _pinnedControlMappingChannel;
+  String? _userFocusedControlMappingChannel;
   bool _connectRetryInProgress = false;
   final Map<String, int> _deviceIds = <String, int>{};
   int _nextId = 1;
@@ -697,6 +698,21 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
     }
   }
 
+  void focusControlMappingChannel(String channel) {
+    _userFocusedControlMappingChannel = channel;
+    _showCachedControlMapping(channel);
+  }
+
+  void enterControlMappingPage() {
+    const channel = 'CH11';
+    _userFocusedControlMappingChannel = channel;
+    _showCachedControlMapping(channel);
+  }
+
+  void leaveControlMappingPage() {
+    _userFocusedControlMappingChannel = null;
+  }
+
   Future<void> _startScan() async {
     await _stopScanQuietly();
     await _scanSub?.cancel();
@@ -1009,9 +1025,11 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
   Future<bool> _syncControlMappingReads() async {
     final client = _client;
     if (client == null) return false;
-    const currentChannel = 'CH11';
-    _showCachedControlMapping(currentChannel);
-    _pinnedControlMappingChannel = currentChannel;
+    const startupPinned = 'CH11';
+    _pinnedControlMappingChannel = startupPinned;
+    if (_userFocusedControlMappingChannel == null) {
+      _showCachedControlMapping(startupPinned);
+    }
     _logSecondaryReadCommands(Screen.controlMapping, const [
       BluetoothCommand.controlMapping,
     ]);
@@ -1030,7 +1048,10 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
         );
         if (!success) allSuccess = false;
       }
-      _showCachedControlMapping(currentChannel);
+      final visible = _effectiveControlMappingPinnedChannel(
+        fallback: startupPinned,
+      );
+      if (visible != null) _showCachedControlMapping(visible);
     } finally {
       _pinnedControlMappingChannel = null;
     }
@@ -1042,6 +1063,12 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
     final cached = state.controlMappings[channel];
     if (cached == null) return;
     state = state.copyWith(controlMapping: cached);
+  }
+
+  String? _effectiveControlMappingPinnedChannel({String? fallback}) {
+    return _userFocusedControlMappingChannel ??
+        _pinnedControlMappingChannel ??
+        fallback;
   }
 
   void _logSecondaryReadCommands(
@@ -1273,7 +1300,7 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
   void _onFrame(BluetoothFrame frame) {
     final event = _adapter.decodeFrame(frame);
     state = _adapter.applyToState(state, event);
-    final pinned = _pinnedControlMappingChannel;
+    final pinned = _effectiveControlMappingPinnedChannel();
     if (pinned != null && event.command == BluetoothCommand.controlMapping) {
       _showCachedControlMapping(pinned);
     }
