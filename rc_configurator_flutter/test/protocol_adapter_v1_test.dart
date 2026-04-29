@@ -100,21 +100,24 @@ void main() {
     expect(writes.first.payload, [66, 0, 88, 77]);
   });
 
-  test('dual rate read maps payload[2] to brake and payload[3] to throttle', () {
-    final adapter = ProtocolAdapterV1();
-    final state = RcAppState.initial();
-    final frame = BluetoothFrame(
-      seq: 1,
-      command: BluetoothCommand.dualRate.id,
-      length: 4,
-      data: const [100, 100, 60, 81],
-    );
+  test(
+    'dual rate read maps payload[2] to brake and payload[3] to throttle',
+    () {
+      final adapter = ProtocolAdapterV1();
+      final state = RcAppState.initial();
+      final frame = BluetoothFrame(
+        seq: 1,
+        command: BluetoothCommand.dualRate.id,
+        length: 4,
+        data: const [100, 100, 60, 81],
+      );
 
-    final next = adapter.applyToState(state, adapter.decodeFrame(frame));
-    expect(next.channels[0].dualRate, 100);
-    expect(next.channels[1].dualRate, 81);
-    expect(next.channels[2].dualRate, 60);
-  });
+      final next = adapter.applyToState(state, adapter.decodeFrame(frame));
+      expect(next.channels[0].dualRate, 100);
+      expect(next.channels[1].dualRate, 81);
+      expect(next.channels[2].dualRate, 60);
+    },
+  );
 
   test('control mapping read keeps selected channel for invalid channel', () {
     final adapter = ProtocolAdapterV1();
@@ -180,5 +183,11 @@ void main() {
     expect(state.protocol.trackMixing.enabled, isFalse);
     expect(state.protocol.driveMixing.enabled, isTrue);
     expect(state.protocol.brakeMixing.enabled, isFalse);
+    expect(state.mixingSettings.activeMode, 'DRIVE');
+    expect(state.mixingSettings.selectedChannel, 'CH3');
+    expect(state.mixingSettings.driveFrontRatio, 100);
+    expect(state.mixingSettings.driveRearRatio, 80);
+    expect(state.mixingSettings.direction, 'REAR');
+    expect(state.mixingSettings.driveFocusedSide, 'R');
   });
 }

@@ -3,46 +3,89 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 void main() {
-  testWidgets('rear minus at 100 only switches to F', (tester) async {
+  testWidgets('rear plus decreases rear ratio only', (tester) async {
+    await _pumpDrive(tester, front: 88, rear: 100, leftSelected: false);
+
+    await tester.tap(_plusButton());
+    await tester.pump();
+
+    final control = _control(tester);
+    expect(control.frontRatio, 88);
+    expect(control.rearRatio, 99);
+    expect(control.leftSelected, isFalse);
+  });
+
+  testWidgets('front minus decreases front ratio only', (tester) async {
+    await _pumpDrive(tester, front: 100, rear: 76, leftSelected: true);
+
+    await tester.tap(_minusButton());
+    await tester.pump();
+
+    final control = _control(tester);
+    expect(control.frontRatio, 99);
+    expect(control.rearRatio, 76);
+    expect(control.leftSelected, isTrue);
+  });
+
+  testWidgets('rear minus at 100 switches to F and immediately changes F', (
+    tester,
+  ) async {
+    await _pumpDrive(tester, front: 72, rear: 100, leftSelected: false);
+
+    await tester.tap(_minusButton());
+    await tester.pump();
+
+    final control = _control(tester);
+    expect(control.frontRatio, 71);
+    expect(control.rearRatio, 100);
+    expect(control.leftSelected, isTrue);
+  });
+
+  testWidgets('front plus at 100 switches to R and immediately changes R', (
+    tester,
+  ) async {
+    await _pumpDrive(tester, front: 100, rear: 81, leftSelected: true);
+
+    await tester.tap(_plusButton());
+    await tester.pump();
+
+    final control = _control(tester);
+    expect(control.frontRatio, 100);
+    expect(control.rearRatio, 80);
+    expect(control.leftSelected, isFalse);
+  });
+
+  testWidgets('rear minus at dual 100 switches and immediately changes F', (
+    tester,
+  ) async {
     await _pumpDrive(tester, front: 100, rear: 100, leftSelected: false);
 
     await tester.tap(_minusButton());
     await tester.pump();
 
-    final control = tester.widget<DriveMixingControl>(
-      find.byType(DriveMixingControl),
-    );
-    expect(control.leftSelected, isTrue);
-    expect(control.frontRatio, 100);
+    final control = _control(tester);
+    expect(control.frontRatio, 99);
     expect(control.rearRatio, 100);
+    expect(control.leftSelected, isTrue);
   });
 
-  testWidgets('rear plus decreases rear ratio', (tester) async {
-    await _pumpDrive(tester, front: 100, rear: 100, leftSelected: false);
-
-    await tester.tap(_plusButton());
-    await tester.pump();
-
-    expect(find.text('R:99%'), findsOneWidget);
-    final control = tester.widget<DriveMixingControl>(
-      find.byType(DriveMixingControl),
-    );
-    expect(control.leftSelected, isFalse);
-  });
-
-  testWidgets('front plus at 100 only switches to R', (tester) async {
+  testWidgets('front plus at dual 100 switches and immediately changes R', (
+    tester,
+  ) async {
     await _pumpDrive(tester, front: 100, rear: 100, leftSelected: true);
 
     await tester.tap(_plusButton());
     await tester.pump();
 
-    final control = tester.widget<DriveMixingControl>(
-      find.byType(DriveMixingControl),
-    );
-    expect(control.leftSelected, isFalse);
+    final control = _control(tester);
     expect(control.frontRatio, 100);
-    expect(control.rearRatio, 100);
+    expect(control.rearRatio, 99);
+    expect(control.leftSelected, isFalse);
   });
+}
+
+DriveMixingControl _control(WidgetTester tester) {
+  return tester.widget<DriveMixingControl>(find.byType(DriveMixingControl));
 }
 
 Finder _minusButton() {

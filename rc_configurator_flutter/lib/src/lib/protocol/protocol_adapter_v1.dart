@@ -521,9 +521,6 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
       rearRatio: payload[3].clamp(0, 100),
       mode: payload[4].clamp(0, 2),
     );
-    final ratio = snap.frontRatio == 100
-        ? 100 - snap.rearRatio
-        : snap.frontRatio - 100;
     final direction = snap.mode == 0
         ? 'REAR'
         : snap.mode == 1
@@ -539,8 +536,10 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
             ? 'DRIVE'
             : _clearModeIfDisabled(state.mixingSettings.activeMode, 'DRIVE'),
         selectedChannel: _protocolChannelToUi(snap.channel),
-        ratio: ratio.clamp(-100, 100),
+        driveFrontRatio: snap.frontRatio,
+        driveRearRatio: snap.rearRatio,
         direction: direction,
+        driveFocusedSide: 'R',
       ),
       protocol: protocol,
     );

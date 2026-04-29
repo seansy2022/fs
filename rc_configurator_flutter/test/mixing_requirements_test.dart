@@ -93,7 +93,9 @@ void main() {
     expect(next.protocol.driveMixing.frontRatio, 100);
     expect(next.protocol.driveMixing.rearRatio, 100);
     expect(next.mixingSettings.selectedChannel, 'CH3');
-    expect(next.mixingSettings.ratio, 0);
+    expect(next.mixingSettings.driveFrontRatio, 100);
+    expect(next.mixingSettings.driveRearRatio, 100);
+    expect(next.mixingSettings.driveFocusedSide, 'R');
   });
 
   test('mixing nav reset resets all four modules', () async {

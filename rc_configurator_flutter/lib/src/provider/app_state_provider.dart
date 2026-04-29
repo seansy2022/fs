@@ -418,9 +418,10 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
               activeMode: mode,
               enabled: false,
               selectedChannel: 'CH3',
-              ratio: 0,
+              driveFrontRatio: 100,
+              driveRearRatio: 100,
               direction: 'REAR',
-              driveRatioSelectedSide: 'R',
+              driveFocusedSide: 'R',
             ),
             'BRAKE' => working.mixingSettings.copyWith(
               activeMode: mode,
@@ -458,9 +459,10 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
               ? working.mixingSettings.copyWith(
                   activeMode: originalMode,
                   selectedChannel: 'CH3',
-                  ratio: 0,
+                  driveFrontRatio: 100,
+                  driveRearRatio: 100,
                   direction: 'REAR',
-                  driveRatioSelectedSide: 'R',
+                  driveFocusedSide: 'R',
                 )
               : originalMode == 'BRAKE'
               ? working.mixingSettings.copyWith(
@@ -523,9 +525,10 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
             activeMode: mode,
             enabled: false,
             selectedChannel: 'CH3',
-            ratio: 0,
+            driveFrontRatio: 100,
+            driveRearRatio: 100,
             direction: 'REAR',
-            driveRatioSelectedSide: 'R',
+            driveFocusedSide: 'R',
           ),
           'BRAKE' => working.mixingSettings.copyWith(
             activeMode: mode,
@@ -1658,7 +1661,6 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
       );
     }
     if (mode == 'DRIVE') {
-      final ratios = _driveRatios(next.ratio, next.driveRatioSelectedSide);
       final driveMode = next.direction == 'REAR'
           ? 0
           : next.direction == 'MIXED'
@@ -1668,8 +1670,8 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
         driveMixing: protocol.driveMixing.copyWith(
           enabled: next.enabled,
           channel: _uiChannelToProtocol(next.selectedChannel),
-          frontRatio: ratios.$1,
-          rearRatio: ratios.$2,
+          frontRatio: next.driveFrontRatio.clamp(0, 100),
+          rearRatio: next.driveRearRatio.clamp(0, 100),
           mode: driveMode,
         ),
       );
@@ -1716,12 +1718,6 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
     if (activeCurve == 'Steering') return 0;
     if (activeCurve == 'Brake') return 2;
     return 1;
-  }
-
-  (int, int) _driveRatios(int ratio, String side) {
-    final clamped = ratio.clamp(-100, 100);
-    if (side == 'F') return ((100 + clamped).clamp(0, 100), 100);
-    return (100, (100 - clamped).clamp(0, 100));
   }
 }
 

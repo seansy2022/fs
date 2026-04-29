@@ -88,7 +88,9 @@ class MixingSettings {
     required this.curve,
     required this.direction,
     required this.selectedChannel,
-    this.driveRatioSelectedSide = 'R',
+    this.driveFrontRatio = 100,
+    this.driveRearRatio = 100,
+    this.driveFocusedSide = 'R',
   });
 
   final String activeMode;
@@ -97,7 +99,9 @@ class MixingSettings {
   final int curve;
   final String direction;
   final String selectedChannel;
-  final String driveRatioSelectedSide;
+  final int driveFrontRatio;
+  final int driveRearRatio;
+  final String driveFocusedSide;
 
   MixingSettings copyWith({
     String? activeMode,
@@ -106,7 +110,9 @@ class MixingSettings {
     int? curve,
     String? direction,
     String? selectedChannel,
-    String? driveRatioSelectedSide,
+    int? driveFrontRatio,
+    int? driveRearRatio,
+    String? driveFocusedSide,
   }) {
     return MixingSettings(
       activeMode: activeMode ?? this.activeMode,
@@ -115,8 +121,9 @@ class MixingSettings {
       curve: curve ?? this.curve,
       direction: direction ?? this.direction,
       selectedChannel: selectedChannel ?? this.selectedChannel,
-      driveRatioSelectedSide:
-          driveRatioSelectedSide ?? this.driveRatioSelectedSide,
+      driveFrontRatio: driveFrontRatio ?? this.driveFrontRatio,
+      driveRearRatio: driveRearRatio ?? this.driveRearRatio,
+      driveFocusedSide: driveFocusedSide ?? this.driveFocusedSide,
     );
   }
 }

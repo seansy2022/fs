@@ -33,25 +33,25 @@ class DriveMixingControl extends StatelessWidget {
   void _adjust(int delta) {
     if (!leftSelected) {
       if (delta > 0) {
-        onRatioChange(100, (rearRatio - 1).clamp(0, 100), false);
+        onRatioChange(frontRatio, (rearRatio - 1).clamp(0, 100), false);
         return;
       }
       if (rearRatio >= 100) {
-        onRatioChange(frontRatio, rearRatio, true);
+        onRatioChange((frontRatio - 1).clamp(0, 100), rearRatio, true);
         return;
       }
-      onRatioChange(100, (rearRatio + 1).clamp(0, 100), false);
+      onRatioChange(frontRatio, (rearRatio + 1).clamp(0, 100), false);
       return;
     }
     if (delta < 0) {
-      onRatioChange((frontRatio - 1).clamp(0, 100), 100, true);
+      onRatioChange((frontRatio - 1).clamp(0, 100), rearRatio, true);
       return;
     }
     if (frontRatio >= 100) {
-      onRatioChange(frontRatio, rearRatio, false);
+      onRatioChange(frontRatio, (rearRatio - 1).clamp(0, 100), false);
       return;
     }
-    onRatioChange((frontRatio + 1).clamp(0, 100), 100, true);
+    onRatioChange((frontRatio + 1).clamp(0, 100), rearRatio, true);
   }
 
   @override
