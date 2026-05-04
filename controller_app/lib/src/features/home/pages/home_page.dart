@@ -46,7 +46,7 @@ class HomePage extends ConsumerWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 鑳屾櫙鍥鹃摵婊″叏灞?
+          // 背景图铺满全屏
           Positioned.fill(
             child: Image.asset(
               'lib/src/assets/image_enhanced.png',
@@ -67,11 +67,11 @@ class HomePage extends ConsumerWidget {
               ),
             ),
           ),
-          // 鍐呭
+          // 内容
           SafeArea(
             child: Stack(
               children: [
-                // 鍙充笂瑙掕摑鐗欒繛鎺ユ寜閽?
+                // 右上角蓝牙连接按钮
                 Positioned(
                   top: 16,
                   left: 16,
@@ -102,12 +102,12 @@ class HomePage extends ConsumerWidget {
                     },
                   ),
                 ),
-                // 涓棿鍐呭
+                // 中间内容
                 Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // RX鐢靛帇 鍜?淇″彿寮哄害
+                      // RX电压 和 信号强度
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -115,7 +115,7 @@ class HomePage extends ConsumerWidget {
                             width: 112,
                             height: 120,
                             child: HomeMetric(
-                              label: 'RX鐢靛帇',
+                              label: 'RX电压',
                               value: batteryLevel != null
                                   ? '$batteryLevel'
                                   : '--',
@@ -128,7 +128,7 @@ class HomePage extends ConsumerWidget {
                             width: 112,
                             height: 120,
                             child: HomeMetric(
-                              label: '淇″彿寮哄害',
+                              label: '信号强度',
                               value: rssi != null ? '$rssi' : '--',
                               unit: 'dBm',
                               emphasize: connected,
@@ -137,7 +137,7 @@ class HomePage extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 48),
-                      // 璁剧疆 鍜?寮€濮?鎸夐挳
+                      // 设置 和 开始 按钮
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -216,8 +216,8 @@ class HomePage extends ConsumerWidget {
             status: d.connected
                 ? '已连接'
                 : d.rssi > -120
-                ? '鍦ㄧ嚎'
-                : '绂荤嚎',
+                ? '在线'
+                : '离线',
             statusColor: d.connected
                 ? const Color(0xFF67E600)
                 : d.rssi > -120
@@ -229,13 +229,13 @@ class HomePage extends ConsumerWidget {
 
     AlertBlueWidget.show(
       context,
-      title: '钃濈墮璁惧',
+      title: '蓝牙设备',
       items: items,
       onRefresh: () {
         ref.read(receiverRepositoryProvider).startScan();
       },
       onDelete: (item) {
-        // 鍙互娣诲姞鍒犻櫎璁惧閫昏緫
+        // 可以添加删除设备逻辑
       },
     );
   }

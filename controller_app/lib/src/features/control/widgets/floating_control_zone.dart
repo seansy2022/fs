@@ -245,15 +245,12 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
               child: SizedBox(
                 width: widget.height,
                 height: widget.height,
-                child: Transform.rotate(
-                  angle: -3.141592653589793,
-                  child: SvgPicture.asset(
-                    key: floatingControlPositiveKey,
-                    _buttonAsset(positiveSide: true),
-                    width: widget.height,
-                    height: widget.height,
-                    fit: BoxFit.contain,
-                  ),
+                child: SvgPicture.asset(
+                  key: floatingControlPositiveKey,
+                  _buttonAsset(positiveSide: true),
+                  width: widget.height,
+                  height: widget.height,
+                  fit: BoxFit.contain,
                 ),
               ),
             )
@@ -265,12 +262,15 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
               child: SizedBox(
                 width: widget.height,
                 height: widget.height,
-                child: SvgPicture.asset(
-                  key: floatingControlNegativeKey,
-                  _buttonAsset(positiveSide: false),
-                  width: widget.height,
-                  height: widget.height,
-                  fit: BoxFit.contain,
+                child: Transform.rotate(
+                  angle: -3.141592653589793,
+                  child: SvgPicture.asset(
+                    key: floatingControlNegativeKey,
+                    _buttonAsset(positiveSide: false),
+                    width: widget.height,
+                    height: widget.height,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
             ),

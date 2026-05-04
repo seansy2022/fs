@@ -161,7 +161,7 @@ class _ControlState extends State<Control> {
                   ),
                 ),
               ),
-            // 水平方向：左边的点击按钮（旋转-180度）
+            // 水平方向：左边的点击按钮（旋转-180度，箭头指向左）
             if (!isVertical)
               Positioned(
                 left: 0,
@@ -169,26 +169,10 @@ class _ControlState extends State<Control> {
                 child: SizedBox(
                   width: widget.height,
                   height: widget.height,
-                  child: SvgPicture.asset(
-                    _buttonAsset(positiveSide: false),
-                    width: widget.height,
-                    height: widget.height,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-            // 水平方向：右边的点击按钮（不旋转）
-            if (!isVertical)
-              Positioned(
-                right: widget.width - widget.height, // 右边位置 = 总宽度 - SVG宽度
-                top: 0,
-                child: SizedBox(
-                  width: widget.height,
-                  height: widget.height,
                   child: Transform.rotate(
-                    angle: -math.pi, // -180度
+                    angle: -math.pi,
                     child: SvgPicture.asset(
-                      _buttonAsset(positiveSide: true),
+                      _buttonAsset(positiveSide: false),
                       width: widget.height,
                       height: widget.height,
                       fit: BoxFit.contain,
@@ -196,27 +180,29 @@ class _ControlState extends State<Control> {
                   ),
                 ),
               ),
-            // 手柄点
-            if (_isDragging) _buildThumb(isVertical),
+            // 水平方向：右边的点击按钮（不旋转，箭头指向右）
+            if (!isVertical)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: SizedBox(
+                  width: widget.height,
+                  height: widget.height,
+                  child: SvgPicture.asset(
+                    _buttonAsset(positiveSide: true),
+                    width: widget.height,
+                    height: widget.height,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            // 手柄点（始终显示）
+            _buildThumb(isVertical),
           ],
         ),
       ),
     );
   }
-
-  // Widget _buildTrack(bool isVertical) {
-  //   return Container(
-  //     width: isVertical ? _kControlWidth : widget.width,
-  //     height: isVertical ? widget.height : _kControlWidth,
-  //     decoration: BoxDecoration(
-  //       color: AppColors.surfaceHighest.withValues(alpha: 0.3),
-  //       borderRadius: BorderRadius.circular(isVertical ? 50 : 50),
-  //     ),
-  //     child: CustomPaint(
-  //       painter: _TrackPainter(value: _value, isVertical: isVertical),
-  //     ),
-  //   );
-  // }
 
   Widget _buildThumb(bool isVertical) {
     double left, top;
