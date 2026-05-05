@@ -1,6 +1,7 @@
 enum ReceiverCommand {
   receiverInfo(0x01),
   controlHeartbeat(0x02),
+  exitBleMode(0x03),
   readFailsafe(0x07),
   writeFailsafe(0x08),
   firmwareInfo(0x11),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rc_ble/rc_ble.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
 import '../features/bluetooth/controllers/device_history_controller.dart';
@@ -9,9 +10,12 @@ import '../features/settings/controllers/settings_controller.dart';
 import '../features/settings/models/app_settings_state.dart';
 
 final receiverRepositoryProvider = Provider<ReceiverRepository>((ref) {
-  final repository = ReceiverRepository();
-  ref.onDispose(() {
-    unawaited(repository.dispose());
+  final transport = MockProtocolLinkTransport();
+  final client = ReceiverBleClient(transport: transport);
+  final repository = ReceiverRepository(client: client);
+  ref.onDispose(() async {
+    await transport.dispose();
+    await repository.dispose();
   });
   return repository;
 });
@@ -28,6 +32,10 @@ final receiverInfoProvider = StreamProvider<ReceiverInfo?>((ref) {
 
 final receiverDevicesProvider = StreamProvider<List<ReceiverScanDevice>>((ref) {
   return ref.watch(receiverRepositoryProvider).scanResultsStream;
+});
+
+final adapterStateProvider = StreamProvider<AdapterState>((ref) {
+  return ref.watch(receiverRepositoryProvider).adapterStateStream;
 });
 
 final receiverFirmwareInfoProvider = StreamProvider<ReceiverFirmwareInfo?>((
@@ -76,6 +84,10 @@ final mergedReceiverDevicesProvider = Provider<List<ReceiverScanDevice>>((ref) {
       ),
     );
   }
+  // Build a lookup map for last-used timestamps.
+  final lastUsed = <String, DateTime>{
+    for (final r in remembered) r.remoteId: r.lastUsedAt,
+  };
   final results = merged.values.toList(growable: false);
   results.sort((left, right) {
     final leftScore = _deviceScore(left);
@@ -83,7 +95,10 @@ final mergedReceiverDevicesProvider = Provider<List<ReceiverScanDevice>>((ref) {
     if (leftScore != rightScore) {
       return leftScore.compareTo(rightScore);
     }
-    return right.rssi.compareTo(left.rssi);
+    // Same score group: sort by last used time descending.
+    final leftTime = lastUsed[left.remoteId] ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final rightTime = lastUsed[right.remoteId] ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return rightTime.compareTo(leftTime);
   });
   return results;
 });

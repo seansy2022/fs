@@ -16,13 +16,77 @@ class PairReceiverPage extends ConsumerStatefulWidget {
 }
 
 class _PairReceiverPageState extends ConsumerState<PairReceiverPage> {
-  bool _busy = false;
+  bool _scanning = true;
+  bool _autoSearchDismissed = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(ref.read(receiverRepositoryProvider).startScan());
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> _onDeviceFound(ReceiverScanDevice device) async {
+    if (!mounted) return;
+    try {
+      await ref.read(receiverRepositoryProvider).connect(device.remoteId);
+      await ref.read(rememberedDevicesProvider.notifier).rememberDevice(device);
+      if (!mounted) return;
+      _showPairSuccessDialog();
+    } catch (_) {
+      // 配对失败静默继续扫描
+    }
+  }
+
+  void _showPairSuccessDialog() {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: const Color(0xCC000000),
+      builder: (dialogContext) {
+        // 3S后自动关闭
+        Future<void>.delayed(const Duration(seconds: 3), () {
+          if (Navigator.of(dialogContext).canPop()) {
+            Navigator.of(dialogContext).pop();
+          }
+          if (mounted) {
+            Navigator.of(context).pop(); // 返回开始页
+          }
+        });
+        return const BlueConnectSuccessLoading(text: '配对成功!');
+      },
+    );
+  }
+
+  void _showPairedDeviceDialog(ReceiverScanDevice device) {
+    if (!mounted || _autoSearchDismissed) return;
+    AlertIconWidget.show(
+      context,
+      title: '发现已配对设备',
+      message: '检测到 ${device.name}，是否连接？',
+      cancelText: '不再提示',
+      confirmText: '是',
+    ).then((result) {
+      if (!mounted) return;
+      if (result == true) {
+        // 连接此接收机并返回开始页
+        unawaited(() async {
+          try {
+            await ref.read(receiverRepositoryProvider).connect(device.remoteId);
+            if (mounted) Navigator.of(context).pop();
+          } catch (_) {}
+        }());
+      } else {
+        // 不再提示
+        setState(() => _autoSearchDismissed = true);
+      }
     });
   }
 
@@ -37,12 +101,39 @@ class _PairReceiverPageState extends ConsumerState<PairReceiverPage> {
           orElse: () => const <ReceiverScanDevice>[],
         );
 
+    final remembered = ref.watch(rememberedDevicesProvider);
+    final rememberedIds = remembered.map((r) => r.remoteId).toSet();
+
+    // Separate new devices from remembered ones
+    final newDevices = devices
+        .where((d) => !rememberedIds.contains(d.remoteId))
+        .toList(growable: false);
+    final onlineRemembered = devices
+        .where((d) => rememberedIds.contains(d.remoteId))
+        .toList(growable: false);
+
+    // Auto-pair: connect to first new device
+    if (_scanning && newDevices.isNotEmpty) {
+      final firstNew = newDevices.first;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scanning) {
+          setState(() => _scanning = false);
+          unawaited(_onDeviceFound(firstNew));
+        }
+      });
+    }
+
+    // Check for online remembered devices (dialog1)
+    if (_scanning && onlineRemembered.isNotEmpty && !_autoSearchDismissed) {
+      final firstRemembered = onlineRemembered.first;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showPairedDeviceDialog(firstRemembered);
+      });
+    }
+
     return AppPageScaffold(
       title: '去配对',
       onBack: () => Navigator.of(context).pop(),
-      onRefresh: () {
-        unawaited(ref.read(receiverRepositoryProvider).startScan());
-      },
       body: Column(
         children: [
           Expanded(
@@ -56,7 +147,9 @@ class _PairReceiverPageState extends ConsumerState<PairReceiverPage> {
                     right: 16,
                     bottom: 16,
                     child: Text(
-                      '请保持接收机处于蓝牙模式（LED 快闪）后再进行连接。',
+                      _scanning
+                          ? '正在搜索接收机...'
+                          : '正在配对中，请稍候...',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: AppColors.textDim,
@@ -76,7 +169,8 @@ class _PairReceiverPageState extends ConsumerState<PairReceiverPage> {
                 ? const Panel(
                     child: Center(
                       child: Text(
-                        '正在搜索附近的蓝牙接收机...',
+                        '请保持接收机处于蓝牙模式（LED 快闪）',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           color: AppColors.textDim,
                           fontSize: AppFonts.s14,
@@ -89,6 +183,7 @@ class _PairReceiverPageState extends ConsumerState<PairReceiverPage> {
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final device = devices[index];
+                      final isNew = !rememberedIds.contains(device.remoteId);
                       return Panel(
                         child: Row(
                           children: [
@@ -106,9 +201,11 @@ class _PairReceiverPageState extends ConsumerState<PairReceiverPage> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '信号 ${device.rssi} dBm',
-                                    style: const TextStyle(
-                                      color: AppColors.textDim,
+                                    isNew ? '新设备' : '已配对',
+                                    style: TextStyle(
+                                      color: isNew
+                                          ? AppColors.primaryBright
+                                          : AppColors.textDim,
                                       fontSize: AppFonts.s12,
                                     ),
                                   ),
@@ -116,11 +213,12 @@ class _PairReceiverPageState extends ConsumerState<PairReceiverPage> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            PrimaryButton(
-                              text: '连接',
-                              width: 88,
-                              enabled: !_busy,
-                              onTap: () => _pair(device),
+                            Text(
+                              '${device.rssi} dBm',
+                              style: const TextStyle(
+                                color: AppColors.textDim,
+                                fontSize: AppFonts.s12,
+                              ),
                             ),
                           ],
                         ),
@@ -131,29 +229,5 @@ class _PairReceiverPageState extends ConsumerState<PairReceiverPage> {
         ],
       ),
     );
-  }
-
-  Future<void> _pair(ReceiverScanDevice device) async {
-    setState(() => _busy = true);
-    try {
-      await ref.read(receiverRepositoryProvider).connect(device.remoteId);
-      await ref.read(rememberedDevicesProvider.notifier).rememberDevice(device);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('配对完成：${device.name}')));
-        Navigator.of(context).pop();
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('配对失败: $error')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
-    }
   }
 }

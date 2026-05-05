@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_ui/rc_ui.dart';
 
+import 'package:rc_c_ble/rc_c_ble.dart';
+
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
 import '../models/app_settings_state.dart';
@@ -209,16 +211,52 @@ class BasicSettingsContent extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              const SettingsStrip(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '设置接收机退出蓝牙模式',
-                        style: TextStyle(color: AppColors.text, fontSize: 14),
+              SettingsStrip(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _onExitBleModeTap(context, ref),
+                  child: const Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '设置接收机退出蓝牙模式',
+                          style: TextStyle(color: AppColors.text, fontSize: 14),
+                        ),
                       ),
-                    ),
-                  ],
+                      Icon(Icons.chevron_right, color: AppColors.textDim, size: 22),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SettingsStrip(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _onBackgroundMusicTap(context, ref),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '背景音乐',
+                              style: TextStyle(color: AppColors.text, fontSize: 14),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              settings.backgroundMusicName,
+                              style: const TextStyle(
+                                color: AppColors.textDim,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: AppColors.textDim, size: 22),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -226,6 +264,81 @@ class BasicSettingsContent extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+Future<void> _onExitBleModeTap(BuildContext context, WidgetRef ref) async {
+  final connectionState =
+      ref.read(receiverConnectionProvider).valueOrNull ??
+      ReceiverConnectionState.disconnected;
+
+  if (connectionState == ReceiverConnectionState.connected) {
+    final result = await AlertIconWidget.show(
+      context,
+      title: '退出蓝牙模式',
+      message: '确定退出蓝牙模式？\n退出后需要重新连接才能控制。',
+      cancelText: '否',
+      confirmText: '是',
+    );
+    if (result == true && context.mounted) {
+      try {
+        await ref.read(receiverRepositoryProvider).exitBleMode();
+        if (context.mounted) {
+          await ref.read(receiverRepositoryProvider).disconnect();
+          if (context.mounted) {
+            await AlertIconWidget.show(
+              context,
+              title: '已退出',
+              message: '接收机已退出蓝牙模式。',
+              confirmText: '确定',
+            );
+          }
+        }
+      } catch (_) {
+        if (context.mounted) {
+          await AlertIconWidget.show(
+            context,
+            title: '操作失败',
+            message: '退出蓝牙模式失败，请重试。',
+            confirmText: '确定',
+          );
+        }
+      }
+    }
+  } else {
+    await AlertIconWidget.show(
+      context,
+      title: '退出蓝牙模式',
+      message: '当前未连接接收机，无需退出蓝牙模式。',
+      confirmText: '确定',
+    );
+  }
+}
+
+Future<void> _onBackgroundMusicTap(BuildContext context, WidgetRef ref) async {
+  final currentName = ref.read(appSettingsProvider).backgroundMusicName;
+
+  final result = await AlertIconWidget.show(
+    context,
+    title: '背景音乐',
+    message: '当前：$currentName\n\n选择默认背景音乐或本地音乐文件。',
+    cancelText: '默认背景音乐',
+    confirmText: '选择本地音乐',
+  );
+
+  if (result == true && context.mounted) {
+    // 选择本地音乐 — 使用文件选择器
+    // TODO: 集成 file_picker 包后启用实际文件选择
+    ref.read(appSettingsProvider.notifier).updateBackgroundMusic(
+          mode: BackgroundMusicMode.localTrack,
+          name: '本地音乐',
+        );
+  } else if (result == false && context.mounted) {
+    // 恢复默认背景音乐
+    ref.read(appSettingsProvider.notifier).updateBackgroundMusic(
+          mode: BackgroundMusicMode.defaultTrack,
+          name: '默认背景音乐',
+        );
   }
 }
 

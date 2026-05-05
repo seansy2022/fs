@@ -4,6 +4,7 @@ import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
+import '../controllers/settings_controller.dart';
 import '../models/app_settings_state.dart';
 import '../widgets/select_option_toggle.dart';
 import '../widgets/settings_workspace.dart';
@@ -53,21 +54,15 @@ class AlarmSettingsContent extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     RCButton(
-                      onTap: () => controller.updateBatterySettings(
-                        batteryType: settings.batteryType == BatteryType.custom
-                            ? BatteryType.twoCell
-                            : BatteryType.custom,
-                      ),
-                      active: settings.batteryType == BatteryType.custom,
+                      onTap: () => _showBatteryTypeDialog(context, settings.batteryType, controller),
+                      active: true,
                       enableRepeat: false,
                       width: 72,
                       height: 32,
                       textWidget: Text(
-                        '其他',
-                        style: TextStyle(
-                          color: settings.batteryType == BatteryType.custom
-                              ? AppColors.text
-                              : AppColors.textDim,
+                        _batteryTypeLabel(settings.batteryType),
+                        style: const TextStyle(
+                          color: AppColors.text,
                           fontSize: 14,
                           fontWeight: AppFonts.w600,
                         ),
@@ -82,24 +77,15 @@ class AlarmSettingsContent extends ConsumerWidget {
                           style: TextStyle(color: AppColors.text, fontSize: 14),
                         ),
                         const SizedBox(width: 8),
-                        RCButton(
-                          onTap: () => controller.updateBatterySettings(
-                            minimumVoltage: 6,
-                          ),
-                          active: (settings.minimumVoltage - 6).abs() < 0.05,
-                          enableRepeat: false,
-                          width: 64,
-                          height: 32,
-                          textWidget: Text(
-                            '6伏',
-                            style: TextStyle(
-                              color: (settings.minimumVoltage - 6).abs() < 0.05
-                                  ? AppColors.text
-                                  : AppColors.textDim,
-                              fontSize: 14,
-                              fontWeight: AppFonts.w600,
-                            ),
-                          ),
+                        _InputBox(
+                          text: settings.minimumVoltage.toStringAsFixed(1),
+                          onSubmitted: (raw) {
+                            final value = _extractNumber(raw);
+                            if (value == null) return;
+                            controller.updateBatterySettings(
+                              minimumVoltage: value.clamp(2.0, 15.0),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -152,6 +138,14 @@ class AlarmSettingsContent extends ConsumerWidget {
                             alertPercent: value.clamp(0, 100),
                           );
                         },
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '≈${_alarmVoltage(settings).toStringAsFixed(1)}V',
+                        style: const TextStyle(
+                          color: AppColors.textDim,
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ),
@@ -291,6 +285,80 @@ class AlarmSettingsContent extends ConsumerWidget {
   }
 }
 
+void _showBatteryTypeDialog(
+  BuildContext context,
+  BatteryType current,
+  SettingsController controller,
+) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF1B2A4A),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      content: SizedBox(
+        width: 260,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '选择电池类型',
+              style: TextStyle(
+                color: AppColors.text,
+                fontSize: 16,
+                fontWeight: AppFonts.w700,
+              ),
+            ),
+            const SizedBox(height: 16),
+            for (final type in BatteryType.values) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: PrimaryButton(
+                    text: _batteryTypeLabel(type),
+                    type: type == current
+                        ? PrimaryButtonType.primary
+                        : PrimaryButtonType.normal,
+                    onTap: () {
+                      controller.updateBatterySettings(batteryType: type);
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: PrimaryButton(
+                text: '取消',
+                type: PrimaryButtonType.normal,
+                onTap: () => Navigator.of(ctx).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+String _batteryTypeLabel(BatteryType type) {
+  switch (type) {
+    case BatteryType.twoCell:
+      return '2S (6.0-8.4V)';
+    case BatteryType.threeCell:
+      return '3S (9.0-12.6V)';
+    case BatteryType.custom:
+      return '自定义';
+  }
+}
+
+double _alarmVoltage(AppSettingsState settings) {
+  final range = settings.fullVoltage - settings.minimumVoltage;
+  return settings.minimumVoltage + range * settings.batteryAlertPercent / 100;
+}
+
 class _LabeledRow extends StatelessWidget {
   const _LabeledRow({required this.title, required this.trailing});
 
@@ -328,12 +396,14 @@ class _InputBox extends StatelessWidget {
         key: ValueKey(text),
         initialValue: text,
         textAlign: TextAlign.center,
+        maxLength: 4,
         style: const TextStyle(
           color: AppColors.text,
           fontSize: 14,
           fontWeight: AppFonts.w600,
         ),
         decoration: InputDecoration(
+          counterText: '',
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           filled: true,
@@ -359,6 +429,6 @@ class _InputBox extends StatelessWidget {
 
 double? _extractNumber(String raw) {
   final cleaned = raw.trim().replaceAll(RegExp(r'[^0-9.]'), '');
-  if (cleaned.isEmpty) return null;
+  if (cleaned.isEmpty || cleaned.length > 4) return null;
   return double.tryParse(cleaned);
 }

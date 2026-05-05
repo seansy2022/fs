@@ -11,6 +11,7 @@ import '../../../core/providers.dart';
 import '../../settings/models/app_settings_state.dart';
 import '../controllers/control_controller.dart';
 import '../widgets/floating_control_zone.dart';
+import '../widgets/trim_control.dart';
 
 class ControlPage extends ConsumerStatefulWidget {
   const ControlPage({super.key});
@@ -182,19 +183,26 @@ class _ControlPageState extends ConsumerState<ControlPage> {
   Widget build(BuildContext context) {
     final info = ref.watch(receiverInfoProvider).valueOrNull;
     final devices = ref.watch(mergedReceiverDevicesProvider);
+    final connectionState =
+        ref.watch(receiverConnectionProvider).valueOrNull ??
+        ReceiverConnectionState.disconnected;
     final controlState = ref.watch(controlControllerProvider);
     final controlController = ref.read(controlControllerProvider.notifier);
     final settings = ref.watch(appSettingsProvider);
 
+    final connected = connectionState == ReceiverConnectionState.connected;
     final connectedDevice = info == null
         ? null
         : devices
               .where((device) => device.remoteId == info.remoteId)
               .cast<ReceiverScanDevice?>()
               .firstOrNull;
-    final batteryLevel = info?.batteryLevel ?? 0;
-    final rssi = connectedDevice?.rssi;
+    final batteryLevel = connected ? (info?.batteryLevel ?? 0) : 0;
+    final rssi = connected ? connectedDevice?.rssi : null;
 
+    final channelFunctions = settings.channels.map((c) => c.function).toSet();
+    final showHeadlight = channelFunctions.contains(AuxiliaryFunction.headlight);
+    final showWarningLight = channelFunctions.contains(AuxiliaryFunction.warningLight);
     final leftPadIsThrottle = settings.handedness == Handedness.leftThrottle;
     const topControlAnchorTop = 65.0;
     const audioButtonsSize = 36.0;
@@ -248,19 +256,42 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                     },
                   ),
                 ),
-                // 涓诲唴瀹?
+                // Main content column
                 Column(
                   children: [
-                    _TopBar(
-                      battery: batteryLevel,
-                      rssi: rssi,
-                      onLight: controlController.toggleHeadlights,
-                      lightOn: controlState.headlightsOn,
-                      onDirection: controlController.toggleSliderButtons,
-                      directionOn: controlState.sliderButtonsVisible,
-                      onNetwork: controlController.toggleGyro,
-                      networkOn: controlState.gyroEnabled,
-                    ),
+                    // Only show top bar when connected
+                    if (connected)
+                      _TopBar(
+                        battery: batteryLevel,
+                        rssi: rssi,
+                        showHeadlight: showHeadlight,
+                        headlightOn: controlState.headlightsOn,
+                        onHeadlight: controlController.toggleHeadlights,
+                        showWarningLight: showWarningLight,
+                        warningLightOn: controlState.warningLightsOn,
+                        onWarningLight: controlController.toggleWarningLights,
+                        onDirection: controlController.toggleSliderButtons,
+                        directionOn: controlState.sliderButtonsVisible,
+                        onNetwork: controlController.toggleGyro,
+                        networkOn: controlState.gyroEnabled,
+                      ),
+                    if (!connected) const SizedBox(height: 16),
+
+                    // Trim switch
+                    if (connected)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            const Spacer(),
+                            _TrimToggle(
+                              value: controlState.sliderButtonsVisible,
+                              onChanged: (_) => controlController.toggleSliderButtons(),
+                            ),
+                          ],
+                        ),
+                      ),
+
                     const SizedBox(height: 52),
 
                     Expanded(
@@ -287,8 +318,12 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.battery,
     required this.rssi,
-    required this.onLight,
-    required this.lightOn,
+    required this.showHeadlight,
+    required this.headlightOn,
+    required this.onHeadlight,
+    required this.showWarningLight,
+    required this.warningLightOn,
+    required this.onWarningLight,
     required this.onDirection,
     required this.directionOn,
     required this.onNetwork,
@@ -297,8 +332,12 @@ class _TopBar extends StatelessWidget {
 
   final int battery;
   final int? rssi;
-  final VoidCallback onLight;
-  final bool lightOn;
+  final bool showHeadlight;
+  final bool headlightOn;
+  final VoidCallback onHeadlight;
+  final bool showWarningLight;
+  final bool warningLightOn;
+  final VoidCallback onWarningLight;
   final VoidCallback onDirection;
   final bool directionOn;
   final VoidCallback onNetwork;
@@ -306,58 +345,59 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> lightButtons = [];
+    if (showHeadlight) {
+      lightButtons.add(_CircleIconBtn.svg(
+        assetPath: 'assets/icons/wifi_signal.svg',
+        active: headlightOn,
+        onTap: onHeadlight,
+      ));
+    }
+    if (showWarningLight) {
+      if (lightButtons.isNotEmpty) {
+        lightButtons.add(const SizedBox(width: 16));
+      }
+      lightButtons.add(_CircleIconBtn(
+        icon: Icons.flash_on,
+        active: warningLightOn,
+        onTap: onWarningLight,
+      ));
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          const SizedBox(width: 129), //
-          RCButton(
-            iconWidget: Icon(
-              Icons.network_wifi,
-              color: AppColors.primaryBright,
-              size: 16,
-            ),
-            textWidget: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${rssi ?? '--'} dBm',
-                  style: const TextStyle(color: AppColors.text, fontSize: 12),
-                ),
-                const SizedBox(width: 12),
-                Icon(
-                  Icons.battery_full,
-                  color: const Color(0xFF67E600),
-                  size: 16,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '$battery%',
-                  style: const TextStyle(color: AppColors.text, fontSize: 12),
-                ),
-              ],
-            ),
-            isRounded: true,
-            onTap: () {},
-          ),
-          const Spacer(),
-
+          const SizedBox(width: 129),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _CircleIconBtn(
-                icon: Icons.lightbulb_outline,
-                active: lightOn,
-                onTap: onLight,
+              SignalWidget(
+                value: _rssiToPercent(rssi).toDouble(),
+                width: 29,
+                height: 16,
               ),
               const SizedBox(width: 16),
-              _CircleIconBtn(
-                icon: Icons.explore,
+              BatteryWidget(
+                value: battery.toDouble(),
+                width: 29,
+                height: 16,
+              ),
+            ],
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              ...lightButtons,
+              if (lightButtons.isNotEmpty) const SizedBox(width: 16),
+              _CircleIconBtn.svg(
+                assetPath: 'assets/icons/sync_arrows.svg',
                 active: directionOn,
                 onTap: onDirection,
               ),
               const SizedBox(width: 16),
-              _CircleIconBtn(
-                icon: Icons.gps_fixed,
+              _CircleIconBtn.svg(
+                assetPath: 'assets/icons/broadcast.svg',
                 active: networkOn,
                 onTap: onNetwork,
               ),
@@ -367,6 +407,15 @@ class _TopBar extends StatelessWidget {
       ),
     );
   }
+}
+
+int _rssiToPercent(int? rssi) {
+  if (rssi == null) return 0;
+  if (rssi >= -50) return 100;
+  if (rssi >= -65) return 75;
+  if (rssi >= -80) return 50;
+  if (rssi >= -95) return 25;
+  return 0;
 }
 
 class _TopLowerBar extends StatelessWidget {
@@ -388,14 +437,18 @@ class _TopLowerBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // const SizedBox(width: 147), // 129(back width) + 18(gap)
-        _CircleIconBtn(
-          icon: musicOn ? Icons.music_note : Icons.music_off,
+        _CircleIconBtn.svg(
+          assetPath: musicOn
+              ? 'assets/icons/music_on.svg'
+              : 'assets/icons/music_off.svg',
           active: musicOn,
           onTap: onMusic,
         ),
         const SizedBox(width: 16),
-        _CircleIconBtn(
-          icon: soundOn ? Icons.volume_up : Icons.volume_off,
+        _CircleIconBtn.svg(
+          assetPath: soundOn
+              ? 'assets/icons/sound_on.svg'
+              : 'assets/icons/sound_off.svg',
           active: soundOn,
           onTap: onSound,
         ),
@@ -409,9 +462,16 @@ class _CircleIconBtn extends StatelessWidget {
     required this.icon,
     required this.active,
     required this.onTap,
-  });
+  }) : assetPath = null;
 
-  final IconData icon;
+  const _CircleIconBtn.svg({
+    required this.assetPath,
+    required this.active,
+    required this.onTap,
+  }) : icon = null;
+
+  final IconData? icon;
+  final String? assetPath;
   final bool active;
   final VoidCallback onTap;
 
@@ -431,11 +491,19 @@ class _CircleIconBtn extends StatelessWidget {
             width: 0.5,
           ),
         ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: active ? AppColors.onPrimary : AppColors.textDim,
-        ),
+        child: assetPath != null
+            ? Padding(
+                padding: const EdgeInsets.all(9),
+                child: SvgPicture.asset(
+                  assetPath!,
+                  fit: BoxFit.contain,
+                ),
+              )
+            : Icon(
+                icon,
+                size: 18,
+                color: active ? AppColors.onPrimary : AppColors.textDim,
+              ),
       ),
     );
   }
@@ -588,6 +656,52 @@ class _ControlArea extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [leftArea, rightArea],
+      ),
+    );
+  }
+}
+
+class _TrimToggle extends StatelessWidget {
+  const _TrimToggle({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: value ? const Color(0x6600C6FF) : AppColors.surfaceHighest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: value ? const Color(0xFF00C6FF) : AppColors.primary,
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '微调',
+              style: TextStyle(
+                color: value ? AppColors.onPrimary : AppColors.textDim,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              value ? Icons.toggle_on : Icons.toggle_off,
+              size: 18,
+              color: value ? const Color(0xFF00C6FF) : AppColors.textDim,
+            ),
+          ],
+        ),
       ),
     );
   }

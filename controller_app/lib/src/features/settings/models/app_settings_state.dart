@@ -137,7 +137,7 @@ class AppSettingsState {
     return AppSettingsState(
       handedness: Handedness.rightThrottle,
       controlMode: ControlMode.fixedPosition,
-      gyroMode: GyroMode.directionOnly,
+      gyroMode: GyroMode.off,
       channels: const <ChannelSetting>[
         ChannelSetting(
           channelLabel: 'CH1',
@@ -176,8 +176,8 @@ class AppSettingsState {
           reversed: false,
         ),
       ],
-      trackMixLeft: -70,
-      trackMixRight: 50,
+      trackMixLeft: 100,
+      trackMixRight: 100,
       lowVoltageEnabled: true,
       batteryType: BatteryType.twoCell,
       minimumVoltage: 6.2,

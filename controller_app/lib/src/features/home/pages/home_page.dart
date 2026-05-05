@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,16 +22,40 @@ const _unBlueSvg = '''
 </svg>
 ''';
 
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  bool _autoScanDismissed = false;
+  bool _autoScanStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startAutoScan();
+    });
+  }
+
+  Future<void> _startAutoScan() async {
+    if (_autoScanStarted) return;
+    _autoScanStarted = true;
+    await ref.read(receiverRepositoryProvider).startScan();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final connectionState =
         ref.watch(receiverConnectionProvider).valueOrNull ??
         ReceiverConnectionState.disconnected;
     final receiverInfo = ref.watch(receiverInfoProvider).valueOrNull;
     final devices = ref.watch(mergedReceiverDevicesProvider);
+    final adapterAsync = ref.watch(adapterStateProvider);
+
     final connectedDevice = receiverInfo == null
         ? null
         : devices
@@ -41,6 +67,19 @@ class HomePage extends ConsumerWidget {
     final batteryLevel = receiverInfo?.batteryLevel;
     final rssi = connectedDevice?.rssi;
     final deviceName = connectedDevice?.name ?? '--';
+
+    // Auto-scan dialog3: detect online remembered devices
+    if (!_autoScanDismissed && connectedDevice == null) {
+      final onlineRemembered = devices
+          .where((d) => !d.connected && d.rssi > -120)
+          .toList(growable: false);
+      if (onlineRemembered.isNotEmpty) {
+        final firstOnline = onlineRemembered.first;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showDialog3(firstOnline);
+        });
+      }
+    }
 
     return Scaffold(
       body: Stack(
@@ -93,12 +132,7 @@ class HomePage extends ConsumerWidget {
                     active: connected,
                     isRounded: true,
                     onTap: () {
-                      _showBluetoothDialog(
-                        context,
-                        ref,
-                        devices,
-                        connectedDevice,
-                      );
+                      _onBluetoothTap(context, ref, adapterAsync, devices, connectedDevice);
                     },
                   ),
                 ),
@@ -145,26 +179,19 @@ class HomePage extends ConsumerWidget {
                             text: '设置',
                             width: 174,
                             height: 44,
-                            backgroundColor: const Color.fromRGBO(
-                              27,
-                              45,
-                              77,
-                              1,
-                            ),
+                            backgroundColor: const Color.fromRGBO(27, 45, 77, 1),
                             icon: SvgPicture.asset(
                               'assets/icons/home_settings.svg',
                               width: 15,
                               height: 15,
                             ),
                             onTap: () {
-                              Navigator.of(
-                                context,
-                              ).pushNamed(AppRoutes.settings);
+                              Navigator.of(context).pushNamed(AppRoutes.settings);
                             },
                           ),
                           const SizedBox(width: 20),
                           _HomeActionButton(
-                            text: 'TEST',
+                            text: '开始',
                             width: 160,
                             height: 44,
                             enabled: connected || kDebugMode,
@@ -184,9 +211,7 @@ class HomePage extends ConsumerWidget {
                               height: 17,
                             ),
                             onTap: () {
-                              Navigator.of(
-                                context,
-                              ).pushNamed(AppRoutes.control);
+                              Navigator.of(context).pushNamed(AppRoutes.control);
                             },
                           ),
                         ],
@@ -202,41 +227,221 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  void _showBluetoothDialog(
+  void _onBluetoothTap(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<AdapterState> adapterAsync,
+    List<ReceiverScanDevice> devices,
+    ReceiverScanDevice? connectedDevice,
+  ) {
+    final adapterState = adapterAsync.valueOrNull ?? AdapterState.unknown;
+
+    if (adapterState != AdapterState.on) {
+      // 蓝牙未开启 → 弹窗1
+      _showDialog1(context, ref);
+    } else {
+      // 蓝牙已开启 → 弹窗2
+      if (connectedDevice != null && connectedDevice.connected) {
+        _showDialog2(context, ref, devices, connectedDevice);
+      } else {
+        _showDialog2(context, ref, devices, null);
+      }
+    }
+  }
+
+  /// 弹窗1: 蓝牙未开启，询问是否打开蓝牙
+  Future<void> _showDialog1(BuildContext context, WidgetRef ref) async {
+    final result = await AlertIconWidget.show(
+      context,
+      title: '蓝牙未开启',
+      message: '需要打开蓝牙才能连接接收机，是否打开蓝牙？',
+      cancelText: '否',
+      confirmText: '是',
+    );
+    if (result == true) {
+      await ref.read(receiverRepositoryProvider).turnOnAdapter();
+      // 等待蓝牙开启
+      await Future<void>.delayed(const Duration(seconds: 1));
+      if (!context.mounted) return;
+      final adapterState = ref.read(receiverRepositoryProvider).adapterState;
+      if (adapterState == AdapterState.on) {
+        if (context.mounted) {
+          Navigator.of(context).pushNamed(AppRoutes.pairing);
+        }
+      } else {
+        // 用户拒绝权限，弹窗保持打开状态（已关闭的状态下等待）
+        if (context.mounted) {
+          _showDialog1(context, ref);
+        }
+      }
+    }
+  }
+
+  /// 弹窗2: 蓝牙已开启，已配对设备列表 / 去配对
+  Future<void> _showDialog2(
     BuildContext context,
     WidgetRef ref,
     List<ReceiverScanDevice> devices,
     ReceiverScanDevice? connectedDevice,
-  ) {
-    final items = devices
-        .where((d) => d.rssi > -120)
-        .map(
-          (d) => AlertBlueItem(
-            title: d.name,
-            status: d.connected
-                ? '已连接'
-                : d.rssi > -120
-                ? '在线'
-                : '离线',
-            statusColor: d.connected
-                ? const Color(0xFF67E600)
-                : d.rssi > -120
-                ? const Color(0xFF67E600)
-                : const Color(0xFFFF8A65),
-          ),
-        )
-        .toList();
+  ) async {
+    final option = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: const Color(0xCC000000),
+      builder: (dialogContext) => _BluetoothActionDialog(
+        hasConnectedDevice: connectedDevice?.connected ?? false,
+      ),
+    );
 
-    AlertBlueWidget.show(
+    if (!context.mounted) return;
+
+    if (option == 'paired_list') {
+      Navigator.of(context).pushNamed(AppRoutes.deviceList);
+    } else if (option == 'go_pairing') {
+      if (connectedDevice?.connected == true) {
+        // 已连接接收机 → 弹窗4
+        _showDialog4(context);
+      } else {
+        Navigator.of(context).pushNamed(AppRoutes.pairing);
+      }
+    }
+  }
+
+  /// 弹窗3: 搜索到在线的已配对设备
+  Future<void> _showDialog3(ReceiverScanDevice device) async {
+    if (!mounted) return;
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: const Color(0xCC000000),
+      builder: (dialogContext) => AlertIconWidget(
+        title: '发现已配对设备',
+        message: '检测到 ${device.name} 在线，是否连接？',
+        cancelText: '不再提示',
+        confirmText: '是',
+      ),
+    );
+    if (!mounted) return;
+    if (result == true) {
+      // 连接此设备
+      try {
+        await ref.read(receiverRepositoryProvider).connect(device.remoteId);
+        await ref.read(rememberedDevicesProvider.notifier).rememberDevice(device);
+      } catch (_) {
+        // 连接失败静默处理
+      }
+      _autoScanDismissed = true;
+    } else {
+      // 不再提示
+      _autoScanDismissed = true;
+    }
+  }
+
+  /// 弹窗4: 已连接接收机，确认断开并去配对
+  Future<void> _showDialog4(BuildContext context) async {
+    final result = await AlertIconWidget.show(
       context,
-      title: '蓝牙设备',
-      items: items,
-      onRefresh: () {
-        ref.read(receiverRepositoryProvider).startScan();
-      },
-      onDelete: (item) {
-        // 可以添加删除设备逻辑
-      },
+      title: '提示',
+      message: '已连接接收机，断开当前连接并去配对？',
+      cancelText: '否',
+      confirmText: '是',
+    );
+    if (result == true && context.mounted) {
+      await ref.read(receiverRepositoryProvider).disconnect();
+      if (context.mounted) {
+        Navigator.of(context).pushNamed(AppRoutes.pairing);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+}
+
+/// 弹窗2的自定义对话框 — 蓝牙已开启时的操作选择
+class _BluetoothActionDialog extends StatelessWidget {
+  const _BluetoothActionDialog({required this.hasConnectedDevice});
+
+  final bool hasConnectedDevice;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Center(
+        child: Container(
+          width: 300,
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF002149),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xA37DA2CE)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
+                child: Text(
+                  '蓝牙已开启',
+                  style: TextStyle(
+                    color: Color(0xFFEDF5FF),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _ActionButton(
+                text: '已配对设备列表',
+                onTap: () => Navigator.of(context).pop('paired_list'),
+              ),
+              const SizedBox(height: 8),
+              _ActionButton(
+                text: '去配对',
+                onTap: () => Navigator.of(context).pop('go_pairing'),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({required this.text, required this.onTap});
+
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SizedBox(
+        width: double.infinity,
+        child: TextButton(
+          onPressed: onTap,
+          style: TextButton.styleFrom(
+            backgroundColor: const Color(0x661B2D4D),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+              side: const BorderSide(color: Color(0xFF0072FF), width: 1),
+            ),
+          ),
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Color(0xFFEDF5FF),
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -275,9 +480,7 @@ class _HomeActionButton extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: enabled
-              ? backgroundColor
-              : (disabledColor ?? const Color.fromRGBO(27, 45, 77, 1)),
+          color: enabled ? backgroundColor : (disabledColor ?? const Color.fromRGBO(27, 45, 77, 1)),
           gradient: enabled ? gradient : null,
           borderRadius: BorderRadius.circular(4),
         ),

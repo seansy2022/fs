@@ -32,228 +32,214 @@ class ChannelSettingsContent extends ConsumerStatefulWidget {
 
 class _ChannelSettingsContentState
     extends ConsumerState<ChannelSettingsContent> {
-  final Map<int, int> _selectedValueIndex = {0: 0, 1: 0, 2: 0};
-
-  bool _isSelected(int channelIndex, int valueIndex) =>
-      _selectedValueIndex[channelIndex] == valueIndex;
-
-  void _setSelected(int channelIndex, int valueIndex) {
-    if (_selectedValueIndex[channelIndex] == valueIndex) return;
-    if (!mounted) return;
-    setState(() {
-      _selectedValueIndex[channelIndex] = valueIndex;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
     final controller = ref.read(appSettingsProvider.notifier);
 
-    final ch1 = _channelAt(
-      settings.channels,
-      0,
-      channelLabel: 'CH1',
-      title: '方向',
-    );
-    final ch2 = _channelAt(
-      settings.channels,
-      1,
-      channelLabel: 'CH2',
-      title: '油门',
-    );
-    final ch3 = _channelAt(
-      settings.channels,
-      2,
-      channelLabel: 'CH3',
-      title: '大灯',
-    );
-    final ch4 = _channelAt(
-      settings.channels,
-      3,
-      channelLabel: 'CH4',
-      title: '鸣笛',
-    );
+    final ch1 = _channelAt(settings.channels, 0);
+    final ch2 = _channelAt(settings.channels, 1);
+    final ch3 = _channelAt(settings.channels, 2);
+    final ch4 = _channelAt(settings.channels, 3);
+
+    // Dynamic auxiliary rows: all channels except CH1/CH2 with function != none
+    final auxChannels = settings.channels.asMap().entries.where((e) =>
+        e.key >= 2 && e.value.function != AuxiliaryFunction.none);
 
     return SingleChildScrollView(
       child: Column(
         children: [
-          SettingsStrip(
-            height: 88,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            child: Row(
-              children: [
-                const Expanded(
-                  flex: 22,
-                  child: Text(
-                    '方向(CH1)',
-                    style: TextStyle(color: AppColors.text, fontSize: 14),
-                  ),
-                ),
-                const _FieldLabel('低'),
-                Expanded(
-                  flex: 12,
-                  child: _ChannelValueButton(
-                    text: '${ch1.lowPercent.round()}%',
-                    active: _isSelected(0, 0),
-                    onTap: () => _setSelected(0, 0),
-                  ),
-                ),
-                const _FieldLabel('高'),
-                Expanded(
-                  flex: 12,
-                  child: _ChannelValueButton(
-                    text: '${ch1.highPercent.round()}%',
-                    active: _isSelected(0, 1),
-                    onTap: () => _setSelected(0, 1),
-                  ),
-                ),
-                const _FieldLabel('中'),
-                Expanded(
-                  flex: 12,
-                  child: _ChannelValueButton(
-                    text: '${ch1.trimPercent.round()}',
-                    active: _isSelected(0, 2),
-                    onTap: () => _setSelected(0, 2),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SelectOptionToggle(
-                  selected: ch1.reversed,
-                  label: '反向',
-                  onTap: () {
-                    controller.updateChannel(
-                      0,
-                      ch1.copyWith(reversed: !ch1.reversed),
-                    );
-                  },
-                ),
-              ],
-            ),
+          _buildChannelRow(
+            channelIndex: 0,
+            label: '方向(CH1)',
+            channel: ch1,
+            controller: controller,
+            showFunction: false,
           ),
           const SizedBox(height: 8),
-          SettingsStrip(
-            height: 88,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            child: Row(
-              children: [
-                const Expanded(
-                  flex: 22,
-                  child: Text(
-                    '油门(CH2)',
-                    style: TextStyle(color: AppColors.text, fontSize: 14),
-                  ),
-                ),
-                const _FieldLabel('低'),
-                Expanded(
-                  flex: 12,
-                  child: _ChannelValueButton(
-                    text: '${ch2.lowPercent.round()}%',
-                    active: _isSelected(1, 0),
-                    onTap: () => _setSelected(1, 0),
-                  ),
-                ),
-                const _FieldLabel('高'),
-                Expanded(
-                  flex: 12,
-                  child: _ChannelValueButton(
-                    text: '${ch2.highPercent.round()}%',
-                    active: _isSelected(1, 1),
-                    onTap: () => _setSelected(1, 1),
-                  ),
-                ),
-                const _FieldLabel('中'),
-                Expanded(
-                  flex: 12,
-                  child: _ChannelValueButton(
-                    text: '${ch2.trimPercent.round()}',
-                    active: _isSelected(1, 2),
-                    onTap: () => _setSelected(1, 2),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SelectOptionToggle(
-                  selected: ch2.reversed,
-                  label: '反向',
-                  onTap: () {
-                    controller.updateChannel(
-                      1,
-                      ch2.copyWith(reversed: !ch2.reversed),
-                    );
-                  },
-                ),
-              ],
-            ),
+          _buildChannelRow(
+            channelIndex: 1,
+            label: '油门(CH2)',
+            channel: ch2,
+            controller: controller,
+            showFunction: false,
           ),
           const SizedBox(height: 8),
-          SettingsStrip(
-            height: 88,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            child: Row(
-              children: [
-                const Expanded(
-                  flex: 28,
-                  child: Text(
-                    '大灯(CH3)',
-                    style: TextStyle(color: AppColors.text, fontSize: 14),
-                  ),
-                ),
-                const _FieldLabel('关'),
-                Expanded(
-                  flex: 12,
-                  child: _ChannelValueButton(
-                    text: '${ch3.lowPercent.round()}%',
-                    active: _isSelected(2, 0),
-                    onTap: () => _setSelected(2, 0),
-                  ),
-                ),
-                const _FieldLabel('开'),
-                Expanded(
-                  flex: 12,
-                  child: _ChannelValueButton(
-                    text: '${ch3.trimPercent.round()}%',
-                    active: _isSelected(2, 1),
-                    onTap: () => _setSelected(2, 1),
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => _selectFunction(context, 2, ch3, controller),
-                  child: const Icon(
-                    Icons.chevron_right,
-                    color: AppColors.textDim,
-                    size: 22,
-                  ),
-                ),
-              ],
-            ),
+          _buildChannelRow(
+            channelIndex: 2,
+            label: _channelLabel(ch3, 'CH3'),
+            channel: ch3,
+            controller: controller,
+            showFunction: true,
           ),
-          const SizedBox(height: 8),
-          SettingsStrip(
-            height: 88,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    '鸣笛(CH4)',
-                    style: TextStyle(color: AppColors.text, fontSize: 14),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => _selectFunction(context, 3, ch4, controller),
-                  child: const Icon(
-                    Icons.chevron_right,
-                    color: AppColors.textDim,
-                    size: 22,
-                  ),
-                ),
-              ],
-            ),
+          if (ch3.function == AuxiliaryFunction.none) const SizedBox(height: 8),
+          if (ch3.function == AuxiliaryFunction.none)
+            const SizedBox.shrink()
+          else ...[
+            _buildChannelProgressBar(ch3),
+            const SizedBox(height: 8),
+          ],
+          _buildChannelRow(
+            channelIndex: 3,
+            label: _channelLabel(ch4, 'CH4'),
+            channel: ch4,
+            controller: controller,
+            showFunction: true,
           ),
+          if (ch4.function == AuxiliaryFunction.none) ...[
+            const SizedBox(height: 8),
+            // CH4 with no function: show function selector only
+            SettingsStrip(
+              height: 88,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _channelLabel(ch4, 'CH4'),
+                      style: const TextStyle(
+                        color: AppColors.text,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () =>
+                        _selectFunction(context, 3, ch4, controller),
+                    child: const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textDim,
+                      size: 22,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (ch4.function != AuxiliaryFunction.none) ...[
+            _buildChannelProgressBar(ch4),
+            const SizedBox(height: 8),
+          ],
+          // Dynamic auxiliary channel rows
+          for (final entry in auxChannels
+              .where((e) => e.key > 3)) ...[
+            _buildChannelRow(
+              channelIndex: entry.key,
+              label: '${entry.value.channelLabel} (${_functionLabel(entry.value.function)})',
+              channel: entry.value,
+              controller: controller,
+              showFunction: false,
+            ),
+            if (entry.value.function != AuxiliaryFunction.none) ...[
+              _buildChannelProgressBar(entry.value),
+            ],
+            const SizedBox(height: 8),
+          ],
         ],
       ),
     );
+  }
+
+  Widget _buildChannelRow({
+    required int channelIndex,
+    required String label,
+    required ChannelSetting channel,
+    required SettingsController controller,
+    required bool showFunction,
+  }) {
+    return SettingsStrip(
+      height: 88,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      child: Row(
+        children: [
+          Expanded(
+            flex: showFunction ? 28 : 22,
+            child: Text(
+              label,
+              style: const TextStyle(color: AppColors.text, fontSize: 14),
+            ),
+          ),
+          const _FieldLabel('低'),
+          Expanded(
+            flex: 12,
+            child: _EditableChannelValue(
+              value: channel.lowPercent.round(),
+              onChanged: (v) {
+                controller.updateChannel(
+                  channelIndex,
+                  channel.copyWith(lowPercent: v.toDouble()),
+                );
+              },
+            ),
+          ),
+          const _FieldLabel('高'),
+          Expanded(
+            flex: 12,
+            child: _EditableChannelValue(
+              value: channel.highPercent.round(),
+              onChanged: (v) {
+                controller.updateChannel(
+                  channelIndex,
+                  channel.copyWith(highPercent: v.toDouble()),
+                );
+              },
+            ),
+          ),
+          const _FieldLabel('中'),
+          Expanded(
+            flex: 12,
+            child: _EditableChannelValue(
+              value: channel.trimPercent.round(),
+              onChanged: (v) {
+                controller.updateChannel(
+                  channelIndex,
+                  channel.copyWith(trimPercent: v.toDouble()),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          SelectOptionToggle(
+            selected: channel.reversed,
+            label: '反向',
+            onTap: () {
+              controller.updateChannel(
+                channelIndex,
+                channel.copyWith(reversed: !channel.reversed),
+              );
+            },
+          ),
+          if (showFunction) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () =>
+                  _selectFunction(context, channelIndex, channel, controller),
+              child: const Icon(
+                Icons.chevron_right,
+                color: AppColors.textDim,
+                size: 22,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChannelProgressBar(ChannelSetting channel) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: _ChannelProgressBar(
+        lowPercent: channel.lowPercent.round(),
+        highPercent: channel.highPercent.round(),
+        trimPercent: channel.trimPercent.round(),
+      ),
+    );
+  }
+
+  String _channelLabel(ChannelSetting channel, String fallback) {
+    if (channel.function == AuxiliaryFunction.none) return fallback;
+    return '${channel.channelLabel} (${_functionLabel(channel.function)})';
   }
 
   void _selectFunction(
@@ -314,18 +300,13 @@ class _ChannelSettingsContentState
     }
   }
 
-  ChannelSetting _channelAt(
-    List<ChannelSetting> channels,
-    int index, {
-    required String channelLabel,
-    required String title,
-  }) {
+  ChannelSetting _channelAt(List<ChannelSetting> channels, int index) {
     if (index < channels.length) {
       return channels[index];
     }
     return ChannelSetting(
-      channelLabel: channelLabel,
-      title: title,
+      channelLabel: 'CH${index + 1}',
+      title: '辅助通道',
       function: AuxiliaryFunction.none,
       lowPercent: -100,
       highPercent: 100,
@@ -353,25 +334,203 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-class _ChannelValueButton extends StatelessWidget {
-  const _ChannelValueButton({
-    required this.text,
-    required this.onTap,
-    this.active = false,
+class _EditableChannelValue extends StatelessWidget {
+  const _EditableChannelValue({
+    required this.value,
+    required this.onChanged,
   });
 
-  final String text;
-  final bool active;
-  final VoidCallback onTap;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  void _onTap(BuildContext context) {
+    final controller = TextEditingController(text: value.toString());
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1B2A4A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: SizedBox(
+          width: 220,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '输入数值',
+                style: TextStyle(
+                  color: AppColors.text,
+                  fontSize: 16,
+                  fontWeight: AppFonts.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                keyboardType: const TextInputType.numberWithOptions(
+                  signed: true,
+                ),
+                textAlign: TextAlign.center,
+                maxLength: 4,
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: 24,
+                  fontWeight: AppFonts.w700,
+                ),
+                decoration: const InputDecoration(
+                  counterText: '',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  PrimaryButton(
+                    text: '取消',
+                    width: 80,
+                    type: PrimaryButtonType.normal,
+                    onTap: () => Navigator.of(ctx).pop(),
+                  ),
+                  PrimaryButton(
+                    text: '确定',
+                    width: 80,
+                    onTap: () {
+                      final text = controller.text.trim();
+                      final parsed = int.tryParse(text);
+                      if (parsed != null) {
+                        onChanged(parsed.clamp(-100, 100));
+                      }
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Align(
-      child: ItemButton(
-        text: text,
-        selected: active,
-        fontSize: 14,
-        onTap: onTap,
+      child: GestureDetector(
+        onTap: () => _onTap(context),
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0x661B2D4D),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: const Color(0xFF0072FF), width: 0.5),
+          ),
+          child: Text(
+            '$value%',
+            style: const TextStyle(
+              color: AppColors.text,
+              fontSize: 14,
+              fontWeight: AppFonts.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChannelProgressBar extends StatelessWidget {
+  const _ChannelProgressBar({
+    required this.lowPercent,
+    required this.highPercent,
+    required this.trimPercent,
+  });
+
+  final int lowPercent;
+  final int highPercent;
+  final int trimPercent;
+
+  @override
+  Widget build(BuildContext context) {
+    const rangeMin = -100.0;
+    const rangeMax = 100.0;
+    const range = rangeMax - rangeMin;
+
+    double pos(double value) => ((value - rangeMin) / range) * 100;
+
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final lowPos = pos(lowPercent.toDouble());
+          final highPos = pos(highPercent.toDouble());
+          final trimPos = pos(trimPercent.toDouble());
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Background track
+              Center(
+                child: Container(
+                  height: 4,
+                  width: width,
+                  decoration: BoxDecoration(
+                    color: const Color(0x1AFFFFFF),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Active range (low to high)
+              Positioned(
+                left: lowPos / 100 * width,
+                width: (highPos - lowPos) / 100 * width,
+                top: 10,
+                child: Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00C6FF), Color(0xFF00FF88)],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Center mark
+              Positioned(
+                left: pos(0) / 100 * width - 4,
+                top: 6,
+                child: Container(
+                  width: 8,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: AppColors.textDim,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ),
+              // Trim mark
+              Positioned(
+                left: trimPos / 100 * width - 5,
+                top: 2,
+                child: Container(
+                  width: 10,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C6FF),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

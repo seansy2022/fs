@@ -31,6 +31,16 @@ class MockProtocolLinkTransport implements LinkTransport {
   LinkType get type => LinkType.ble;
 
   @override
+  AdapterState get currentAdapterState => AdapterState.on;
+
+  @override
+  Stream<AdapterState> get adapterState =>
+      Stream<AdapterState>.value(AdapterState.on);
+
+  @override
+  Future<bool> turnOnAdapter() async => true;
+
+  @override
   Stream<List<BluetoothScanDevice>> get scanResults => _scanCtrl.stream;
 
   @override
@@ -43,7 +53,7 @@ class MockProtocolLinkTransport implements LinkTransport {
       const BluetoothScanDevice(
         remoteId: 'MOCK_RC_001',
         name: 'Mock RC MG11',
-        rssi: -42,
+        rssi: -127,
       ),
     ]);
   }

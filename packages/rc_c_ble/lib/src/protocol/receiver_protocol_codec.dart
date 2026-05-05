@@ -43,6 +43,13 @@ ReceiverFrame buildControlHeartbeatFrame(
   );
 }
 
+ReceiverFrame buildExitBleModeRequest(Uint8List rfmId) {
+  return ReceiverFrame(
+    command: ReceiverCommand.exitBleMode.id,
+    data: <int>[...rfmId, 0, 0, 0, 0],
+  );
+}
+
 ReceiverFrame buildReadFailsafeRequest(Uint8List rfmId) {
   return ReceiverFrame(
     command: ReceiverCommand.readFailsafe.id,

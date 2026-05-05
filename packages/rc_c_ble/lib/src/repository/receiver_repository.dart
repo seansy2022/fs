@@ -1,3 +1,5 @@
+import 'package:rc_ble/rc_ble.dart';
+
 import '../client/receiver_ble_client.dart';
 import '../models/receiver_models.dart';
 import '../session/receiver_session_controller.dart';
@@ -19,6 +21,7 @@ class ReceiverRepository {
   List<ReceiverScanDevice> get scanResults => session.scanResults;
   ReceiverInfo? get receiverInfo => session.receiverInfo;
   ReceiverFirmwareInfo? get firmwareInfo => session.firmwareInfo;
+  AdapterState get adapterState => session.adapterState;
 
   Stream<List<ReceiverScanDevice>> get scanResultsStream =>
       session.scanResultsStream;
@@ -27,10 +30,13 @@ class ReceiverRepository {
   Stream<ReceiverInfo?> get receiverInfoStream => session.receiverInfoStream;
   Stream<ReceiverFirmwareInfo?> get firmwareInfoStream =>
       session.firmwareInfoStream;
+  Stream<AdapterState> get adapterStateStream => session.adapterStateStream;
 
   Future<void> startScan() => session.startScan();
 
   Future<void> stopScan() => session.stopScan();
+
+  Future<bool> turnOnAdapter() => session.turnOnAdapter();
 
   Future<ReceiverInfo> connect(String remoteId) async {
     await session.connect(remoteId);
@@ -48,6 +54,8 @@ class ReceiverRepository {
 
   Future<void> updateControlValues(ReceiverControlValues values) =>
       session.updateControlValues(values);
+
+  Future<void> exitBleMode() => session.exitBleMode();
 
   Future<void> startControlLoop() => session.startControlLoop();
 

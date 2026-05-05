@@ -58,6 +58,12 @@ export 'src/components/menu/menu.dart';
 export 'src/components/value_control/svg_value_control.dart';
 export 'src/components/value_control/control_value_widget.dart';
 
+// Battery
+export 'src/components/battery/battery_widget.dart';
+
+// Signal
+export 'src/components/signal/signal_widget.dart';
+
 // ─── Features (Domain-Specific) ─────────────────────────────────────────────
 // Dashboard
 export 'src/features/dashboard/top/home_top_widget.dart';

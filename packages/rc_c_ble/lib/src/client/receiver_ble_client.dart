@@ -16,11 +16,17 @@ class ReceiverBleClient {
   }) : _transport = transport ?? FlutterBlueTransport() {
     _incomingSub = _transport.incomingBytes.listen(_onBytes);
     _scanSub = _transport.scanResults.listen(_onScanResults);
+    _adapterSub = _transport.adapterState.listen((state) {
+      _adapterState = state;
+      _adapterCtrl.add(state);
+    });
   }
 
   final LinkTransport _transport;
   final Duration requestTimeout;
   final ReceiverFrameParser _parser = ReceiverFrameParser();
+
+  StreamSubscription<AdapterState>? _adapterSub;
 
   final StreamController<List<ReceiverScanDevice>> _scanCtrl =
       StreamController<List<ReceiverScanDevice>>.broadcast();
@@ -32,6 +38,8 @@ class ReceiverBleClient {
       StreamController<ReceiverFirmwareInfo?>.broadcast();
   final StreamController<ReceiverFrame> _frameCtrl =
       StreamController<ReceiverFrame>.broadcast();
+  final StreamController<AdapterState> _adapterCtrl =
+      StreamController<AdapterState>.broadcast();
 
   StreamSubscription<List<int>>? _incomingSub;
   StreamSubscription<List<BluetoothScanDevice>>? _scanSub;
@@ -45,11 +53,13 @@ class ReceiverBleClient {
   ReceiverFirmwareInfo? _firmwareInfo;
   ReceiverControlValues _controlValues = const ReceiverControlValues();
   String? _connectedRemoteId;
+  AdapterState _adapterState = AdapterState.unknown;
 
   ReceiverConnectionState get connectionState => _connectionState;
   List<ReceiverScanDevice> get scanResults => _scanResults;
   ReceiverInfo? get receiverInfo => _receiverInfo;
   ReceiverFirmwareInfo? get firmwareInfo => _firmwareInfo;
+  AdapterState get adapterState => _adapterState;
 
   Stream<List<ReceiverScanDevice>> get scanResultsStream async* {
     yield _scanResults;
@@ -70,6 +80,13 @@ class ReceiverBleClient {
     yield _firmwareInfo;
     yield* _firmwareCtrl.stream;
   }
+
+  Stream<AdapterState> get adapterStateStream async* {
+    yield _adapterState;
+    yield* _adapterCtrl.stream;
+  }
+
+  Future<bool> turnOnAdapter() => _transport.turnOnAdapter();
 
   Stream<ReceiverFrame> get frameStream => _frameCtrl.stream;
 
@@ -169,6 +186,16 @@ class ReceiverBleClient {
     _controlValues = values.sanitize();
   }
 
+  Future<void> exitBleMode() async {
+    _controlLoop?.cancel();
+    _controlLoop = null;
+    await _sendRequest(
+      buildExitBleModeRequest(_requireRfmId()),
+      matcher: (response) =>
+          response.command == ReceiverCommand.exitBleMode.id,
+    );
+  }
+
   Future<void> startControlLoop() async {
     _requireRfmId();
     _controlLoop?.cancel();
@@ -265,9 +292,11 @@ class ReceiverBleClient {
     _controlLoop?.cancel();
     await _incomingSub?.cancel();
     await _scanSub?.cancel();
+    await _adapterSub?.cancel();
     await _scanCtrl.close();
     await _connectionCtrl.close();
     await _infoCtrl.close();
+    await _adapterCtrl.close();
     await _firmwareCtrl.close();
     await _frameCtrl.close();
   }

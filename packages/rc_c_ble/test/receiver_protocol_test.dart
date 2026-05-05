@@ -123,6 +123,16 @@ class _FakeTransport implements LinkTransport {
   Stream<List<BluetoothScanDevice>> get scanResults => _scanCtrl.stream;
 
   @override
+  AdapterState get currentAdapterState => AdapterState.on;
+
+  @override
+  Stream<AdapterState> get adapterState =>
+      Stream<AdapterState>.value(AdapterState.on);
+
+  @override
+  Future<bool> turnOnAdapter() async => true;
+
+  @override
   Future<void> connect(String remoteId) async {}
 
   @override

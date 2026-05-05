@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_ui/rc_ui.dart';
@@ -29,8 +29,8 @@ class TankMixingContent extends ConsumerWidget {
     final settings = ref.watch(appSettingsProvider);
     final controller = ref.read(appSettingsProvider.notifier);
 
-    final left = settings.trackMixLeft.round().clamp(-100, 100).toInt();
-    final right = settings.trackMixRight.round().clamp(-100, 100).toInt();
+    final left = settings.trackMixLeft.round().clamp(-100, 100);
+    final right = settings.trackMixRight.round().clamp(-100, 100);
     final forwardActive = left > 0 && right > 0;
     final backwardActive = left < 0 && right < 0;
     final leftActive = left < 0 && right > 0;
@@ -38,19 +38,19 @@ class TankMixingContent extends ConsumerWidget {
 
     return Column(
       children: [
-        Expanded(
-          child: _TankMixingPanel(
-            forwardActive: forwardActive,
-            backwardActive: backwardActive,
-            leftActive: leftActive,
-            rightActive: rightActive,
-            leftTrackValue: left,
-            rightTrackValue: right,
-            onForwardTap: () => _toggleForward(controller, forwardActive),
-            onBackwardTap: () => _toggleBackward(controller, backwardActive),
-            onLeftTap: () => _toggleLeft(controller, leftActive),
-            onRightTap: () => _toggleRight(controller, rightActive),
-          ),
+        _TankMixingPanel(
+          forwardActive: forwardActive,
+          backwardActive: backwardActive,
+          leftActive: leftActive,
+          rightActive: rightActive,
+          leftTrackValue: left,
+          rightTrackValue: right,
+          onLeftValueChanged: (v) => controller.updateTrackMix(left: v.toDouble()),
+          onRightValueChanged: (v) => controller.updateTrackMix(right: v.toDouble()),
+          onForwardTap: () => _toggleForward(controller, forwardActive),
+          onBackwardTap: () => _toggleBackward(controller, backwardActive),
+          onLeftTap: () => _toggleLeft(controller, leftActive),
+          onRightTap: () => _toggleRight(controller, rightActive),
         ),
       ],
     );
@@ -97,6 +97,8 @@ class _TankMixingPanel extends StatelessWidget {
     required this.rightActive,
     required this.leftTrackValue,
     required this.rightTrackValue,
+    required this.onLeftValueChanged,
+    required this.onRightValueChanged,
     required this.onForwardTap,
     required this.onBackwardTap,
     required this.onLeftTap,
@@ -109,6 +111,8 @@ class _TankMixingPanel extends StatelessWidget {
   final bool rightActive;
   final int leftTrackValue;
   final int rightTrackValue;
+  final ValueChanged<int> onLeftValueChanged;
+  final ValueChanged<int> onRightValueChanged;
   final VoidCallback onForwardTap;
   final VoidCallback onBackwardTap;
   final VoidCallback onLeftTap;
@@ -128,11 +132,20 @@ class _TankMixingPanel extends StatelessWidget {
             onTap: onLeftTap,
           ),
           const SizedBox(width: 12),
-          SizedBox(
-            height: 220,
-            child: TankProgressTrack(value: leftTrackValue),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 220,
+                child: TankProgressTrack(value: leftTrackValue),
+              ),
+              const SizedBox(height: 8),
+              _TrackValueEdit(
+                value: leftTrackValue,
+                onChanged: onLeftValueChanged,
+              ),
+            ],
           ),
-          // const SizedBox(width: 6),
           Expanded(
             child: Center(
               child: Column(
@@ -166,13 +179,22 @@ class _TankMixingPanel extends StatelessWidget {
               ),
             ),
           ),
-          // const SizedBox(width: 6),
-          SizedBox(
-            height: 220,
-            child: TankProgressTrack(
-              value: rightTrackValue,
-              flipX: true,
-            ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 220,
+                child: TankProgressTrack(
+                  value: rightTrackValue,
+                  flipX: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _TrackValueEdit(
+                value: rightTrackValue,
+                onChanged: onRightValueChanged,
+              ),
+            ],
           ),
           const SizedBox(width: 12),
           _SidePair(
@@ -181,6 +203,113 @@ class _TankMixingPanel extends StatelessWidget {
             onTap: onRightTap,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TrackValueEdit extends StatelessWidget {
+  const _TrackValueEdit({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  void _onTap(BuildContext context) {
+    final controller = TextEditingController(text: value.toString());
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1B2A4A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: SizedBox(
+          width: 220,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '输入数值 (%)',
+                style: TextStyle(
+                  color: AppColors.text,
+                  fontSize: 16,
+                  fontWeight: AppFonts.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                keyboardType: const TextInputType.numberWithOptions(signed: true),
+                textAlign: TextAlign.center,
+                maxLength: 4,
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: 24,
+                  fontWeight: AppFonts.w700,
+                ),
+                decoration: const InputDecoration(
+                  counterText: '',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  PrimaryButton(
+                    text: '取消',
+                    width: 80,
+                    type: PrimaryButtonType.normal,
+                    onTap: () => Navigator.of(ctx).pop(),
+                  ),
+                  PrimaryButton(
+                    text: '确定',
+                    width: 80,
+                    onTap: () {
+                      final text = controller.text.trim();
+                      final parsed = int.tryParse(text);
+                      if (parsed != null) {
+                        onChanged(parsed.clamp(-100, 100));
+                      }
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _onTap(context),
+      child: Container(
+        width: 60,
+        height: 32,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(0x661B2D4D),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: const Color(0xFF0072FF), width: 0.5),
+        ),
+        child: Text(
+          '$value%',
+          style: const TextStyle(
+            color: AppColors.text,
+            fontSize: 13,
+            fontWeight: AppFonts.w700,
+          ),
+        ),
       ),
     );
   }

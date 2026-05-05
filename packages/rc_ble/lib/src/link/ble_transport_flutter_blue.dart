@@ -12,9 +12,18 @@ class FlutterBlueTransport implements BluetoothTransport {
   StreamSubscription<List<int>>? _notifySub;
   BluetoothDevice? _activeDevice;
   BluetoothCharacteristic? _writeCharacteristic;
+  AdapterState _adapterState = AdapterState.unknown;
 
   @override
   LinkType get type => LinkType.ble;
+
+  @override
+  AdapterState get currentAdapterState => _adapterState;
+
+  @override
+  Stream<AdapterState> get adapterState {
+    return FlutterBluePlus.adapterState.map(_mapAdapterState);
+  }
 
   @override
   Stream<List<BluetoothScanDevice>> get scanResults {
@@ -173,6 +182,35 @@ class FlutterBlueTransport implements BluetoothTransport {
       }
     }
     return false;
+  }
+
+  @override
+  Future<bool> turnOnAdapter() async {
+    try {
+      await FlutterBluePlus.turnOn();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  AdapterState _mapAdapterState(BluetoothAdapterState state) {
+    switch (state) {
+      case BluetoothAdapterState.unknown:
+        return AdapterState.unknown;
+      case BluetoothAdapterState.off:
+        return AdapterState.off;
+      case BluetoothAdapterState.turningOn:
+        return AdapterState.turningOn;
+      case BluetoothAdapterState.on:
+        return AdapterState.on;
+      case BluetoothAdapterState.turningOff:
+        return AdapterState.turningOff;
+      case BluetoothAdapterState.unauthorized:
+        return AdapterState.unauthorized;
+      case BluetoothAdapterState.unavailable:
+        return AdapterState.unsupported;
+    }
   }
 
   List<BluetoothScanDevice> _mapScanResults(List<ScanResult> results) {

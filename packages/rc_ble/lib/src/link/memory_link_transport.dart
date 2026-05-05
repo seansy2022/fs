@@ -25,6 +25,16 @@ class MemoryLinkTransport implements LinkTransport {
   Stream<List<int>> get incomingBytes => _incomingCtrl.stream;
 
   @override
+  AdapterState get currentAdapterState => AdapterState.on;
+
+  @override
+  Stream<AdapterState> get adapterState =>
+      Stream<AdapterState>.value(AdapterState.on);
+
+  @override
+  Future<bool> turnOnAdapter() async => true;
+
+  @override
   Future<void> connect(String remoteId) async {
     connected = true;
     connectedRemoteId = remoteId;

@@ -29,7 +29,7 @@ class _StartupPageState extends ConsumerState<StartupPage> {
     } catch (error) {
       debugPrint('startup scan skipped: $error');
     }
-    await Future<void>.delayed(const Duration(seconds: 5));
+    await Future<void>.delayed(const Duration(seconds: 3));
     if (!mounted) {
       return;
     }
