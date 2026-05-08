@@ -7,17 +7,19 @@ class FourLunRatioControl extends StatelessWidget {
     super.key,
     required this.ratio,
     required this.onRatioChange,
+    this.title = 'Mix Ratio',
   });
 
   final int ratio;
   final ValueChanged<int> onRatioChange;
+  final String title;
 
   int _clamp(int value) => value.clamp(0, 100);
 
   @override
   Widget build(BuildContext context) {
     return NamedControlProgressWidget(
-      title: '混控比率',
+      title: title,
       status: '$ratio%',
       value: ratio.toDouble(),
       max: 100,

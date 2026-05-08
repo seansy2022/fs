@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_ui/rc_ui.dart';
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
+import '../../provider/control_mapping_labels.dart';
 import '../../provider/control_mapping_options.dart';
 import '../../provider/control_mapping_provider.dart';
 
@@ -32,6 +34,8 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
     ControlMappingState state,
     ControlMappingController c,
   ) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context);
     final functionModeOptions = functionModeOptionsForChannel(
       state.channel,
       type: state.type,
@@ -53,20 +57,22 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
           Positioned(
             bottom: -10,
             left: 0,
-            child: _channelHeader('${state.channel}控件'),
+            child: _channelHeader('${state.channel} ${l10n.control}'),
           ),
         ],
       ),
       const SizedBox(height: AppDimens.gapL),
       CellIconTextWidget(
-        title: '类型',
-        valueText: state.type.isEmpty ? '未设置' : state.type,
+        title: l10n.type,
+        valueText: state.type.isEmpty
+            ? l10n.notSet
+            : ControlMappingLabels.displayLabel(state.type, locale),
         enableHighlight: true,
         highlightGradient: AppGradients.v24,
         highlightBaseColor: _mappingCellHighlightBase,
         onTap: () => _showSheet(
           context,
-          '类型',
+          l10n.type,
           state.availableStates,
           state.type.isEmpty ? null : state.type,
           c.updateType,
@@ -74,14 +80,16 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
       ),
       const SizedBox(height: AppDimens.gapM),
       CellIconTextWidget(
-        title: '功能模式',
-        valueText: state.action.isEmpty ? '未设置' : state.action,
+        title: l10n.functionMode,
+        valueText: state.action.isEmpty
+            ? l10n.notSet
+            : ControlMappingLabels.displayLabel(state.action, locale),
         enableHighlight: true,
         highlightGradient: AppGradients.v24,
         highlightBaseColor: _mappingCellHighlightBase,
         onTap: () => _showSheet(
           context,
-          '功能模式',
+          l10n.functionMode,
           functionModeOptions,
           selectedAction,
           (v) => _onActionSelected(context, c, v),
@@ -90,22 +98,24 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
       const SizedBox(height: AppDimens.gapM),
       if (_shouldShowMode(state))
         CellButtonWidget(
-          title: '模式',
-          buttonText: state.mode,
-          active: state.mode == '触发',
+          title: l10n.mode,
+          buttonText: ControlMappingLabels.displayLabel(state.mode, locale),
+          active: state.mode == 'Trigger',
           onPressed: () => c.updateMode(_toggleMode(state.mode)),
         ),
       if (_shouldShowMode(state)) const SizedBox(height: AppDimens.gapM),
       if (_shouldShowCh5SwitchOptions(state)) ...[
         CellIconTextWidget(
-          title: '功能:向前',
-          valueText: state.mixingMode3 ?? '未设置',
+          title: l10n.functionForward,
+          valueText: state.mixingMode3 != null
+              ? ControlMappingLabels.displayLabel(state.mixingMode3!, locale)
+              : l10n.notSet,
           enableHighlight: true,
           highlightGradient: AppGradients.v24,
           highlightBaseColor: _mappingCellHighlightBase,
           onTap: () => _showSheet(
             context,
-            '功能:向前',
+            l10n.functionForward,
             ch5DirectionOptionsList,
             ch5DirectionOptionsList.contains(state.mixingMode3)
                 ? state.mixingMode3
@@ -115,14 +125,16 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
         ),
         const SizedBox(height: AppDimens.gapM),
         CellIconTextWidget(
-          title: '功能:向中',
-          valueText: state.mixingMode2 ?? '未设置',
+          title: l10n.functionCenter,
+          valueText: state.mixingMode2 != null
+              ? ControlMappingLabels.displayLabel(state.mixingMode2!, locale)
+              : l10n.notSet,
           enableHighlight: true,
           highlightGradient: AppGradients.v24,
           highlightBaseColor: _mappingCellHighlightBase,
           onTap: () => _showSheet(
             context,
-            '功能:向中',
+            l10n.functionCenter,
             ch5DirectionOptionsList,
             ch5DirectionOptionsList.contains(state.mixingMode2)
                 ? state.mixingMode2
@@ -132,14 +144,16 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
         ),
         const SizedBox(height: AppDimens.gapM),
         CellIconTextWidget(
-          title: '功能:向后',
-          valueText: state.mixingMode1 ?? '未设置',
+          title: l10n.functionBackward,
+          valueText: state.mixingMode1 != null
+              ? ControlMappingLabels.displayLabel(state.mixingMode1!, locale)
+              : l10n.notSet,
           enableHighlight: true,
           highlightGradient: AppGradients.v24,
           highlightBaseColor: _mappingCellHighlightBase,
           onTap: () => _showSheet(
             context,
-            '功能:向后',
+            l10n.functionBackward,
             ch5DirectionOptionsList,
             ch5DirectionOptionsList.contains(state.mixingMode1)
                 ? state.mixingMode1
@@ -159,13 +173,23 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
     String? selectedOption,
     ValueChanged<String> onOptionSelected,
   ) {
+    final locale = Localizations.localeOf(context);
+    final displayOptions = options
+        .map((o) => ControlMappingLabels.displayLabel(o, locale))
+        .toList();
+    final selectedDisplay = (selectedOption != null && selectedOption.isNotEmpty)
+        ? ControlMappingLabels.displayLabel(selectedOption, locale)
+        : null;
     AlertSelectionSheet.show(
       context,
       title: title,
-      options: options,
-      selectedOption: selectedOption,
+      options: displayOptions,
+      selectedOption: selectedDisplay,
       titleFontWeight: AppFonts.w700,
-      onOptionSelected: onOptionSelected,
+      onOptionSelected: (v) {
+        final internalValue = ControlMappingLabels.internalId(v, locale);
+        onOptionSelected(internalValue);
+      },
     );
   }
 
@@ -192,12 +216,13 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
   ) async {
     await Future<void>.delayed(Duration.zero);
     if (!context.mounted) return;
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await AlertIconWidget.show(
       context,
-      title: '提示',
-      message: '已重复分配功能，前一个分配该功能的控件功能模式将会变成“无”',
-      cancelText: '取消',
-      confirmText: '确定',
+      title: l10n.duplicateTitle,
+      message: l10n.duplicateAssignWarning,
+      cancelText: l10n.cancel,
+      confirmText: l10n.ok,
     );
     if (confirmed == true) {
       controller.updateActionResolvingDuplicate(action, duplicateChannel);
@@ -205,11 +230,11 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
   }
 
   bool _shouldShowMode(ControlMappingState state) {
-    return state.channel != 'CH10' && state.type == '单击';
+    return state.channel != 'CH10' && state.type == 'Click';
   }
 
   String _toggleMode(String mode) {
-    return mode == '触发' ? '翻转' : '触发';
+    return mode == 'Trigger' ? 'Flip' : 'Trigger';
   }
 
   bool _shouldShowCh5SwitchOptions(ControlMappingState state) {
@@ -218,8 +243,8 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
   }
 
   String _ch5MixingFunctionByAction(ControlMappingState state) {
-    if (state.action == '驱动混控') return '混动';
-    if (state.action == '四轮混控') return '四轮';
+    if (state.action == 'Drive Mix') return 'Hybrid';
+    if (state.action == '4W Mix') return '4W';
     return state.mixingFunction ?? ch5MixingFunctionOptions.first;
   }
 

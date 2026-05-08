@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:rc_ui/rc_ui.dart';
 
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 import '../../types.dart';
 
 class SubTrim extends StatelessWidget {
@@ -49,11 +50,12 @@ class SubTrim extends StatelessWidget {
   }
 
   Future<void> _confirmAndReset(BuildContext context, ChannelState ch) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await AlertModelWidget.show(
       context,
-      title: '确认复位出场默认设置?',
-      cancelText: '取消',
-      confirmText: '确认',
+      title: l10n.confirmFactoryReset,
+      cancelText: l10n.cancel,
+      confirmText: l10n.confirm,
     );
     if (confirmed != true) return;
     _resetChannel(ch);

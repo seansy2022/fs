@@ -13,11 +13,15 @@ class RcDriveModeSwitch extends StatelessWidget {
 
   final RcDriveMode mode;
   final ValueChanged<RcDriveMode> onChanged;
+  final String lowLabel;
+  final String highLabel;
 
   const RcDriveModeSwitch({
     super.key,
     required this.mode,
     required this.onChanged,
+    this.lowLabel = 'Low Speed',
+    this.highLabel = 'High Speed',
   });
 
   @override
@@ -32,13 +36,13 @@ class RcDriveModeSwitch extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _DriveModeTextButton(
-                label: '低速',
+                label: lowLabel,
                 isSelected: mode == RcDriveMode.low,
                 onTap: () => onChanged(RcDriveMode.low),
               ),
               const SizedBox(width: _middleMaskWidth),
               _DriveModeTextButton(
-                label: '高速',
+                label: highLabel,
                 isSelected: mode == RcDriveMode.high,
                 onTap: () => onChanged(RcDriveMode.high),
               ),

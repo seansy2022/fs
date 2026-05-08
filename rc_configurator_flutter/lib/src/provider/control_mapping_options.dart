@@ -11,50 +11,50 @@ const controlMappingChannels = <String>[
   'CH10',
   'CH11',
 ];
-const controlMappingNoAction = '无';
+const controlMappingNoAction = 'None';
 
-const _buttonTypeOptions = <String>['单击', '双击', '三击', '长按'];
-const _ch5TypeOptions = <String>['旋钮', '三档开关'];
-const _ch9TypeOptions = <String>['旋钮'];
-const _ch6TypeOptions = <String>['三档'];
-const _ch10TypeOptions = <String>['二档'];
+const _buttonTypeOptions = <String>['Click', 'Double Click', 'Triple Click', 'Long Press'];
+const _ch5TypeOptions = <String>['Knob', '3-Pos Switch'];
+const _ch9TypeOptions = <String>['Knob'];
+const _ch6TypeOptions = <String>['3-Pos'];
+const _ch10TypeOptions = <String>['2-Pos'];
 const _buttonFunctionModeOptions = <String>[
   ...controlMappingChannels,
-  '四轮转向模式切换',
-  '驱动混控切换',
+  '4WS Mode Switch',
+  'Drive Mix Toggle',
   controlMappingNoAction,
 ];
 const _ch5FunctionModeOptions = <String>[
   ...controlMappingChannels,
-  '四轮混控',
-  '驱动混控',
+  '4W Mix',
+  'Drive Mix',
   controlMappingNoAction,
 ];
 const _ch9FunctionModeOptions = <String>[
   ...controlMappingChannels,
-  '油门微调',
-  '方向微调',
-  '四轮转向混控比率',
-  '驱动混控前进比率',
-  '驱动混控后退比率',
-  '刹车混控比率',
-  '方向比率',
-  '前进比率',
-  '刹车比率',
+  'Throttle Trim',
+  'Steering Trim',
+  '4WS Mix Ratio',
+  'Drive Mix Forward Ratio',
+  'Drive Mix Reverse Ratio',
+  'Brake Mix Ratio',
+  'Steering Ratio',
+  'Forward Ratio',
+  'Brake Ratio',
   controlMappingNoAction,
 ];
 const _ch10FunctionModeOptions = <String>[
   ...controlMappingChannels,
   controlMappingNoAction,
 ];
-const ch5MixingFunctionOptions = <String>['四轮', '混动'];
+const ch5MixingFunctionOptions = <String>['4W', 'Hybrid'];
 const _ch5FourWheelOptions = <String>[
-  '四轮转向前面',
-  '四轮转向后面',
-  '四轮转向前后同向',
-  '四轮转向前后反向',
+  '4WS Front',
+  '4WS Rear',
+  '4WS F/R Same',
+  '4WS F/R Reverse',
 ];
-const _ch5DriveOptions = <String>['驱动混控后面', '驱动混控前后混控', '驱动混控前面'];
+const _ch5DriveOptions = <String>['Drive Mix Rear', 'Drive Mix F/R Hybrid', 'Drive Mix Front'];
 
 List<String> controlTypeOptionsForChannel(String channel) {
   switch (channel) {
@@ -86,7 +86,7 @@ List<String> functionModeOptionsForChannel(String channel, {String? type}) {
     case 'CH11':
       return _buttonFunctionModeOptions;
     case 'CH5':
-      if (type == '旋钮' || type == '无') {
+      if (type == 'Knob' || type == 'None') {
         return const [...controlMappingChannels, controlMappingNoAction];
       }
       return _ch5FunctionModeOptions;
@@ -102,11 +102,11 @@ List<String> functionModeOptionsForChannel(String channel, {String? type}) {
 }
 
 List<String> ch5DirectionOptions(String? mixingFunction) {
-  return mixingFunction == '混动' ? _ch5DriveOptions : _ch5FourWheelOptions;
+  return mixingFunction == 'Hybrid' ? _ch5DriveOptions : _ch5FourWheelOptions;
 }
 
 ControlType controlTypeForSelection(String channel, String type) {
-  if (channel == 'CH5' && type == '三档开关') return ControlType.threeWaySwitch;
+  if (channel == 'CH5' && type == '3-Pos Switch') return ControlType.threeWaySwitch;
   if (channel == 'CH5' || channel == 'CH9') return ControlType.knob;
   if (channel == 'CH6') return ControlType.threeWaySwitch;
   if (channel == 'CH10') return ControlType.latchSwitch;
@@ -114,13 +114,13 @@ ControlType controlTypeForSelection(String channel, String type) {
 }
 
 bool isCh5ThreeWaySwitch(String channel, String type) {
-  if (channel == 'CH5') return type == '三档开关';
-  if (channel == 'CH6') return type == '三档';
+  if (channel == 'CH5') return type == '3-Pos Switch';
+  if (channel == 'CH6') return type == '3-Pos';
   return false;
 }
 
 bool isCh5MixingAction(String action) {
-  return action == '四轮混控' || action == '驱动混控';
+  return action == '4W Mix' || action == 'Drive Mix';
 }
 
 bool isChannelFunctionMode(String functionMode) {

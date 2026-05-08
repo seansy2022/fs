@@ -7,6 +7,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rc_ui/rc_ui.dart';
 
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 import '../../types.dart';
 import '../startup_permission.dart';
 
@@ -121,25 +122,31 @@ class _BluetoothState extends State<Bluetooth> {
   }
 
   Widget _buildBluetoothBody({required bool isAdapterOn}) {
+    final l10n = AppLocalizations.of(context)!;
     if (!isAdapterOn) {
       _autoScanQueued = false;
       return _buildDisabledView(
         onEnable: _enableBluetoothAndScan,
-        title: '无可用设备',
-        subtitle: '未开启蓝牙!',
-        buttonText: '开启蓝牙',
+        title: l10n.noDevices,
+        subtitle: l10n.bluetoothOff,
+        buttonText: l10n.turnOnBluetooth,
       );
     }
     if (!_hasScanState) {
       _autoStartScan();
       return _buildDisabledView(
         onEnable: widget.onStartScan,
-        title: '无可用设备',
-        subtitle: '点击下方按钮开始扫描',
-        buttonText: '开始扫描',
+        title: l10n.noDevices,
+        subtitle: l10n.tapToScan,
+        buttonText: l10n.startScanning,
       );
     }
-    if (widget.settings.devices.isEmpty) return const BluetoothSearchingView();
+    if (widget.settings.devices.isEmpty) {
+      return BluetoothSearchingView(
+        titleText: l10n.searching,
+        subtitleText: l10n.searchingNearby,
+      );
+    }
     final uiDevices = widget.settings.devices
         .map(
           (d) =>
@@ -150,6 +157,9 @@ class _BluetoothState extends State<Bluetooth> {
       devices: uiDevices,
       isScanning: widget.settings.isScanning,
       onTapDevice: widget.onToggleConnection,
+      searchingText: l10n.searching,
+      connectedLabel: l10n.connected,
+      disconnectedLabel: l10n.disconnected,
     );
   }
 
@@ -163,14 +173,15 @@ class _BluetoothState extends State<Bluetooth> {
         }
         final hasPermissions = snapshot.data ?? false;
         if (!hasPermissions) {
+          final l10n = AppLocalizations.of(context)!;
           return _buildWithConnectFeedback(
             _buildDisabledView(
               onEnable: _requestPermissions,
-              title: '权限未开启',
+              title: l10n.permissionNotGranted,
               subtitle: defaultTargetPlatform == TargetPlatform.iOS
-                  ? '请开启定位和蓝牙权限'
-                  : '请开启蓝牙相关权限',
-              buttonText: '开启权限',
+                  ? l10n.grantLocationBtPermission
+                  : l10n.grantBtPermission,
+              buttonText: l10n.grantPermission,
             ),
           );
         }
@@ -261,6 +272,7 @@ class _BluetoothState extends State<Bluetooth> {
   }
 
   Widget _buildWithConnectFeedback(Widget child) {
+    final l10n = AppLocalizations.of(context)!;
     final showConnecting = widget.settings.isConnecting;
     final showSuccess = !showConnecting && _showConnectSuccess;
     final showFail = !showConnecting && !showSuccess && _showConnectFail;
@@ -275,12 +287,13 @@ class _BluetoothState extends State<Bluetooth> {
           Center(
             child: BlueConnectingLoading(
               connectingStartedAt: widget.settings.connectingStartedAt,
+              text: l10n.connecting,
             ),
           )
         else if (showSuccess)
-          const Center(child: BlueConnectSuccessLoading())
+          Center(child: BlueConnectSuccessLoading(text: l10n.connectedSuccess))
         else
-          Center(child: BlueConnectFailLoading(progress: _connectFailProgress)),
+          Center(child: BlueConnectFailLoading(progress: _connectFailProgress, text: l10n.connectFailed)),
       ],
     );
   }

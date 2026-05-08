@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:rc_ui/rc_ui.dart';
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 import '../../types.dart';
 
 class DualRate extends StatelessWidget {
@@ -17,7 +18,8 @@ class DualRate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const labels = ['方向比率', '前进比率', '刹车比率'];
+    final l10n = AppLocalizations.of(context)!;
+    final labels = [l10n.steeringRate, l10n.forwardRate, l10n.brakeRate];
     return ListView(
       padding: const EdgeInsets.all(AppDimens.gapL),
       children: [

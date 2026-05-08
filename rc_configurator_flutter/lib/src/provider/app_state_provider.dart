@@ -38,8 +38,8 @@ const _connectTimeout = Duration(seconds: 10);
 const _enableRealtimeReadPolling = false;
 const _realtimeReadInterval = Duration(milliseconds: 200);
 const _realtimeReadFailureBackoff = Duration(milliseconds: 700);
-const _screenReadFailedMessage = '读取设备数据失败，请重试';
-const _connectTimeoutMessage = '连接超时，请重试';
+const _screenReadFailedMessage = 'error.screenReadFailed';
+const _connectTimeoutMessage = 'error.connectTimeout';
 const _connectRetryCount = 2;
 const _connectRetryDelay = Duration(milliseconds: 900);
 const _modelNamesPrefsKey = 'rc_model_names';
@@ -1082,7 +1082,7 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
         .map((e) => '${e.name}(0x${e.id.toRadixString(16).toUpperCase()})')
         .join(', ');
     RcLogging.protocol(
-      '打开二级页面 ${screen.name} 读取命令: $labels',
+      'Open sub page ${screen.name} read commands: $labels',
       scope: 'RcAppController',
     );
   }
@@ -1272,11 +1272,11 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
     final writes = _adapter.writesForIntent(intent, source ?? state);
     if (intent is MixingSettingsUpdatedIntent) {
       if (writes.isEmpty) {
-        RcLogging.link('混控写入为空', scope: 'BluetoothIO');
+        RcLogging.link('Mixing write empty', scope: 'BluetoothIO');
       } else {
         for (final req in writes) {
           RcLogging.link(
-            '📤 混控发送 cmd=${req.command.name}(0x${req.command.id.toRadixString(16).toUpperCase()}) '
+            '📤 Mixing send cmd=${req.command.name}(0x${req.command.id.toRadixString(16).toUpperCase()}) '
             'payload=${RcLogging.hex(req.payload, maxBytes: 24)}',
             scope: 'BluetoothIO',
           );
@@ -1735,7 +1735,7 @@ class _TransportProtocolChannel implements BluetoothProtocolChannel {
             '${cmd.name}(0x${cmd.id.toRadixString(16).toUpperCase()})';
         final dataText =
             'bytes=${chunk.length} payload=${RcLogging.hex(chunk, maxBytes: 48)}';
-        RcLogging.link('☎️ 设备发送 cmd=$cmdLabel $dataText', scope: 'BluetoothIO');
+        RcLogging.link('☎️ Device send cmd=$cmdLabel $dataText', scope: 'BluetoothIO');
         unawaited(
           bluetoothLogStore.append(
             direction: 'RX',
@@ -1756,7 +1756,7 @@ class _TransportProtocolChannel implements BluetoothProtocolChannel {
           '${cmd.name}(0x${cmd.id.toRadixString(16).toUpperCase()})';
       final dataText =
           'bytes=${bytes.length} payload=${RcLogging.hex(bytes, maxBytes: 48)}';
-      RcLogging.link('📱 手机发送 cmd=$cmdLabel $dataText', scope: 'BluetoothIO');
+      RcLogging.link('📱 Phone send cmd=$cmdLabel $dataText', scope: 'BluetoothIO');
       unawaited(
         bluetoothLogStore.append(
           direction: 'TX',

@@ -10,7 +10,7 @@ class AlertIconWidget extends StatelessWidget {
     this.icon,
     this.iconAsset,
     this.cancelText,
-    this.confirmText = '确定',
+    this.confirmText = 'OK',
     this.onCancel,
     this.onConfirm,
   });
@@ -35,7 +35,7 @@ class AlertIconWidget extends StatelessWidget {
     Widget? icon,
     String? iconAsset,
     String? cancelText,
-    String confirmText = '确定',
+    String confirmText = 'OK',
     bool barrierDismissible = true,
   }) {
     return showDialog<bool>(

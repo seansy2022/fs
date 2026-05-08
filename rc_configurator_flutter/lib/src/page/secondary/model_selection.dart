@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:rc_ui/rc_ui.dart';
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 import '../../types.dart';
 
 class ModelSelection extends StatelessWidget {
@@ -44,10 +45,13 @@ class ModelSelection extends StatelessWidget {
     Model model,
     int index,
   ) async {
+    final l10n = AppLocalizations.of(context)!;
     final nextName = await AlertInputWidget.show(
       context,
-      title: '模型$index名称',
-      hintText: '输入提示语',
+      title: l10n.modelName(index),
+      hintText: l10n.prompt,
+      cancelText: l10n.cancel,
+      confirmText: l10n.ok,
       initialText: model.name.length > _maxModelNameLength
           ? model.name.substring(0, _maxModelNameLength)
           : model.name,

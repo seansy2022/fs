@@ -11,11 +11,13 @@ class DriveModeOption extends StatefulWidget {
     required this.mode,
     required this.selected,
     required this.onTap,
+    this.labels,
   });
 
   final DriveLayout mode;
   final bool selected;
   final VoidCallback onTap;
+  final Map<DriveLayout, String>? labels;
 
   @override
   State<DriveModeOption> createState() => _DriveModeOptionState();
@@ -30,10 +32,10 @@ class _DriveModeOptionState extends State<DriveModeOption> {
     DriveLayout.mixed => AppAssets.driveModeMixed,
   };
 
-  String get _label => switch (widget.mode) {
-    DriveLayout.front => '前驱',
-    DriveLayout.rear => '后驱',
-    DriveLayout.mixed => '前后混驱',
+  String get _label => widget.labels?[widget.mode] ?? switch (widget.mode) {
+    DriveLayout.front => 'Front Drive',
+    DriveLayout.rear => 'Rear Drive',
+    DriveLayout.mixed => 'F/R Hybrid',
   };
 
   @override

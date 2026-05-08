@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(flutter gen-l10n *)",
+      "Bash(find . -path \"*/flutter_gen/*\" -name \"*.dart\")",
+      "Bash(find . -name \"app_localizations*.dart\")",
+      "Bash(dart analyze *)",
+      "Bash(flutter analyze *)"
     ]
   }
 }

@@ -28,7 +28,7 @@ class AlertBlueWidget extends StatelessWidget {
     this.onRefresh,
     this.onDelete,
     this.onClose,
-    this.emptyText = '暂无设备',
+    this.emptyText = 'No devices',
     this.maxHeight = 420,
     this.maxWidth = 343,
   });
@@ -52,7 +52,7 @@ class AlertBlueWidget extends StatelessWidget {
     ValueChanged<AlertBlueItem>? onDelete,
     VoidCallback? onClose,
     bool barrierDismissible = true,
-    String emptyText = '暂无设备',
+    String emptyText = 'No devices',
     double maxHeight = 420,
     double maxWidth = 343,
   }) {
@@ -277,14 +277,14 @@ class _ItemRow extends StatelessWidget {
     final normalized = status.trim().toLowerCase();
     if (normalized.contains('online') ||
         normalized.contains('connected') ||
-        normalized.contains('已连接') ||
-        normalized.contains('在线')) {
+        normalized.contains('connected') ||
+        normalized.contains('online')) {
       return const Color(0xFF67E600);
     }
     if (normalized.contains('offline') ||
         normalized.contains('disconnected') ||
-        normalized.contains('断开') ||
-        normalized.contains('离线')) {
+        normalized.contains('disconnected') ||
+        normalized.contains('offline')) {
       return const Color(0xFFFF8A65);
     }
     return AppColors.textDim;

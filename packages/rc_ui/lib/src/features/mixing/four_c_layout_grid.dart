@@ -8,11 +8,13 @@ class FourCLayoutGrid extends StatelessWidget {
     required this.ratio,
     required this.direction,
     required this.onModeChange,
+    this.labels,
   });
 
   final int ratio;
   final String direction;
   final void Function(int ratio, String direction) onModeChange;
+  final Map<FourCLayoutMode, String>? labels;
 
   int _clamp(int v) => v.clamp(0, 100);
 
@@ -77,6 +79,7 @@ class FourCLayoutGrid extends StatelessWidget {
       mode: mode,
       selected: mode == selected,
       onTap: () => _select(mode),
+      labels: labels,
     );
   }
 

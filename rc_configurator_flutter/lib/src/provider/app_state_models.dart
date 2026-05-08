@@ -95,12 +95,12 @@ class ControlMappingState {
 ControlMappingState initialControlMappingState() {
   return const ControlMappingState(
     channel: 'CH11',
-    type: '单击',
+    type: 'Click',
     action: '',
-    mode: '翻转',
+    mode: 'Flip',
     controlType: ControlType.button,
-    availableStates: <String>['单击', '双击', '三击', '长按'],
-    selectedState: '单击',
+    availableStates: <String>['Click', 'Double Click', 'Triple Click', 'Long Press'],
+    selectedState: 'Click',
     functionType: '',
     targetChannel: null,
     mixingFunction: null,

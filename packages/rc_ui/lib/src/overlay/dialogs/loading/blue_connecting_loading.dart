@@ -10,7 +10,7 @@ class BlueConnectingLoading extends StatefulWidget {
 
   const BlueConnectingLoading({
     super.key,
-    this.text = '设备连接中…',
+    this.text = 'Connecting...',
     this.connectingStartedAt,
     this.complete = false,
     this.onCompleted,

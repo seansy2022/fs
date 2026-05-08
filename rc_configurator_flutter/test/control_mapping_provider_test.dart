@@ -18,14 +18,14 @@ void main() {
 
     notifier.selectChannel('CH3');
     var state = container.read(controlMappingProvider);
-    expect(state.type, '单击');
-    expect(state.mode, '翻转');
-    expect(state.availableStates, ['单击', '双击', '三击', '长按']);
+    expect(state.type, 'Click');
+    expect(state.mode, 'Flip');
+    expect(state.availableStates, ['Click', 'Double Click', 'Triple Click', 'Long Press']);
 
     notifier.selectChannel('CH5');
     state = container.read(controlMappingProvider);
-    expect(state.type, '旋钮');
-    expect(state.availableStates, ['旋钮', '三档开关']);
+    expect(state.type, 'Knob');
+    expect(state.availableStates, ['Knob', '3-Pos Switch']);
   });
 
   test('CH5 three-way switch initializes and updates mode options', () {
@@ -34,39 +34,39 @@ void main() {
     final notifier = container.read(controlMappingProvider.notifier);
 
     notifier.selectChannel('CH5');
-    notifier.updateType('三档开关');
+    notifier.updateType('3-Pos Switch');
     var state = container.read(controlMappingProvider);
-    expect(functionModeOptionsForChannel('CH5', type: '三档开关'), [
+    expect(functionModeOptionsForChannel('CH5', type: '3-Pos Switch'), [
       ...controlMappingChannels,
-      '四轮混控',
-      '驱动混控',
+      '4W Mix',
+      'Drive Mix',
       controlMappingNoAction,
     ]);
     expect(state.action, 'CH5');
     expect(state.targetChannel, 'CH5');
     expect(state.mixingFunction, isNull);
     expect(state.mixingMode1, isNull);
-    notifier.updateAction('四轮混控');
+    notifier.updateAction('4W Mix');
     state = container.read(controlMappingProvider);
-    expect(state.action, '四轮混控');
-    expect(state.mixingFunction, '四轮');
-    expect(state.mixingMode1, '四轮转向前面');
-    expect(state.mixingMode2, '四轮转向后面');
-    expect(state.mixingMode3, '四轮转向前后同向');
+    expect(state.action, '4W Mix');
+    expect(state.mixingFunction, '4W');
+    expect(state.mixingMode1, '4WS Front');
+    expect(state.mixingMode2, '4WS Rear');
+    expect(state.mixingMode3, '4WS F/R Same');
 
-    notifier.updateMixingMode(1, '四轮转向后面');
+    notifier.updateMixingMode(1, '4WS Rear');
     state = container.read(controlMappingProvider);
-    expect(state.mixingMode1, '四轮转向后面');
-    expect(state.mixingMode2, '四轮转向前面');
-    expect(state.mixingMode3, '四轮转向前后同向');
+    expect(state.mixingMode1, '4WS Rear');
+    expect(state.mixingMode2, '4WS Front');
+    expect(state.mixingMode3, '4WS F/R Same');
 
-    notifier.updateAction('驱动混控');
+    notifier.updateAction('Drive Mix');
     state = container.read(controlMappingProvider);
-    expect(state.action, '驱动混控');
-    expect(state.mixingFunction, '混动');
-    expect(state.mixingMode1, '驱动混控后面');
-    expect(state.mixingMode2, '驱动混控前后混控');
-    expect(state.mixingMode3, '驱动混控前面');
+    expect(state.action, 'Drive Mix');
+    expect(state.mixingFunction, 'Hybrid');
+    expect(state.mixingMode1, 'Drive Mix Rear');
+    expect(state.mixingMode2, 'Drive Mix F/R Hybrid');
+    expect(state.mixingMode3, 'Drive Mix Front');
     final unique = {state.mixingMode1, state.mixingMode2, state.mixingMode3};
     expect(unique.length, 3);
 
@@ -96,7 +96,7 @@ void main() {
     var state = container.read(controlMappingProvider);
     expect(state.targetChannel, 'CH8');
 
-    notifier.updateAction('四轮转向开关');
+    notifier.updateAction('4WS Switch');
     state = container.read(controlMappingProvider);
     expect(state.targetChannel, isNull);
   });
@@ -107,11 +107,11 @@ void main() {
     final notifier = container.read(controlMappingProvider.notifier);
 
     notifier.selectChannel('CH5');
-    notifier.updateType('旋钮');
+    notifier.updateType('Knob');
     var state = container.read(controlMappingProvider);
     expect(state.action, 'CH5');
     expect(state.targetChannel, 'CH5');
-    final options = functionModeOptionsForChannel('CH5', type: '旋钮');
+    final options = functionModeOptionsForChannel('CH5', type: 'Knob');
     expect(options, [...controlMappingChannels, controlMappingNoAction]);
 
     notifier.updateAction('CH8');
@@ -168,18 +168,18 @@ void main() {
   });
 
   test('CH9 function mode options include trim and ratio actions', () {
-    final options = functionModeOptionsForChannel('CH9', type: '旋钮');
+    final options = functionModeOptionsForChannel('CH9', type: 'Knob');
     expect(options, [
       ...controlMappingChannels,
-      '油门微调',
-      '方向微调',
-      '四轮转向混控比率',
-      '驱动混控前进比率',
-      '驱动混控后退比率',
-      '刹车混控比率',
-      '方向比率',
-      '前进比率',
-      '刹车比率',
+      'Throttle Trim',
+      'Steering Trim',
+      '4WS Mix Ratio',
+      'Drive Mix Forward Ratio',
+      'Drive Mix Reverse Ratio',
+      'Brake Mix Ratio',
+      'Steering Ratio',
+      'Forward Ratio',
+      'Brake Ratio',
       controlMappingNoAction,
     ]);
   });
@@ -211,26 +211,26 @@ void main() {
 
     notifier.selectChannel('CH3');
     notifier.updateAction('CH8');
-    notifier.updateMode('触发');
+    notifier.updateMode('Trigger');
 
     notifier.selectChannel('CH5');
-    notifier.updateType('三档开关');
-    notifier.updateAction('驱动混控');
+    notifier.updateType('3-Pos Switch');
+    notifier.updateAction('Drive Mix');
 
     notifier.selectChannel('CH3');
     final restoredCh3 = container.read(controlMappingProvider);
     expect(restoredCh3.channel, 'CH3');
     expect(restoredCh3.action, 'CH8');
-    expect(restoredCh3.mode, '触发');
+    expect(restoredCh3.mode, 'Trigger');
 
     notifier.selectChannel('CH5');
     final restoredCh5 = container.read(controlMappingProvider);
     expect(restoredCh5.channel, 'CH5');
-    expect(restoredCh5.type, '三档开关');
-    expect(restoredCh5.action, '驱动混控');
+    expect(restoredCh5.type, '3-Pos Switch');
+    expect(restoredCh5.action, 'Drive Mix');
   });
 
-  test('CH5 legacy "无" type is normalized to knob on selection', () {
+  test('CH5 legacy "None" type is normalized to knob on selection', () {
     final container = _createContainer();
     addTearDown(container.dispose);
     final app = container.read(rcAppStateProvider);
@@ -238,9 +238,9 @@ void main() {
     final appNotifier = container.read(rcAppStateProvider.notifier);
     final legacyCh5 = app.controlMapping.copyWith(
       channel: 'CH5',
-      type: '无',
-      selectedState: '无',
-      availableStates: <String>['无', '旋钮', '三档开关'],
+      type: 'None',
+      selectedState: 'None',
+      availableStates: <String>['None', 'Knob', '3-Pos Switch'],
     );
     appNotifier.state = app.copyWith(
       controlMappings: <String, ControlMappingState>{
@@ -250,9 +250,9 @@ void main() {
     );
     notifier.selectChannel('CH5');
     final state = container.read(controlMappingProvider);
-    expect(state.type, '旋钮');
-    expect(state.selectedState, '旋钮');
-    expect(state.availableStates, ['旋钮', '三档开关']);
+    expect(state.type, 'Knob');
+    expect(state.selectedState, 'Knob');
+    expect(state.availableStates, ['Knob', '3-Pos Switch']);
   });
 }
 

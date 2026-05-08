@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_ui/rc_ui.dart';
 import 'package:rc_ble/rc_ble.dart';
 
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 import '../../provider/bluetooth_log_provider.dart';
 
 class BluetoothLogSettingsPage extends ConsumerStatefulWidget {
@@ -37,11 +38,12 @@ class _BluetoothLogSettingsPageState
   Widget build(BuildContext context) {
     final state = ref.watch(bluetoothLogProvider);
     final controller = ref.read(bluetoothLogProvider.notifier);
+    final l10n = AppLocalizations.of(context)!;
     return TechShell(
       child: Column(
         children: [
           TopAppBar(
-            title: '日志设置',
+            title: l10n.logSettings,
             onBack: () => Navigator.of(context).pop(),
           ),
           Expanded(
@@ -49,7 +51,7 @@ class _BluetoothLogSettingsPageState
               padding: const EdgeInsets.all(AppDimens.gapL),
               children: [
                 CellSwitchWidget(
-                  title: '蓝牙日志',
+                  title: l10n.bluetoothLog,
                   value: state.enabled,
                   onChanged: (v) => unawaited(controller.setEnabled(v)),
                 ),

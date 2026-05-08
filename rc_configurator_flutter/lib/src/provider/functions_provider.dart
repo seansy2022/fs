@@ -48,28 +48,28 @@ final screenTitleProvider = Provider<String>((ref) {
     case Screen.dashboard:
       return '';
     case Screen.functions:
-      return '菜单';
+      return 'Menu';
     case Screen.channels:
-      return '通道行程';
+      return 'EPA';
     case Screen.reverse:
-      return '通道反向';
+      return 'Reverse';
     case Screen.subTrim:
-      return '中立微调';
+      return 'SUBTRIM';
     case Screen.dualRate:
-      return '双比率';
+      return 'D/R';
     case Screen.curve:
-      return '曲线设置';
+      return 'CURVE';
     case Screen.controlMapping:
-      return '控件分配';
+      return 'ASSIGN';
     case Screen.modelSelection:
-      return '模型选择';
+      return 'MODEL';
     case Screen.failsafe:
-      return '失控保护';
+      return 'Failsafe';
     case Screen.radioSettings:
-      return '遥控器设置';
+      return 'SYSTEM';
     case Screen.mixing:
-      return '混控';
+      return 'MIXES';
     case Screen.bluetooth:
-      return '蓝牙连接';
+      return 'BT Connect';
   }
 });

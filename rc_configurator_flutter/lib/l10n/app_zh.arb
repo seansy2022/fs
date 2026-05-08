@@ -1,0 +1,176 @@
+{
+  "@@locale": "zh",
+  "appTitle": "MG11 Assistant",
+
+  "tabHome": "首页",
+  "tabMenu": "菜单",
+  "tabBluetooth": "蓝牙",
+
+  "homeMenu": "菜单",
+  "homeAvailableDevices": "可用设备",
+
+  "deviceConnected": "设备已连接",
+  "deviceDisconnected": "设备未连接",
+
+  "txVoltage": "TX电压",
+  "rxVoltage": "RX电压",
+  "signalStrength": "信号强度",
+
+  "channelReverse": "通道反向",
+  "channelTravel": "通道行程",
+  "subtrim": "中立微调",
+  "dualRate": "双比率",
+  "curve": "曲线",
+  "controlAssign": "控件分配",
+  "modelSelect": "模型选择",
+  "failsafe": "失控保护",
+  "radioSettings": "遥控器设置",
+  "mixing": "混控",
+  "bluetoothConnect": "蓝牙连接",
+
+  "rev": "反向",
+  "nor": "正向",
+
+  "steeringRate": "方向比率",
+  "forwardRate": "前进比率",
+  "brakeRate": "刹车比率",
+
+  "steeringCurve": "方向曲线",
+  "forwardCurve": "前进曲线",
+  "brakeCurve": "刹车曲线",
+
+  "backlightTimeout": "背光时间",
+  "standbyTimeout": "闲置报警",
+  "ambientLight": "氛围灯",
+
+  "fourWheelSteering": "四轮转向",
+  "trackMixing": "履带混控",
+  "driveMixing": "驱动混控",
+  "brakeMixing": "刹车混控",
+
+  "control": "控件",
+  "type": "类型",
+  "functionMode": "功能模式",
+  "mode": "模式",
+  "notSet": "未设置",
+  "trigger": "触发",
+  "flip": "翻转",
+
+  "singlePress": "单击",
+  "doublePress": "双击",
+  "triplePress": "三击",
+  "longPress": "长按",
+  "knob": "旋钮",
+  "twoPos": "2档",
+  "threePos": "3档",
+
+  "fourWsModeSwitch": "四轮转向模式切换",
+  "fourWsFront": "四轮转向前面",
+  "fourWsRear": "四轮转向后面",
+  "fourWsSame": "四轮转向前后同向",
+  "fourWsRev": "四轮转向前后反向",
+  "driveMixModeSwitch": "驱动混控模式切换",
+  "driveMixFR": "驱动混控前后混控",
+  "driveMixF": "驱动混控前面",
+  "driveMixR": "驱动混控后面",
+  "driveMixFRate": "驱动混控前进比率",
+  "driveMixRrate": "驱动混控后退比率",
+  "fourWsRate": "四轮转向比率",
+  "steeringTrim": "方向微调",
+  "throttleTrim": "油门微调",
+
+  "none": "无",
+
+  "modelName": "模型{index}名称",
+
+  "cancel": "取消",
+  "confirm": "确认",
+  "ok": "确定",
+
+  "standbyTimeoutLabel": "闲置报警",
+  "ambientLightLabel": "氛围灯",
+
+  "reset": "复位",
+  "mixingChannel": "混控通道",
+  "mixingRatio": "混控比率",
+  "front": "前面",
+  "rear": "后面",
+  "frontRearSame": "前后同向",
+  "frontRearRev": "前后反向",
+
+  "trackMixLabel": "履带混控",
+  "driveMixLabel": "驱动混控",
+  "fDrive": "后驱",
+  "rDrive": "前驱",
+  "frDrive": "前后混驱",
+  "brakeMixingLabel": "刹车混控",
+
+  "duplicateAssignWarning": "已重复分配功能，前一个分配该功能的控件功能模式将会变成\"无\"",
+
+  "confirmFactoryReset": "确认恢复出厂设置?",
+
+  "scanning": "搜索中...",
+  "noDevices": "无可用设备",
+  "bluetoothOff": "未开启蓝牙!",
+  "turnOnBluetooth": "开启蓝牙",
+  "startScanning": "开始扫描",
+  "tapToScan": "点击下方按钮开始扫描",
+  "permissionNotGranted": "权限未开启",
+  "grantLocationBtPermission": "请开启定位和蓝牙权限",
+  "grantBtPermission": "请开启蓝牙相关权限",
+  "grantPermission": "开启权限",
+  "connected": "已连接",
+  "disconnected": "未连接",
+  "searching": "搜索中",
+  "searchingNearby": "正在搜索附近蓝牙设备...",
+
+  "later": "稍后",
+  "goToSettings": "去开启",
+
+  "prompt": "输入提示语",
+  "noDevice": "暂无设备",
+
+  "connecting": "设备连接中...",
+  "connectedSuccess": "设备连接成功!",
+  "connectFailed": "设备连接失败!",
+
+  "logSettings": "日志设置",
+  "bluetoothLog": "蓝牙日志",
+
+  "readDeviceDataFailed": "读取设备数据失败，请重试",
+  "connectionTimeout": "连接超时，请重试",
+  "restoredDefaults": "已恢复默认值，当前未连接设备，未发送到设备",
+  "readDeviceFailed": "读取设备数据失败",
+
+  "turnLeft": "左转",
+  "forward": "前进",
+  "back": "后退",
+  "turnRight": "右转",
+
+  "frontDrive": "前驱",
+  "rearDrive": "后驱",
+  "mixedDrive": "前后混驱",
+
+  "mixingCurve": "混控曲线",
+
+  "lowSpeed": "低速",
+  "highSpeed": "高速",
+
+  "language": "语言",
+  "chinese": "中文",
+  "english": "English",
+
+  "functionForward": "功能:向前",
+  "functionCenter": "功能:向中",
+  "functionBackward": "功能:向后",
+
+  "duplicateTitle": "提示",
+  "restoreDefaultsTitle": "恢复出厂设置",
+
+  "channelOutput": "通道输出",
+  "mixingFunctionSwitch": "混控功能切换",
+  "fourWsSwitch": "四轮转向开关",
+  "trackSwitch": "履带混控开关",
+  "driveSwitch": "驱动混控开关",
+  "brakeSwitch": "刹车混控开关"
+}

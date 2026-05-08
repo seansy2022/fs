@@ -8,7 +8,9 @@ import 'package:rc_ui/src/core/app_assets.dart';
 const _kBluetoothAccent = Color(0xFF00C6FF);
 
 class BluetoothSearchingHint extends StatefulWidget {
-  const BluetoothSearchingHint({super.key});
+  const BluetoothSearchingHint({super.key, this.text = 'Searching'});
+
+  final String text;
 
   @override
   State<BluetoothSearchingHint> createState() => _BluetoothSearchingHintState();
@@ -38,8 +40,8 @@ class _BluetoothSearchingHintState extends State<BluetoothSearchingHint>
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
-          '搜索中',
+        Text(
+          widget.text,
           style: TextStyle(
             color: Colors.white,
             fontSize: AppFonts.s14,
@@ -67,14 +69,16 @@ class _BluetoothSearchingHintState extends State<BluetoothSearchingHint>
 }
 
 class BluetoothStatusText extends StatelessWidget {
-  const BluetoothStatusText({super.key, required this.connected});
+  const BluetoothStatusText({super.key, required this.connected, this.connectedLabel = 'Connected', this.disconnectedLabel = 'Disconnected'});
 
   final bool connected;
+  final String connectedLabel;
+  final String disconnectedLabel;
 
   @override
   Widget build(BuildContext context) {
     return Text(
-      connected ? '已连接' : '未连接',
+      connected ? connectedLabel : disconnectedLabel,
       style: TextStyle(
         color: connected ? _kBluetoothAccent : const Color(0xFF7DA2CE),
         fontSize: AppFonts.s14,

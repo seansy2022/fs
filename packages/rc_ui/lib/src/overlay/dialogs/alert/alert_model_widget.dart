@@ -9,8 +9,8 @@ class AlertModelWidget extends StatelessWidget {
     required this.title,
     required this.onCancel,
     required this.onConfirm,
-    this.cancelText = '取消',
-    this.confirmText = '确定',
+    this.cancelText = 'Cancel',
+    this.confirmText = 'OK',
   });
 
   final String title;
@@ -22,8 +22,8 @@ class AlertModelWidget extends StatelessWidget {
   static Future<bool?> show(
     BuildContext context, {
     required String title,
-    String cancelText = '取消',
-    String confirmText = '确定',
+    String cancelText = 'Cancel',
+    String confirmText = 'OK',
     bool barrierDismissible = true,
   }) {
     return showDialog<bool>(

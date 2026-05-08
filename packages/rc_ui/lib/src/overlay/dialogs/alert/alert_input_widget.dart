@@ -20,10 +20,10 @@ class AlertInputWidget extends StatefulWidget {
   static Future<String?> show(
     BuildContext context, {
     required String title,
-    String hintText = '输入提示语',
+    String hintText = 'Input hint',
     String initialText = '',
-    String cancelText = '取消',
-    String confirmText = '确定',
+    String cancelText = 'Cancel',
+    String confirmText = 'OK',
     bool barrierDismissible = true,
     int? maxLength,
   }) {

@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:rc_ui/rc_ui.dart';
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 import '../../types.dart';
 
 class Functions extends StatelessWidget {
@@ -12,17 +13,18 @@ class Functions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final menu = <(Screen, String, String?)>[
-      (Screen.reverse, '通道反向', AppAssets.menuChannelDirection),
-      (Screen.channels, '通道行程', AppAssets.menuChannelTravel),
-      (Screen.subTrim, '中立微调', AppAssets.menuSubTrim),
-      (Screen.dualRate, '双比率', AppAssets.doubleRate),
-      (Screen.curve, '曲线', AppAssets.menuCurve),
-      (Screen.controlMapping, '控件分配', AppAssets.menuControlMapping),
-      (Screen.modelSelection, '模型选择', AppAssets.menuModelSelection),
-      (Screen.failsafe, '失控保护', AppAssets.menuFailsafe),
-      (Screen.radioSettings, '遥控器设置', AppAssets.menuRadioSettings),
-      (Screen.mixing, '混控', AppAssets.menuMixing),
+      (Screen.reverse, l10n.channelReverse, AppAssets.menuChannelDirection),
+      (Screen.channels, l10n.channelTravel, AppAssets.menuChannelTravel),
+      (Screen.subTrim, l10n.subtrim, AppAssets.menuSubTrim),
+      (Screen.dualRate, l10n.dualRate, AppAssets.doubleRate),
+      (Screen.curve, l10n.curve, AppAssets.menuCurve),
+      (Screen.controlMapping, l10n.controlAssign, AppAssets.menuControlMapping),
+      (Screen.modelSelection, l10n.modelSelect, AppAssets.menuModelSelection),
+      (Screen.failsafe, l10n.failsafe, AppAssets.menuFailsafe),
+      (Screen.radioSettings, l10n.radioSettings, AppAssets.menuRadioSettings),
+      (Screen.mixing, l10n.mixing, AppAssets.menuMixing),
     ];
     return ListView(
       padding: const EdgeInsets.all(AppDimens.gapL),

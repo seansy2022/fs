@@ -7,7 +7,7 @@ import 'blue_loading_base.dart';
 class BlueConnectFailLoading extends StatelessWidget {
   const BlueConnectFailLoading({
     super.key,
-    this.text = '设备连接失败!',
+    this.text = 'Connection failed!',
     this.progress = 0,
   });
 

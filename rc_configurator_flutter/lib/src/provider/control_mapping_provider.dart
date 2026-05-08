@@ -70,7 +70,7 @@ class ControlMappingController extends Notifier<ControlMappingState> {
   }
 
   void updateMixingFunction(String mixingFunction) {
-    final action = mixingFunction == '混动' ? '驱动混控' : '四轮混控';
+    final action = mixingFunction == 'Hybrid' ? 'Drive Mix' : '4W Mix';
     updateAction(action);
   }
 
@@ -107,7 +107,7 @@ class ControlMappingController extends Notifier<ControlMappingState> {
       selectedState: type,
       controlType: controlTypeForSelection(channel, type),
       availableStates: controlTypeOptionsForChannel(channel),
-      mode: type == '单击' ? (current.mode.isEmpty ? '翻转' : current.mode) : '',
+      mode: type == 'Click' ? (current.mode.isEmpty ? 'Flip' : current.mode) : '',
       action: normalizedAction,
       functionType: normalizedAction,
       targetChannel: isChannelFunctionMode(normalizedAction)
@@ -238,24 +238,24 @@ class ControlMappingController extends Notifier<ControlMappingState> {
 
   String _fallbackAction(String channel, String type, List<String> actions) {
     if (actions.isEmpty) return '';
-    if (channel == 'CH5' && type == '旋钮' && actions.contains('CH5')) {
+    if (channel == 'CH5' && type == 'Knob' && actions.contains('CH5')) {
       return 'CH5';
     }
-    if (channel == 'CH6' && type == '三档' && actions.contains('CH6')) {
+    if (channel == 'CH6' && type == '3-Pos' && actions.contains('CH6')) {
       return 'CH6';
     }
-    if (channel == 'CH10' && type == '二档' && actions.contains('CH10')) {
+    if (channel == 'CH10' && type == '2-Pos' && actions.contains('CH10')) {
       return 'CH10';
     }
-    if (channel == 'CH5' && type == '三档开关' && actions.contains('四轮混控')) {
-      return '四轮混控';
+    if (channel == 'CH5' && type == '3-Pos Switch' && actions.contains('4W Mix')) {
+      return '4W Mix';
     }
     return '';
   }
 
   String _ch5MixingFunctionForAction(String action, {String? fallback}) {
-    if (action == '驱动混控') return '混动';
-    if (action == '四轮混控') return '四轮';
+    if (action == 'Drive Mix') return 'Hybrid';
+    if (action == '4W Mix') return '4W';
     if (fallback != null && ch5MixingFunctionOptions.contains(fallback)) {
       return fallback;
     }

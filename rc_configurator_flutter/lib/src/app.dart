@@ -7,8 +7,10 @@ import 'page/home/home_route_page.dart';
 import 'page/home/home_route_utils.dart';
 import 'page/secondary/secondary_route_page.dart';
 import 'page/startup_permission.dart';
+import 'provider/locale_provider.dart';
 import 'provider/startup_provider.dart';
 import 'types.dart';
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 
 const kDebugHoldStartupScreen = false;
 
@@ -23,9 +25,13 @@ class RcConfiguratorApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeProvider);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: appTheme(),
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       initialRoute: AppRoutes.enter,
       routes: {
         AppRoutes.enter: (_) => const _EnterRouteGate(),

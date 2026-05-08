@@ -10,7 +10,7 @@
         android:maxSdkVersion="30" />
 
     <application
-        android:label="MG11助手"
+        android:label="MG11 Assistant"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

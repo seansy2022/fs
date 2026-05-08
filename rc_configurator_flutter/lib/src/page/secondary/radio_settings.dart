@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:rc_ui/rc_ui.dart';
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
+import '../../provider/locale_provider.dart';
 import '../../types.dart';
 
 const _cellHighlightBase = Color(0x281B2D4D);
 
-class RadioSettingsView extends StatelessWidget {
+class RadioSettingsView extends ConsumerWidget {
   const RadioSettingsView({
     super.key,
     required this.settings,
@@ -16,12 +19,13 @@ class RadioSettingsView extends StatelessWidget {
   final ValueChanged<RadioSettings> onUpdateSettings;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     return ListView(
       padding: const EdgeInsets.all(AppDimens.gapL),
       children: [
         CellRateWidget(
-          title: '背光时间',
+          title: l10n.backlightTimeout,
           value: settings.backlightTime,
           suffix: '',
           enablePressRepeat: true,
@@ -30,7 +34,7 @@ class RadioSettingsView extends StatelessWidget {
         ),
         const SizedBox(height: AppDimens.gapM),
         CellRateWidget(
-          title: '闲置报警',
+          title: l10n.standbyTimeout,
           value: settings.idleAlarm,
           suffix: '',
           enablePressRepeat: true,
@@ -39,7 +43,7 @@ class RadioSettingsView extends StatelessWidget {
         ),
         const SizedBox(height: AppDimens.gapM),
         CellSwitchWidget(
-          title: '氛围灯',
+          title: l10n.ambientLight,
           value: settings.atmosphereLight,
           enableHighlight: true,
           highlightGradient: AppGradients.v24,
@@ -47,7 +51,35 @@ class RadioSettingsView extends StatelessWidget {
           onChanged: (v) =>
               onUpdateSettings(settings.copyWith(atmosphereLight: v)),
         ),
+        const SizedBox(height: AppDimens.gapM),
+        CellIconTextWidget(
+          enableHighlight: true,
+          title: l10n.language,
+          valueText: ref.watch(localeProvider).languageCode == 'zh'
+              ? l10n.chinese
+              : l10n.english,
+          onTap: () => _showLanguageSheet(context, ref),
+        ),
       ],
+    );
+  }
+
+  void _showLanguageSheet(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    AlertSelectionSheet.show(
+      context,
+      title: l10n.language,
+      options: [l10n.english, l10n.chinese],
+      selectedOption: ref.read(localeProvider).languageCode == 'zh'
+          ? l10n.chinese
+          : l10n.english,
+      onOptionSelected: (selected) {
+        if (selected == l10n.chinese) {
+          ref.read(localeProvider.notifier).setLocale(const Locale('zh'));
+        } else {
+          ref.read(localeProvider.notifier).setLocale(const Locale('en'));
+        }
+      },
     );
   }
 

@@ -7,7 +7,7 @@ import 'blue_loading_base.dart';
 class BlueConnectSuccessLoading extends StatelessWidget {
   const BlueConnectSuccessLoading({
     super.key,
-    this.text = '设备连接成功!',
+    this.text = 'Device connected!',
     this.progress = 1,
   });
 

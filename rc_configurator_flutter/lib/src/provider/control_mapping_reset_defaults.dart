@@ -2,8 +2,8 @@ import 'app_state_models.dart';
 import 'control_mapping_reset_config.dart';
 import 'control_mapping_options.dart';
 
-const _resetMode = '翻转';
-const _resetMixingMode = '四轮转向';
+const _resetMode = 'Flip';
+const _resetMixingMode = '4WS';
 
 List<ControlMappingState> controlMappingResetDefaults() {
   return controlMappingResetConfigs
@@ -15,7 +15,7 @@ ControlMappingState _defaultFromConfig(ControlMappingResetConfig config) {
   final channel = config.channel;
   final type = config.type;
   final functionType = config.action;
-  final action = functionType == '通道输出'
+  final action = functionType == 'Channel Output'
       ? config.targetChannel
       : functionType;
   return ControlMappingState(

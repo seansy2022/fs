@@ -134,7 +134,7 @@ void main() {
     );
     final next = adapter.applyToState(state, adapter.decodeFrame(frame));
     expect(next.controlMapping.channel, 'CH3');
-    expect(next.controlMapping.action, '通道输出');
+    expect(next.controlMapping.action, 'Channel Output');
     expect(next.controlMapping.targetChannel, isNull);
   });
 
@@ -153,7 +153,7 @@ void main() {
     );
     final next = adapter.applyToState(state, adapter.decodeFrame(frame));
     expect(next.controlMapping.channel, 'CH3');
-    expect(next.controlMapping.action, '无');
+    expect(next.controlMapping.action, 'None');
     expect(next.controlMapping.targetChannel, isNull);
   });
 

@@ -28,18 +28,18 @@ void main() {
       notifier.state = RcAppState.initial().copyWith(
         controlMapping: const ControlMappingState(
           channel: 'CH5',
-          type: '三档开关',
-          action: '驱动混控',
-          mode: '触发',
+          type: '3-Pos Switch',
+          action: 'Drive Mix',
+          mode: 'Trigger',
           controlType: ControlType.threeWaySwitch,
-          availableStates: <String>['旋钮', '三档开关'],
-          selectedState: '三档开关',
-          functionType: '驱动混控',
+          availableStates: <String>['Knob', '3-Pos Switch'],
+          selectedState: '3-Pos Switch',
+          functionType: 'Drive Mix',
           targetChannel: null,
-          mixingFunction: '混动',
-          mixingMode1: '驱动混控后面',
-          mixingMode2: '驱动混控前面',
-          mixingMode3: '驱动混控前后混控',
+          mixingFunction: 'Hybrid',
+          mixingMode1: 'Drive Mix Rear',
+          mixingMode2: 'Drive Mix Front',
+          mixingMode3: 'Drive Mix F/R Hybrid',
         ),
       );
 
@@ -50,19 +50,19 @@ void main() {
       final ch5 = app.controlMappings['CH5'];
 
       expect(next.channel, 'CH5');
-      expect(next.type, '旋钮');
+      expect(next.type, 'Knob');
       expect(next.action, 'CH5');
-      expect(next.mode, '翻转');
-      expect(next.selectedState, '旋钮');
+      expect(next.mode, 'Flip');
+      expect(next.selectedState, 'Knob');
       expect(next.targetChannel, 'CH5');
       expect(next.mixingFunction, isNull);
-      expect(next.mixingMode1, '四轮转向');
-      expect(next.mixingMode2, '四轮转向');
-      expect(next.mixingMode3, '四轮转向');
+      expect(next.mixingMode1, '4WS');
+      expect(next.mixingMode2, '4WS');
+      expect(next.mixingMode3, '4WS');
       expect(ch3?.channel, 'CH3');
       expect(ch3?.targetChannel, 'CH3');
       expect(ch5?.channel, 'CH5');
-      expect(ch5?.type, '旋钮');
+      expect(ch5?.type, 'Knob');
     },
   );
 

@@ -628,16 +628,16 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
         payload[8],
       );
       final action = _ch5ActionText(payload[8], mixingFunction);
-      final targetChannel = action == '通道分配'
+      final targetChannel = action == 'Channel Assign'
           ? _functionChannel(payload[8])
           : null;
-      final type = channel == 'CH6' ? '三档' : '三档开关';
+      final type = channel == 'CH6' ? '3-Pos' : '3-Pos Switch';
       final states = controlTypeOptionsForChannel(channel);
       final next = base.copyWith(
         channel: channel,
         type: type,
         action: action,
-        mode: payload[3] == 1 ? '触发' : '翻转',
+        mode: payload[3] == 1 ? 'Trigger' : 'Flip',
         controlType: ControlType.threeWaySwitch,
         availableStates: states,
         selectedState: type,
@@ -659,12 +659,12 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     final next = base.copyWith(
       channel: channel,
       type: type,
-      action: action == '通道输出'
+      action: action == 'Channel Output' || action == '通道输出'
           ? (payload[8] == 25
                 ? controlMappingNoAction
                 : (targetChannel ?? action))
           : action,
-      mode: payload[3] == 1 ? '触发' : '翻转',
+      mode: payload[3] == 1 ? 'Trigger' : 'Flip',
       controlType: controlTypeForSelection(channel, type),
       availableStates: controlTypeOptionsForChannel(channel),
       selectedState: type,
@@ -699,7 +699,7 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
     return initialControlMappingState().copyWith(
       channel: channel,
       type: type,
-      mode: type == '单击' ? '翻转' : '',
+      mode: type == 'Click' ? 'Flip' : '',
       controlType: controlTypeForSelection(channel, type),
       availableStates: options,
       selectedState: type,
@@ -898,7 +898,7 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
       0,
       _controlChannelToIndex(state.channel),
       _controlStateCode(state.type),
-      state.mode == '触发' ? 1 : 0,
+      state.mode == 'Trigger' ? 1 : 0,
       isCh5ThreeWay
           ? _ch5MixingModeCode(state.mixingFunction, state.mixingMode1)
           : _mixingModeCode(state.mixingMode1),
@@ -977,39 +977,39 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
 
   String _controlStateText(int value) {
     return switch (value) {
-      1 => '单击',
-      2 => '双击',
-      4 => '三击',
-      8 => '长按',
-      _ => '无',
+      1 => 'Click',
+      2 => 'Double Click',
+      4 => 'Triple Click',
+      8 => 'Long Press',
+      _ => 'None',
     };
   }
 
   int _controlStateCode(String state) {
     return switch (state) {
-      '单击' => 1,
-      '双击' => 2,
-      '三击' => 4,
-      '长按' => 8,
+      'Click' => 1,
+      'Double Click' => 2,
+      'Triple Click' => 4,
+      'Long Press' => 8,
       _ => 0,
     };
   }
 
   String _mixingModeText(int value) {
     return switch (value) {
-      0 => '四轮转向',
-      1 => '履带混控',
-      2 => '驱动混控',
-      _ => '刹车混控',
+      0 => '4WS',
+      1 => 'Track Mix',
+      2 => 'Drive Mix',
+      _ => 'Brake Mix',
     };
   }
 
   int _mixingModeCode(String? value) {
     return switch (value) {
       '四轮转向' || '4WS' => 0,
-      '履带混控' => 1,
-      '驱动混控' => 2,
-      '刹车混控' => 3,
+      '履带混控' || 'Track Mix' => 1,
+      '驱动混控' || 'Drive Mix' => 2,
+      '刹车混控' || 'Brake Mix' => 3,
       _ => 0,
     };
   }
@@ -1024,75 +1024,75 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
   }
 
   String _ch5MixingFunctionFromPayload(int actionCode, int functionCode) {
-    if (functionCode == 12) return '四轮';
-    if (functionCode == 14) return '混动';
+    if (functionCode == 12) return '4W';
+    if (functionCode == 14) return 'Hybrid';
     return _ch5MixingFunctionText(actionCode);
   }
 
   String _ch5MixingFunctionText(int value) {
-    if (value == 1) return '混动';
-    return '四轮';
+    if (value == 1) return 'Hybrid';
+    return '4W';
   }
 
   String _ch5MixingModeText(String mixingFunction, int value) {
-    if (mixingFunction == '混动') {
-      if (value == 0) return '驱动混控后面';
-      if (value == 1) return '驱动混控前后混控';
-      return '驱动混控前面';
+    if (mixingFunction == 'Hybrid') {
+      if (value == 0) return 'Drive Mix Rear';
+      if (value == 1) return 'Drive Mix F/R Hybrid';
+      return 'Drive Mix Front';
     }
-    if (value == 0) return '四轮转向前面';
-    if (value == 1) return '四轮转向前后反向';
-    if (value == 2) return '四轮转向前后同向';
-    return '四轮转向后面';
+    if (value == 0) return '4WS Front';
+    if (value == 1) return '4WS F/R Reverse';
+    if (value == 2) return '4WS F/R Same';
+    return '4WS Rear';
   }
 
   int _ch5MixingModeCode(String? mixingFunction, String? value) {
-    if (mixingFunction == '混动') {
-      if (value == '驱动混控后面' || value == '后驱' || value == '驱动混控后驱') {
+    if (mixingFunction == 'Hybrid') {
+      if (value == 'Drive Mix Rear' || value == '驱动混控后面' || value == '后驱' || value == '驱动混控后驱') {
         return 0;
       }
-      if (value == '驱动混控前后混控' || value == '前后混驱') {
+      if (value == 'Drive Mix F/R Hybrid' || value == '驱动混控前后混控' || value == '前后混驱') {
         return 1;
       }
       return 2;
     }
-    if (value == '四轮转向前面' || value == '前轮转向' || value == '四轮前轮转向') {
+    if (value == '4WS Front' || value == '四轮转向前面' || value == '前轮转向' || value == '四轮前轮转向') {
       return 0;
     }
-    if (value == '四轮转向前后反向') return 1;
-    if (value == '四轮转向前后同向') return 2;
-    if (value == '四轮转向后面' || value == '后轮转向' || value == '四轮后轮转向') {
+    if (value == '4WS F/R Reverse' || value == '四轮转向前后反向') return 1;
+    if (value == '4WS F/R Same' || value == '四轮转向前后同向') return 2;
+    if (value == '4WS Rear' || value == '四轮转向后面' || value == '后轮转向' || value == '四轮后轮转向') {
       return 3;
     }
     return 0;
   }
 
   String _ch5ActionText(int functionCode, String mixingFunction) {
-    if (mixingFunction == '四轮') return '四轮混控';
-    return '驱动混控';
+    if (mixingFunction == '4W') return '4W Mix';
+    return 'Drive Mix';
   }
 
   String _controlActionText(int value, {int? functionCode}) {
     if (value == 1 && functionCode != null) {
-      return controlMappingSwitchActionByCode(functionCode) ?? '混控功能切换';
+      return controlMappingSwitchActionByCode(functionCode) ?? 'Mix Function Switch';
     }
     if (value == 2) {
-      return _trimActionFromCode(functionCode) ?? '方向微调';
+      return _trimActionFromCode(functionCode) ?? 'Steering Trim';
     }
     if (value == 3) {
-      return _ratioActionFromCode(functionCode) ?? '方向比率';
+      return _ratioActionFromCode(functionCode) ?? 'Steering Ratio';
     }
     return switch (value) {
-      0 => '通道输出',
-      1 => '混控功能切换',
-      _ => '无',
+      0 => 'Channel Output',
+      1 => 'Mix Function Switch',
+      _ => 'None',
     };
   }
 
   int _controlActionCode(String action) {
-    if (action == '通道输出' || _isChannelAction(action)) return 0;
+    if (action == 'Channel Output' || action == '通道输出' || _isChannelAction(action)) return 0;
     if (isNoFunctionMode(action)) return 0;
-    if (action == '四轮混控' || action == '驱动混控') return 1;
+    if (action == '4W Mix' || action == '四轮混控' || action == 'Drive Mix' || action == '驱动混控') return 1;
     if (_isSwitchAction(action)) return 1;
     if (_isTrimAction(action)) return 2;
     if (_isRatioAction(action)) return 3;
@@ -1109,8 +1109,8 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
       return _controlChannelToIndex(state.targetChannel!);
     }
     if (isNoFunctionMode(state.action)) return 25;
-    if (state.action == '四轮混控') return 12;
-    if (state.action == '驱动混控') return 14;
+    if (state.action == '4W Mix' || state.action == '四轮混控') return 12;
+    if (state.action == 'Drive Mix' || state.action == '驱动混控') return 14;
     final switchCode = controlMappingSwitchActionCode(state.action);
     if (switchCode != null) return switchCode;
     final trimCode = _trimActionCode(state.action);
@@ -1127,14 +1127,23 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
 
   bool _isSwitchAction(String action) {
     return switch (action) {
+      'Mix Function Switch' ||
       '混控功能切换' ||
+      '4WS Switch' ||
       '四轮转向开关' ||
+      'Track Mix Switch' ||
       '履带混控开关' ||
+      'Drive Mix Switch' ||
       '驱动混控开关' ||
+      'Brake Mix Switch' ||
       '刹车混控开关' ||
+      '4WS Mode Switch' ||
       '四轮转向模式切换' ||
+      'Track Mix Toggle' ||
       '履带混控切换' ||
+      'Drive Mix Toggle' ||
       '驱动混控切换' ||
+      'Brake Mix Toggle' ||
       '刹车混控切换' => true,
       _ => false,
     };
@@ -1150,42 +1159,42 @@ class ProtocolAdapterV1 implements ProtocolAdapter {
 
   int? _trimActionCode(String action) {
     return switch (action) {
-      '方向普通微调' || '方向微调' => 15,
-      '油门普通微调' || '油门微调' => 16,
+      'Steering Normal Trim' || '方向普通微调' || 'Steering Trim' || '方向微调' => 15,
+      'Throttle Normal Trim' || '油门普通微调' || 'Throttle Trim' || '油门微调' => 16,
       _ => null,
     };
   }
 
   String? _trimActionFromCode(int? code) {
     return switch (code) {
-      15 => '方向微调',
-      16 => '油门微调',
+      15 => 'Steering Trim',
+      16 => 'Throttle Trim',
       _ => null,
     };
   }
 
   int? _ratioActionCode(String action) {
     return switch (action) {
-      '方向比率' || '方向比率控制' => 17,
-      '前进比率' || '油门前进比率' || '油门比率控制' => 18,
-      '刹车比率' || '油门刹车比率' => 19,
-      '四轮转向混控比率' || '四轮转向比率控制' => 20,
-      '驱动混控前进比率' || '驱动混控比率' || '驱动混控比率控制' => 21,
-      '驱动混控后退比率' => 22,
-      '刹车混控1比率' || '刹车混控2比率' || '刹车混控比率' || '刹车混控比率控制' => 23,
+      'Steering Ratio' || '方向比率' || '方向比率控制' => 17,
+      'Forward Ratio' || '前进比率' || '油门前进比率' || '油门比率控制' => 18,
+      'Brake Ratio' || '刹车比率' || '油门刹车比率' => 19,
+      '4WS Mix Ratio' || '四轮转向混控比率' || '四轮转向比率控制' => 20,
+      'Drive Mix Forward Ratio' || '驱动混控前进比率' || 'Drive Mix Ratio' || '驱动混控比率' || '驱动混控比率控制' => 21,
+      'Drive Mix Reverse Ratio' || '驱动混控后退比率' => 22,
+      'Brake Mix Ratio' || '刹车混控1比率' || '刹车混控2比率' || '刹车混控比率' || '刹车混控比率控制' => 23,
       _ => null,
     };
   }
 
   String? _ratioActionFromCode(int? code) {
     return switch (code) {
-      17 => '方向比率',
-      18 => '前进比率',
-      19 => '刹车比率',
-      20 => '四轮转向混控比率',
-      21 => '驱动混控前进比率',
-      22 => '驱动混控后退比率',
-      23 || 24 => '刹车混控比率',
+      17 => 'Steering Ratio',
+      18 => 'Forward Ratio',
+      19 => 'Brake Ratio',
+      20 => '4WS Mix Ratio',
+      21 => 'Drive Mix Forward Ratio',
+      22 => 'Drive Mix Reverse Ratio',
+      23 || 24 => 'Brake Mix Ratio',
       _ => null,
     };
   }

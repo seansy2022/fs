@@ -12,20 +12,26 @@ class BluetoothListView extends StatelessWidget {
     required this.devices,
     required this.isScanning,
     required this.onTapDevice,
+    this.searchingText = 'Searching',
+    this.connectedLabel = 'Connected',
+    this.disconnectedLabel = 'Disconnected',
   });
 
   final List<UiBluetoothDevice> devices;
   final bool isScanning;
   final ValueChanged<int> onTapDevice;
+  final String searchingText;
+  final String connectedLabel;
+  final String disconnectedLabel;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         if (isScanning)
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(AppDimens.gapL, 8, AppDimens.gapL, 6),
-            child: BluetoothSearchingHint(),
+            child: BluetoothSearchingHint(text: searchingText),
           ),
         Expanded(
           child: ListView(
@@ -35,7 +41,7 @@ class BluetoothListView extends StatelessWidget {
               AppDimens.gapL,
               AppDimens.gapL,
             ),
-            children: [_DeviceCard(devices: devices, onTapDevice: onTapDevice)],
+            children: [_DeviceCard(devices: devices, onTapDevice: onTapDevice, connectedLabel: connectedLabel, disconnectedLabel: disconnectedLabel)],
           ),
         ),
       ],
@@ -44,10 +50,12 @@ class BluetoothListView extends StatelessWidget {
 }
 
 class _DeviceCard extends StatelessWidget {
-  const _DeviceCard({required this.devices, required this.onTapDevice});
+  const _DeviceCard({required this.devices, required this.onTapDevice, this.connectedLabel = 'Connected', this.disconnectedLabel = 'Disconnected'});
 
   final List<UiBluetoothDevice> devices;
   final ValueChanged<int> onTapDevice;
+  final String connectedLabel;
+  final String disconnectedLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -57,11 +65,11 @@ class _DeviceCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFF233854)),
       ),
-      child: Column(children: _rows(44)),
+      child: Column(children: _rows(44, connectedLabel, disconnectedLabel)),
     );
   }
 
-  List<Widget> _rows(double rowHeight) {
+  List<Widget> _rows(double rowHeight, String connectedLabel, String disconnectedLabel) {
     return devices.asMap().entries.map((e) {
       final i = e.key;
       final d = e.value;
@@ -91,7 +99,7 @@ class _DeviceCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                BluetoothStatusText(connected: d.connected),
+                BluetoothStatusText(connected: d.connected, connectedLabel: connectedLabel, disconnectedLabel: disconnectedLabel),
               ],
             ),
           ),

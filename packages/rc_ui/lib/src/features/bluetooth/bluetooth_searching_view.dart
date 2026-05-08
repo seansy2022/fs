@@ -8,7 +8,10 @@ import 'package:rc_ui/src/core/app_assets.dart';
 const _kBluetoothAccent = Color(0xFF00C6FF);
 
 class BluetoothSearchingView extends StatefulWidget {
-  const BluetoothSearchingView({super.key});
+  const BluetoothSearchingView({super.key, this.titleText = 'Searching', this.subtitleText = 'Searching for nearby devices...'});
+
+  final String titleText;
+  final String subtitleText;
 
   @override
   State<BluetoothSearchingView> createState() => _BluetoothSearchingViewState();
@@ -51,8 +54,8 @@ class _BluetoothSearchingViewState extends State<BluetoothSearchingView>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      '搜索中',
+                    Text(
+                      widget.titleText,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,
@@ -82,8 +85,8 @@ class _BluetoothSearchingViewState extends State<BluetoothSearchingView>
                 left: 0,
                 right: 0,
                 top: h * 410 / 1624,
-                child: const Text(
-                  '正在搜索附近蓝牙设备...',
+                child: Text(
+                  widget.subtitleText,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF7DA2CE),

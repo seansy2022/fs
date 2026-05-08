@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:rc_ui/rc_ui.dart';
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 import '../../types.dart';
 
 class Dashboard extends StatelessWidget {
@@ -21,6 +22,7 @@ class Dashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return ListView(
       padding: const EdgeInsets.all(AppDimens.gapL),
       children: [
@@ -40,6 +42,8 @@ class Dashboard extends StatelessWidget {
                     child: HomeTopWidget(
                       isConnected: isBluetoothConnected,
                       deviceName: connectedDeviceName,
+                      connectedText: l10n.deviceConnected,
+                      disconnectedText: l10n.deviceDisconnected,
                     ),
                   ),
                 ],
@@ -52,7 +56,7 @@ class Dashboard extends StatelessWidget {
           children: [
             Expanded(
               child: HomeMetric(
-                label: 'TX电压',
+                label: l10n.txVoltage,
                 value: _voltageText(telemetry.txVoltage, isBluetoothConnected),
                 unit: _voltageUnit(telemetry.txVoltage, isBluetoothConnected),
               ),
@@ -60,7 +64,7 @@ class Dashboard extends StatelessWidget {
             const SizedBox(width: AppDimens.gapM),
             Expanded(
               child: HomeMetric(
-                label: 'RX电压',
+                label: l10n.rxVoltage,
                 value: _voltageText(telemetry.rxVoltage, isBluetoothConnected),
                 unit: _voltageUnit(telemetry.rxVoltage, isBluetoothConnected),
               ),
@@ -68,7 +72,7 @@ class Dashboard extends StatelessWidget {
             const SizedBox(width: AppDimens.gapM),
             Expanded(
               child: HomeMetric(
-                label: '信号强度',
+                label: l10n.signalStrength,
                 value: _rssiText(
                   telemetry.signalStrength,
                   isBluetoothConnected,
@@ -87,13 +91,13 @@ class Dashboard extends StatelessWidget {
               .toList(),
         ),
         const SizedBox(height: AppDimens.gapM),
-        CellIconWidget(enableHighlight: true, title: '通道行程', onTap: () => onNavigate(Screen.channels)),
+        CellIconWidget(enableHighlight: true, title: l10n.channelTravel, onTap: () => onNavigate(Screen.channels)),
         const SizedBox(height: AppDimens.gapM),
-        CellIconWidget( enableHighlight: true,   title: '通道反向', onTap: () => onNavigate(Screen.reverse)),
+        CellIconWidget( enableHighlight: true,   title: l10n.channelReverse, onTap: () => onNavigate(Screen.reverse)),
         const SizedBox(height: AppDimens.gapM),
         CellIconWidget(
-          enableHighlight: true, 
-          title: '模型选择',
+          enableHighlight: true,
+          title: l10n.modelSelect,
           onTap: () => onNavigate(Screen.modelSelection),
         ),
       ],

@@ -13,6 +13,8 @@ class BrakeMixingControl extends StatelessWidget {
     required this.onRatioChange,
     required this.onCurveChange,
     this.onChannelTap,
+    this.ratioTitle = 'Mix Ratio',
+    this.curveTitle = 'Mix Curve',
   });
 
   final String selectedChannel;
@@ -21,6 +23,8 @@ class BrakeMixingControl extends StatelessWidget {
   final ValueChanged<int> onRatioChange;
   final ValueChanged<int> onCurveChange;
   final VoidCallback? onChannelTap;
+  final String ratioTitle;
+  final String curveTitle;
   static const _fontSize = 12.0;
 
   @override
@@ -38,7 +42,7 @@ class BrakeMixingControl extends StatelessWidget {
           ),
           // const SizedBox(height: 8),
           CellRateWidget(
-            title: '混控比率',
+            title: ratioTitle,
             value: ratio,
             showBorder: false,
             padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
@@ -50,7 +54,7 @@ class BrakeMixingControl extends StatelessWidget {
           ),
           // const SizedBox(height: 8),
           CellRateWidget(
-            title: '混控曲线',
+            title: curveTitle,
             value: curve,
             showBorder: false,
             padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),

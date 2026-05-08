@@ -1,0 +1,183 @@
+{
+  "@@locale": "en",
+  "appTitle": "MG11 Assistant",
+
+  "tabHome": "HOME",
+  "tabMenu": "MENU",
+  "tabBluetooth": "BT",
+
+  "homeMenu": "Menu",
+  "homeAvailableDevices": "Available devices",
+
+  "deviceConnected": "Device connected",
+  "deviceDisconnected": "Device disconnected",
+
+  "txVoltage": "TX voltage",
+  "rxVoltage": "RX voltage",
+  "signalStrength": "Signal",
+
+  "channelReverse": "Reverse",
+  "channelTravel": "EPA",
+  "subtrim": "SUBTRIM",
+  "dualRate": "D/R",
+  "curve": "CURVE",
+  "controlAssign": "ASSIGN",
+  "modelSelect": "MODEL",
+  "failsafe": "Failsafe",
+  "radioSettings": "SYSTEM",
+  "mixing": "MIXES",
+  "bluetoothConnect": "BT Connect",
+
+  "rev": "REV",
+  "nor": "NOR",
+
+  "steeringRate": "ST Rate",
+  "forwardRate": "Forward Rate",
+  "brakeRate": "Brake Rate",
+
+  "steeringCurve": "ST Curve",
+  "forwardCurve": "Forward Curve",
+  "brakeCurve": "Brake Curve",
+
+  "backlightTimeout": "Backlight Timeout",
+  "standbyTimeout": "Standby Timeout",
+  "ambientLight": "Ambient Light",
+
+  "fourWheelSteering": "4WS",
+  "trackMixing": "Track Mix",
+  "driveMixing": "Drive Mix",
+  "brakeMixing": "Brake Mixing",
+
+  "control": "Control",
+  "type": "Type",
+  "functionMode": "Function",
+  "mode": "Mode",
+  "notSet": "Not set",
+  "trigger": "Trigger",
+  "flip": "Flip",
+
+  "singlePress": "Single press",
+  "doublePress": "Double press",
+  "triplePress": "Triple press",
+  "longPress": "Long press",
+  "knob": "Knob",
+  "twoPos": "2 POS",
+  "threePos": "3 POS",
+
+  "fourWsModeSwitch": "4WS Mixing Mode",
+  "fourWsFront": "4WS Mixing Front",
+  "fourWsRear": "4WS Mixing Rear",
+  "fourWsSame": "4WS Mixing Same",
+  "fourWsRev": "4WS Mixing Rev.",
+  "driveMixModeSwitch": "Drive Mix Mode",
+  "driveMixFR": "Drive Mix F-R Drive",
+  "driveMixF": "Drive Mix F Drive",
+  "driveMixR": "Drive Mix R Drive",
+  "driveMixFRate": "Drive Mix F Rate",
+  "driveMixRrate": "Drive Mix R Rate",
+  "fourWsRate": "4WS Mixing Rate",
+  "steeringTrim": "Steering Trim",
+  "throttleTrim": "Throttle Trim",
+
+  "none": "None",
+
+  "modelName": "Model{index} Name",
+  "@modelName": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+
+  "cancel": "Cancel",
+  "confirm": "Sure",
+  "ok": "OK",
+
+  "standbyTimeoutLabel": "Standby Timeout",
+  "ambientLightLabel": "Ambient Light",
+
+  "reset": "Reset",
+  "mixingChannel": "Mix Channel",
+  "mixingRatio": "Mix Rate",
+  "front": "F-ST",
+  "rear": "R-ST",
+  "frontRearSame": "FR-S",
+  "frontRearRev": "FR-R",
+
+  "trackMixLabel": "Track Mix",
+  "driveMixLabel": "Drive Mix",
+  "fDrive": "F-R Drive",
+  "rDrive": "F Drive",
+  "frDrive": "R Drive",
+  "brakeMixingLabel": "Brake Mixing",
+
+  "duplicateAssignWarning": "Duplicate assignment. Previous control will be set to \"None\".",
+
+  "confirmFactoryReset": "Confirm factory reset?",
+
+  "scanning": "Scanning...",
+  "noDevices": "No devices available",
+  "bluetoothOff": "Bluetooth is off!",
+  "turnOnBluetooth": "Turn on Bluetooth",
+  "startScanning": "Start Scan",
+  "tapToScan": "Tap the button below to start scanning",
+  "permissionNotGranted": "Permission not granted",
+  "grantLocationBtPermission": "Please grant location and Bluetooth permissions",
+  "grantBtPermission": "Please grant Bluetooth permissions",
+  "grantPermission": "Grant permission",
+  "connected": "Connected",
+  "disconnected": "Disconnected",
+  "searching": "Scanning...",
+  "searchingNearby": "Searching for nearby Bluetooth devices...",
+
+  "later": "Later",
+  "goToSettings": "Go to settings",
+
+  "prompt": "Hint",
+  "noDevice": "No devices",
+
+  "connecting": "Connecting...",
+  "connectedSuccess": "Connected!",
+  "connectFailed": "Connection failed!",
+
+  "logSettings": "Log Settings",
+  "bluetoothLog": "Bluetooth Log",
+
+  "readDeviceDataFailed": "Failed to read device data, please retry",
+  "connectionTimeout": "Connection timed out, please retry",
+  "restoredDefaults": "Defaults restored. Device not connected, not sent to device.",
+  "readDeviceFailed": "Failed to read device data",
+
+  "turnLeft": "Left",
+  "forward": "Front",
+  "back": "Back",
+  "turnRight": "Right",
+
+  "frontDrive": "F Drive",
+  "rearDrive": "R Drive",
+  "mixedDrive": "F-R Drive",
+
+  "mixingCurve": "Mix Curve",
+
+  "lowSpeed": "LOW",
+  "highSpeed": "HIGH",
+
+  "language": "Language",
+  "chinese": "中文",
+  "english": "English",
+
+  "functionForward": "Function: Forward",
+  "functionCenter": "Function: Center",
+  "functionBackward": "Function: Backward",
+
+  "duplicateTitle": "Info",
+  "restoreDefaultsTitle": "Restore defaults",
+
+  "channelOutput": "Channel Output",
+  "mixingFunctionSwitch": "Mix Func Switch",
+  "fourWsSwitch": "4WS Switch",
+  "trackSwitch": "Track Switch",
+  "driveSwitch": "Drive Switch",
+  "brakeSwitch": "Brake Switch"
+}

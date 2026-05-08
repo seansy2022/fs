@@ -18,6 +18,10 @@ class TankControl extends StatelessWidget {
     this.leftTrackValue = 0,
     this.rightTrackValue = 0,
     required this.onControlChange,
+    this.leftLabel = 'Left',
+    this.forwardLabel = 'Forward',
+    this.backwardLabel = 'Backward',
+    this.rightLabel = 'Right',
   });
 
   final String selectedChannel;
@@ -30,6 +34,10 @@ class TankControl extends StatelessWidget {
   final int leftTrackValue;
   final int rightTrackValue;
   final void Function(int ratio, String direction) onControlChange;
+  final String leftLabel;
+  final String forwardLabel;
+  final String backwardLabel;
+  final String rightLabel;
 
   static const _step = 1;
   static const _maxValue = 100;
@@ -63,7 +71,7 @@ class TankControl extends StatelessWidget {
         children: [
           // 左转控制 - 垂直居中
           TankTurnControl(
-            label: '左转',
+            label: leftLabel,
             valueText: '$leftRatio%',
             onMinus: () => _toTurn(true, false),
             onPlus: () => _toTurn(true, true),
@@ -85,7 +93,7 @@ class TankControl extends StatelessWidget {
                 children: [
                   // 前进
                   ControlValueWidget(
-                    label: '前进',
+                    label: forwardLabel,
                     valueText: '$forwardRatio%',
                     style: ControlValueStyle.horizontal,
                     onMinus: () => _toForward(false),
@@ -104,7 +112,7 @@ class TankControl extends StatelessWidget {
                   // 后退
                   const SizedBox(height: 18),
                   ControlValueWidget(
-                    label: '后退',
+                    label: backwardLabel,
                     valueText: '$backwardRatio%',
                     style: ControlValueStyle.horizontal,
                     onMinus: () => _toBackward(false),
@@ -123,7 +131,7 @@ class TankControl extends StatelessWidget {
           // 右转控制 - 垂直居中
           SizedBox(width: _trackToCenterGap),
           TankTurnControl(
-            label: '右转',
+            label: rightLabel,
             valueText: '$rightRatio%',
             onMinus: () => _toTurn(false, false),
             onPlus: () => _toTurn(false, true),

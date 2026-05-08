@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import 'package:rc_ui/src/features/mixing/four_c_layout_grid.dart';
+import 'package:rc_ui/src/features/mixing/four_c_layout_option.dart';
 import 'four_lun_ratio_control.dart';
 import 'package:rc_ui/src/features/mixing/mixing_channel_row.dart';
 
@@ -15,6 +16,8 @@ class FourLunControl extends StatelessWidget {
     required this.onDirectionChange,
     required this.onLayoutChange,
     this.onChannelTap,
+    this.ratioTitle = 'Mix Ratio',
+    this.layoutLabels,
   });
 
   final String selectedChannel;
@@ -24,6 +27,8 @@ class FourLunControl extends StatelessWidget {
   final ValueChanged<String> onDirectionChange;
   final void Function(int ratio, String direction) onLayoutChange;
   final VoidCallback? onChannelTap;
+  final String ratioTitle;
+  final Map<FourCLayoutMode, String>? layoutLabels;
   static const _fontSize = 12.0;
 
   @override
@@ -39,12 +44,13 @@ class FourLunControl extends StatelessWidget {
             onTap: onChannelTap,
           ),
           const SizedBox(height: 16),
-          FourLunRatioControl(ratio: ratio, onRatioChange: onRatioChange),
+          FourLunRatioControl(ratio: ratio, onRatioChange: onRatioChange, title: ratioTitle),
           const SizedBox(height: 16),
           FourCLayoutGrid(
             ratio: ratio,
             direction: direction,
             onModeChange: onLayoutChange,
+            labels: layoutLabels,
           ),
         ],
       ),

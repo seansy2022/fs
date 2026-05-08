@@ -1,12 +1,12 @@
 const controlMappingSwitchActionCodeConfig = <String, int>{
-  '四轮转向开关': 11,
-  '履带混控开关': 12,
-  '驱动混控开关': 13,
-  '刹车混控开关': 14,
-  '四轮转向模式切换': 11,
-  '履带混控切换': 16,
-  '驱动混控切换': 13,
-  '刹车混控切换': 18,
+  '4WS Switch': 11,
+  'Track Mix Switch': 12,
+  'Drive Mix Switch': 13,
+  'Brake Mix Switch': 14,
+  '4WS Mode Switch': 11,
+  'Track Mix Toggle': 16,
+  'Drive Mix Toggle': 13,
+  'Brake Mix Toggle': 18,
 };
 
 final controlMappingSwitchActionByCodeConfig = <int, String>{

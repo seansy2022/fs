@@ -172,7 +172,7 @@ const initialBluetoothSettings = BluetoothSettings(
   devices: [
     BluetoothDevice(
       id: 1,
-      name: '蓝牙 1',
+      name: 'BT 1',
       mac: '4C:65:A8:12:90:BC',
       connected: true,
       type: 'phone',
@@ -180,7 +180,7 @@ const initialBluetoothSettings = BluetoothSettings(
     ),
     BluetoothDevice(
       id: 2,
-      name: '蓝牙 2',
+      name: 'BT 2',
       mac: '2A:F3:11:00:5E:D1',
       connected: false,
       type: 'audio',

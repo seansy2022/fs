@@ -11,11 +11,13 @@ class FourCLayoutOption extends StatefulWidget {
     required this.mode,
     required this.selected,
     required this.onTap,
+    this.labels,
   });
 
   final FourCLayoutMode mode;
   final bool selected;
   final VoidCallback onTap;
+  final Map<FourCLayoutMode, String>? labels;
 
   @override
   State<FourCLayoutOption> createState() => _FourCLayoutOptionState();
@@ -43,11 +45,11 @@ class _FourCLayoutOptionState extends State<FourCLayoutOption> {
           : AppAssets.mixingBackUnselect,
   };
 
-  String get _label => switch (widget.mode) {
-    FourCLayoutMode.frontSame => '前面',
-    FourCLayoutMode.frontOpposite => '前后反向',
-    FourCLayoutMode.rearSame => '前后同向',
-    FourCLayoutMode.rearOpposite => '后面',
+  String get _label => widget.labels?[widget.mode] ?? switch (widget.mode) {
+    FourCLayoutMode.frontSame => 'Front',
+    FourCLayoutMode.frontOpposite => 'F/R Reverse',
+    FourCLayoutMode.rearSame => 'F/R Same',
+    FourCLayoutMode.rearOpposite => 'Rear',
   };
 
   @override

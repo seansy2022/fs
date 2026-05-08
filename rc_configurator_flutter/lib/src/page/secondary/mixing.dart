@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:rc_ui/rc_ui.dart';
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 import '../../provider/app_state_models.dart';
 import '../../types.dart';
 
@@ -34,11 +35,12 @@ class Mixing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final modes = <(String, String, bool)>[
-      ('4WS', '四轮转向', protocol.fourWheelSteer.enabled),
-      ('TRACK', '履带混控', protocol.trackMixing.enabled),
-      ('DRIVE', '驱动混控', protocol.driveMixing.enabled),
-      ('BRAKE', '刹车混控', protocol.brakeMixing.enabled),
+      ('4WS', l10n.fourWheelSteering, protocol.fourWheelSteer.enabled),
+      ('TRACK', l10n.trackMixing, protocol.trackMixing.enabled),
+      ('DRIVE', l10n.driveMixing, protocol.driveMixing.enabled),
+      ('BRAKE', l10n.brakeMixing, protocol.brakeMixing.enabled),
     ];
 
     return ListView(
@@ -55,9 +57,9 @@ class Mixing extends StatelessWidget {
             ),
             if (enabled) ...[
               const SizedBox(height: 16),
-              _resetItem(),
+              _resetItem(l10n),
               const SizedBox(height: 16),
-              _modePanel(context, mode.$1),
+      _modePanel(context, mode.$1, l10n),
               // const SizedBox(height: 16),
             ],
             const SizedBox(height: 16),
@@ -67,15 +69,15 @@ class Mixing extends StatelessWidget {
     );
   }
 
-  Widget _resetItem() {
+  Widget _resetItem(AppLocalizations l10n) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onReset,
       child: Row(
         children: [
-          const Text(
-            '复位',
-            style: TextStyle(color: AppColors.text, fontSize: 12),
+          Text(
+            l10n.reset,
+            style: const TextStyle(color: AppColors.text, fontSize: 12),
           ),
           const Spacer(),
           Icon(
@@ -88,7 +90,7 @@ class Mixing extends StatelessWidget {
     );
   }
 
-  Widget _modePanel(BuildContext context, String mode) {
+  Widget _modePanel(BuildContext context, String mode, AppLocalizations l10n) {
     if (mode == '4WS') {
       final value = _modeSettings(mode, enabled: true);
       return FourLunControl(
@@ -104,6 +106,13 @@ class Mixing extends StatelessWidget {
         onLayoutChange: (r, d) => onUpdateSettings(
           _modeSettings(mode, enabled: true, ratio: r, direction: d),
         ),
+        ratioTitle: l10n.mixingRatio,
+        layoutLabels: {
+          FourCLayoutMode.frontSame: l10n.front,
+          FourCLayoutMode.frontOpposite: l10n.frontRearRev,
+          FourCLayoutMode.rearSame: l10n.frontRearSame,
+          FourCLayoutMode.rearOpposite: l10n.rear,
+        },
       );
     }
     if (mode == 'TRACK') {
@@ -126,6 +135,10 @@ class Mixing extends StatelessWidget {
             direction: direction,
           ),
         ),
+        leftLabel: l10n.turnLeft,
+        forwardLabel: l10n.forward,
+        backwardLabel: l10n.back,
+        rightLabel: l10n.turnRight,
       );
     }
     if (mode == 'DRIVE') {
@@ -156,6 +169,12 @@ class Mixing extends StatelessWidget {
             direction: _driveDirectionFromMode(next),
           ),
         ),
+        ratioTitle: l10n.mixingRatio,
+        driveModeLabels: {
+          DriveLayout.front: l10n.frontDrive,
+          DriveLayout.rear: l10n.rearDrive,
+          DriveLayout.mixed: l10n.mixedDrive,
+        },
       );
     }
     final value = _modeSettings(mode, enabled: true);
@@ -169,6 +188,8 @@ class Mixing extends StatelessWidget {
           onUpdateSettings(_modeSettings(mode, enabled: true, ratio: v)),
       onCurveChange: (v) =>
           onUpdateSettings(_modeSettings(mode, enabled: true, curve: v)),
+      ratioTitle: l10n.mixingRatio,
+      curveTitle: l10n.mixingCurve,
     );
   }
 
@@ -177,9 +198,10 @@ class Mixing extends StatelessWidget {
     String mode,
     String selectedChannel,
   ) {
+    final l10n = AppLocalizations.of(context)!;
     AlertSelectionSheet.show(
       context,
-      title: '混控通道',
+      title: l10n.mixingChannel,
       options: _channels,
       selectedOption: selectedChannel,
       titleFontSize: 14,

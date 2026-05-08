@@ -9,12 +9,14 @@ class MixingChannelRow extends StatelessWidget {
     this.responsive = false,
     this.fontSize = AppFonts.s14,
     this.onTap,
+    this.title = 'Mix Channel',
   });
 
   final String selectedChannel;
   final bool responsive;
   final double fontSize;
   final VoidCallback? onTap;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +41,7 @@ class MixingChannelRow extends StatelessWidget {
     return Row(
       children: [
         Text(
-          '混控通道',
+          title,
           style: TextStyle(color: AppColors.text, fontSize: fontSize),
         ),
         const Spacer(),

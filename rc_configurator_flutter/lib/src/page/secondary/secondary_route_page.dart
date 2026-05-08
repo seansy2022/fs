@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:rc_ui/rc_ui.dart';
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 import '../../provider/app_state_models.dart';
 import '../../provider/app_state_provider.dart';
 import '../../provider/dashboard_provider.dart';
@@ -110,11 +111,12 @@ class _SecondaryRoutePageState extends ConsumerState<SecondaryRoutePage> {
 
   Future<void> _resetScreenDefaults({bool resetAllMixingModes = false}) async {
     if (!mounted || _screenRefreshInFlight) return;
+    final l10nWidget = AppLocalizations.of(context)!;
     final confirmed = await AlertModelWidget.show(
       context,
-      title: '确认复位出场默认设置?',
-      cancelText: '取消',
-      confirmText: '确认',
+      title: l10nWidget.confirmFactoryReset,
+      cancelText: l10nWidget.cancel,
+      confirmText: l10nWidget.confirm,
     );
     if (!mounted || confirmed != true) return;
     _screenRefreshInFlight = true;
@@ -130,11 +132,19 @@ class _SecondaryRoutePageState extends ConsumerState<SecondaryRoutePage> {
       if (messenger == null) return;
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
-        const SnackBar(content: Text('已恢复默认值，当前未连接设备，未发送到设备')),
+        SnackBar(content: Text(l10nWidget.restoredDefaults)),
       );
     } finally {
       _screenRefreshInFlight = false;
     }
+  }
+
+  String _localizedError(AppLocalizations l10n, String code) {
+    return switch (code) {
+      'error.screenReadFailed' => l10n.readDeviceDataFailed,
+      'error.connectTimeout' => l10n.connectionTimeout,
+      _ => code,
+    };
   }
 
   @override
@@ -153,11 +163,14 @@ class _SecondaryRoutePageState extends ConsumerState<SecondaryRoutePage> {
       (previous, next) {
         if (!mounted) return;
         if (next == null || next.isEmpty || next == previous) return;
-        if (!next.contains('读取设备数据失败')) return;
+        if (!next.startsWith('error.')) return;
         final messenger = ScaffoldMessenger.maybeOf(context);
         if (messenger == null) return;
+        final l10n = AppLocalizations.of(context)!;
         messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(SnackBar(content: Text(next)));
+        messenger.showSnackBar(
+          SnackBar(content: Text(_localizedError(l10n, next))),
+        );
       },
     );
     final channels = ref.watch(channelsProvider);
@@ -171,7 +184,7 @@ class _SecondaryRoutePageState extends ConsumerState<SecondaryRoutePage> {
         children: [
           RepaintBoundary(
             child: TopAppBar(
-              title: _titleFor(widget.screen),
+              title: _titleFor(widget.screen, context),
               onBack: () => Navigator.of(context).pop(),
               onRefresh: () => unawaited(
                 _resetScreenDefaults(
@@ -306,32 +319,33 @@ class _SecondaryRoutePageState extends ConsumerState<SecondaryRoutePage> {
   }
 }
 
-String _titleFor(Screen screen) {
+String _titleFor(Screen screen, BuildContext context) {
+  final l10n = AppLocalizations.of(context)!;
   switch (screen) {
     case Screen.channels:
-      return '通道行程';
+      return l10n.channelTravel;
     case Screen.reverse:
-      return '通道反向';
+      return l10n.channelReverse;
     case Screen.subTrim:
-      return '中立微调';
+      return l10n.subtrim;
     case Screen.dualRate:
-      return '双比率';
+      return l10n.dualRate;
     case Screen.curve:
-      return '曲线设置';
+      return l10n.curve;
     case Screen.controlMapping:
-      return '控件分配';
+      return l10n.controlAssign;
     case Screen.modelSelection:
-      return '模型选择';
+      return l10n.modelSelect;
     case Screen.failsafe:
-      return '失控保护';
+      return l10n.failsafe;
     case Screen.radioSettings:
-      return '遥控器设置';
+      return l10n.radioSettings;
     case Screen.mixing:
-      return '混控';
+      return l10n.mixing;
     case Screen.bluetooth:
-      return '蓝牙连接';
+      return l10n.bluetoothConnect;
     case Screen.functions:
-      return '菜单';
+      return l10n.homeMenu;
     case Screen.dashboard:
       return '';
   }

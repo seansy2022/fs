@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
+
 bool _isMobilePlatform() {
   if (kIsWeb) return false;
   return defaultTargetPlatform == TargetPlatform.android ||
@@ -37,25 +39,26 @@ Future<void> requestStartupPermissions(BuildContext context) async {
   final result = await permissions.request();
   final hasDenied = result.values.any((status) => !status.isGranted);
   if (!hasDenied || !context.mounted) return;
+  final l10n = AppLocalizations.of(context)!;
   final tip = defaultTargetPlatform == TargetPlatform.iOS
-      ? '请在系统设置中开启定位和蓝牙权限后再使用。'
-      : '请在系统设置中开启蓝牙相关权限后再使用。';
+      ? l10n.grantLocationBtPermission
+      : l10n.grantBtPermission;
   await showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('权限未开启'),
+      title: Text(l10n.permissionNotGranted),
       content: Text(tip),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('稍后'),
+          child: Text(l10n.later),
         ),
         TextButton(
           onPressed: () async {
             await openAppSettings();
             if (context.mounted) Navigator.of(context).pop();
           },
-          child: const Text('去开启'),
+          child: Text(l10n.goToSettings),
         ),
       ],
     ),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_ui/rc_ui.dart';
 
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 import '../../provider/app_state_provider.dart';
 import '../../provider/bluetooth_provider.dart';
 import '../../provider/dashboard_provider.dart';
@@ -48,6 +49,7 @@ class _HomeRoutePageState extends ConsumerState<HomeRoutePage> {
     final startup = ref.watch(startupProvider);
     final currentScreen = homeScreen(ref.watch(functionsProvider));
     final bluetooth = ref.read(bluetoothProvider.notifier);
+    final l10n = AppLocalizations.of(context)!;
     if (!startup.isReady) return const EnterPage();
     if (!startup.permissionsHandled) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -60,7 +62,7 @@ class _HomeRoutePageState extends ConsumerState<HomeRoutePage> {
         children: [
           RepaintBoundary(
             child: TopAppBar(
-              title: homeTitleFor(currentScreen),
+              title: homeTitleFor(currentScreen, context),
               onRefresh: switch (currentScreen) {
                 Screen.bluetooth => bluetooth.startScan,
                 Screen.dashboard || Screen.functions => null,
@@ -78,17 +80,17 @@ class _HomeRoutePageState extends ConsumerState<HomeRoutePage> {
             child: BottomNavBar(
               tabs: [
                 UiNavTab(
-                  label: '首页',
+                  label: l10n.tabHome,
                   iconAsset: AppAssets.tabbarHome,
                   activeIconAsset: AppAssets.tabbarHomeSelected,
                 ),
                 UiNavTab(
-                  label: '菜单',
+                  label: l10n.tabMenu,
                   iconAsset: AppAssets.tabbarFunction,
                   activeIconAsset: AppAssets.tabbarFunctionSelected,
                 ),
                 UiNavTab(
-                  label: '蓝牙',
+                  label: l10n.tabBluetooth,
                   iconAsset: AppAssets.tabbarBlue,
                   activeIconAsset: AppAssets.tabbarBlueSelected,
                 ),

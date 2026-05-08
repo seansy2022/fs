@@ -10,6 +10,8 @@ class HomeTopWidget extends StatelessWidget {
     required this.isConnected,
     required this.deviceName,
     this.scale = 1,
+    this.connectedText = 'Device Connected',
+    this.disconnectedText = 'Device Disconnected',
   });
   static const _designWidth = 686.0;
   static const _designHeight = 240.0;
@@ -19,8 +21,10 @@ class HomeTopWidget extends StatelessWidget {
   final bool isConnected;
   final String deviceName;
   final double scale;
+  final String connectedText;
+  final String disconnectedText;
   String get _nameText => isConnected ? deviceName : '--';
-  String get _statusText => isConnected ? '设备已连接' : '设备未连接';
+  String get _statusText => isConnected ? connectedText : disconnectedText;
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
