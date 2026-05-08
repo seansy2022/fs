@@ -12,7 +12,7 @@ import 'provider/startup_provider.dart';
 import 'types.dart';
 import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 
-const kDebugHoldStartupScreen = true;
+const kDebugHoldStartupScreen = false;
 
 class AppRoutes {
   static const enter = '/enter';

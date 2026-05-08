@@ -13,8 +13,8 @@ class CurvePage extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final curves = <(String, String)>[
       ('Steering', l10n.steeringCurve),
-      ('Forward', l10n.forwardCurve),
-      ('Brake', l10n.brakeCurve),
+      ('Forward', 'Fwd Curve'),
+      ('Brake', 'BRK Curve'),
     ];
     final state = ref.watch(curveProvider);
     final ctl = ref.read(curveProvider.notifier);

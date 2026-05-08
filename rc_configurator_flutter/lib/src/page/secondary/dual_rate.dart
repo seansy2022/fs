@@ -19,7 +19,7 @@ class DualRate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final labels = [l10n.steeringRate, l10n.forwardRate, l10n.brakeRate];
+    final labels = [l10n.steeringRate, 'Fwd Rate', l10n.brakeRate];
     return ListView(
       padding: const EdgeInsets.all(AppDimens.gapL),
       children: [

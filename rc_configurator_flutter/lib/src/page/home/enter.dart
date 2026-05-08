@@ -48,7 +48,7 @@ class EnterPage extends StatelessWidget {
             child: Image(image: AssetImage(_bottomIconAsset)),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
         ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
             begin: Alignment.topCenter,
@@ -59,7 +59,7 @@ class EnterPage extends StatelessWidget {
           child: const Text(
             'MG11 Assistant',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.w700,
               color: Colors.white,
             ),

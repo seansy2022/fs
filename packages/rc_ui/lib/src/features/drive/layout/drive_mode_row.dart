@@ -15,9 +15,9 @@ class DriveModeRow extends StatelessWidget {
     return Row(
       children: [
         _item(DriveLayout.rear),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         _item(DriveLayout.mixed),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         _item(DriveLayout.front),
       ],
     );
