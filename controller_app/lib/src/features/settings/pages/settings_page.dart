@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_ui/rc_ui.dart';
@@ -228,37 +228,6 @@ class BasicSettingsContent extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              SettingsStrip(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _onBackgroundMusicTap(context, ref),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '背景音乐',
-                              style: TextStyle(color: AppColors.text, fontSize: 14),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              settings.backgroundMusicName,
-                              style: const TextStyle(
-                                color: AppColors.textDim,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right, color: AppColors.textDim, size: 22),
-                    ],
-                  ),
-                ),
-              ),
             ],
           ),
         );
@@ -312,33 +281,6 @@ Future<void> _onExitBleModeTap(BuildContext context, WidgetRef ref) async {
       message: '当前未连接接收机，无需退出蓝牙模式。',
       confirmText: '确定',
     );
-  }
-}
-
-Future<void> _onBackgroundMusicTap(BuildContext context, WidgetRef ref) async {
-  final currentName = ref.read(appSettingsProvider).backgroundMusicName;
-
-  final result = await AlertIconWidget.show(
-    context,
-    title: '背景音乐',
-    message: '当前：$currentName\n\n选择默认背景音乐或本地音乐文件。',
-    cancelText: '默认背景音乐',
-    confirmText: '选择本地音乐',
-  );
-
-  if (result == true && context.mounted) {
-    // 选择本地音乐 — 使用文件选择器
-    // TODO: 集成 file_picker 包后启用实际文件选择
-    ref.read(appSettingsProvider.notifier).updateBackgroundMusic(
-          mode: BackgroundMusicMode.localTrack,
-          name: '本地音乐',
-        );
-  } else if (result == false && context.mounted) {
-    // 恢复默认背景音乐
-    ref.read(appSettingsProvider.notifier).updateBackgroundMusic(
-          mode: BackgroundMusicMode.defaultTrack,
-          name: '默认背景音乐',
-        );
   }
 }
 

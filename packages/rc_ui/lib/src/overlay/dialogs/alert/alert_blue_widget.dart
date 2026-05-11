@@ -92,7 +92,7 @@ class AlertBlueWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final screen = MediaQuery.of(context).size;
     final width = math.min(maxWidth, screen.width - 32);
-    final height = math.min(maxHeight, screen.height - 96);
+    final height = math.min(maxHeight, screen.height - 60);
 
     return Material(
       type: MaterialType.transparency,
@@ -100,11 +100,10 @@ class AlertBlueWidget extends StatelessWidget {
         child: Container(
           width: width,
           height: height,
-          margin: const EdgeInsets.symmetric(horizontal: 16),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 30),
           decoration: BoxDecoration(
             color: const Color(0xFF002149),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xA37DA2CE)),
           ),
           child: Column(
             children: [
@@ -130,9 +129,9 @@ class AlertBlueWidget extends StatelessWidget {
                         padding: EdgeInsets.zero,
                         itemCount: items.length,
                         separatorBuilder: (_, __) => const Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: Color(0x33233854),
+                          height: 0.5,
+                          thickness: 0.5,
+                          color: Color(0xFF233854),
                         ),
                         itemBuilder: (context, index) {
                           final item = items[index];
@@ -268,10 +267,10 @@ class _ItemRow extends StatelessWidget {
                 fontWeight: AppFonts.w500,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             _IconTapButton(
               onTap: onDelete,
-              child: SvgPicture.string(_kDeleteIconSvg, width: 16, height: 16),
+              child: SvgPicture.string(_kDeleteIconSvg, width: 20, height: 20),
             ),
           ],
         ),

@@ -32,6 +32,9 @@ class ChannelSettingsContent extends ConsumerStatefulWidget {
 
 class _ChannelSettingsContentState
     extends ConsumerState<ChannelSettingsContent> {
+  final Map<int, _ChannelValueField> _selectedFields =
+      <int, _ChannelValueField>{};
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
@@ -72,13 +75,7 @@ class _ChannelSettingsContentState
             controller: controller,
             showFunction: true,
           ),
-          if (ch3.function == AuxiliaryFunction.none) const SizedBox(height: 8),
-          if (ch3.function == AuxiliaryFunction.none)
-            const SizedBox.shrink()
-          else ...[
-            _buildChannelProgressBar(ch3),
-            const SizedBox(height: 8),
-          ],
+          const SizedBox(height: 8),
           _buildChannelRow(
             channelIndex: 3,
             label: _channelLabel(ch4, 'CH4'),
@@ -90,7 +87,6 @@ class _ChannelSettingsContentState
             const SizedBox(height: 8),
             // CH4 with no function: show function selector only
             SettingsStrip(
-              height: 88,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               child: Row(
                 children: [
@@ -116,10 +112,6 @@ class _ChannelSettingsContentState
               ),
             ),
           ],
-          if (ch4.function != AuxiliaryFunction.none) ...[
-            _buildChannelProgressBar(ch4),
-            const SizedBox(height: 8),
-          ],
           // Dynamic auxiliary channel rows
           for (final entry in auxChannels
               .where((e) => e.key > 3)) ...[
@@ -130,9 +122,6 @@ class _ChannelSettingsContentState
               controller: controller,
               showFunction: false,
             ),
-            if (entry.value.function != AuxiliaryFunction.none) ...[
-              _buildChannelProgressBar(entry.value),
-            ],
             const SizedBox(height: 8),
           ],
         ],
@@ -148,7 +137,6 @@ class _ChannelSettingsContentState
     required bool showFunction,
   }) {
     return SettingsStrip(
-      height: 88,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       child: Row(
         children: [
@@ -162,40 +150,28 @@ class _ChannelSettingsContentState
           const _FieldLabel('低'),
           Expanded(
             flex: 12,
-            child: _EditableChannelValue(
+            child: _ChannelValueButton(
               value: channel.lowPercent.round(),
-              onChanged: (v) {
-                controller.updateChannel(
-                  channelIndex,
-                  channel.copyWith(lowPercent: v.toDouble()),
-                );
-              },
+              active: _selectedFields[channelIndex] == _ChannelValueField.low,
+              onTap: () => _selectField(channelIndex, _ChannelValueField.low),
             ),
           ),
           const _FieldLabel('高'),
           Expanded(
             flex: 12,
-            child: _EditableChannelValue(
+            child: _ChannelValueButton(
               value: channel.highPercent.round(),
-              onChanged: (v) {
-                controller.updateChannel(
-                  channelIndex,
-                  channel.copyWith(highPercent: v.toDouble()),
-                );
-              },
+              active: _selectedFields[channelIndex] == _ChannelValueField.high,
+              onTap: () => _selectField(channelIndex, _ChannelValueField.high),
             ),
           ),
           const _FieldLabel('中'),
           Expanded(
             flex: 12,
-            child: _EditableChannelValue(
+            child: _ChannelValueButton(
               value: channel.trimPercent.round(),
-              onChanged: (v) {
-                controller.updateChannel(
-                  channelIndex,
-                  channel.copyWith(trimPercent: v.toDouble()),
-                );
-              },
+              active: _selectedFields[channelIndex] == _ChannelValueField.trim,
+              onTap: () => _selectField(channelIndex, _ChannelValueField.trim),
             ),
           ),
           const SizedBox(width: 12),
@@ -222,17 +198,6 @@ class _ChannelSettingsContentState
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildChannelProgressBar(ChannelSetting channel) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: _ChannelProgressBar(
-        lowPercent: channel.lowPercent.round(),
-        highPercent: channel.highPercent.round(),
-        trimPercent: channel.trimPercent.round(),
       ),
     );
   }
@@ -314,7 +279,16 @@ class _ChannelSettingsContentState
       reversed: false,
     );
   }
+
+  void _selectField(int channelIndex, _ChannelValueField field) {
+    if (_selectedFields[channelIndex] == field) return;
+    setState(() {
+      _selectedFields[channelIndex] = field;
+    });
+  }
 }
+
+enum _ChannelValueField { low, high, trim }
 
 class _FieldLabel extends StatelessWidget {
   const _FieldLabel(this.value);
@@ -334,203 +308,34 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-class _EditableChannelValue extends StatelessWidget {
-  const _EditableChannelValue({
+class _ChannelValueButton extends StatelessWidget {
+  const _ChannelValueButton({
     required this.value,
-    required this.onChanged,
+    required this.active,
+    required this.onTap,
   });
 
   final int value;
-  final ValueChanged<int> onChanged;
-
-  void _onTap(BuildContext context) {
-    final controller = TextEditingController(text: value.toString());
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1B2A4A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: SizedBox(
-          width: 220,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                '输入数值',
-                style: TextStyle(
-                  color: AppColors.text,
-                  fontSize: 16,
-                  fontWeight: AppFonts.w700,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(
-                  signed: true,
-                ),
-                textAlign: TextAlign.center,
-                maxLength: 4,
-                style: const TextStyle(
-                  color: AppColors.text,
-                  fontSize: 24,
-                  fontWeight: AppFonts.w700,
-                ),
-                decoration: const InputDecoration(
-                  counterText: '',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  PrimaryButton(
-                    text: '取消',
-                    width: 80,
-                    type: PrimaryButtonType.normal,
-                    onTap: () => Navigator.of(ctx).pop(),
-                  ),
-                  PrimaryButton(
-                    text: '确定',
-                    width: 80,
-                    onTap: () {
-                      final text = controller.text.trim();
-                      final parsed = int.tryParse(text);
-                      if (parsed != null) {
-                        onChanged(parsed.clamp(-100, 100));
-                      }
-                      Navigator.of(ctx).pop();
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  final bool active;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Align(
-      child: GestureDetector(
-        onTap: () => _onTap(context),
-        child: Container(
-          height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: const Color(0x661B2D4D),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFF0072FF), width: 0.5),
-          ),
-          child: Text(
-            '$value%',
-            style: const TextStyle(
-              color: AppColors.text,
-              fontSize: 14,
-              fontWeight: AppFonts.w700,
-            ),
+      child: RCButton(
+        onTap: onTap,
+        active: active,
+        enableRepeat: false,
+        width: 60,
+        height: 28,
+        padding: EdgeInsets.zero,
+        textWidget: Text(
+          '$value%',
+          style: TextStyle(
+            color: active ? AppColors.text : AppColors.textDim,
+            fontSize: 14,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ChannelProgressBar extends StatelessWidget {
-  const _ChannelProgressBar({
-    required this.lowPercent,
-    required this.highPercent,
-    required this.trimPercent,
-  });
-
-  final int lowPercent;
-  final int highPercent;
-  final int trimPercent;
-
-  @override
-  Widget build(BuildContext context) {
-    const rangeMin = -100.0;
-    const rangeMax = 100.0;
-    const range = rangeMax - rangeMin;
-
-    double pos(double value) => ((value - rangeMin) / range) * 100;
-
-    return Container(
-      height: 24,
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          final lowPos = pos(lowPercent.toDouble());
-          final highPos = pos(highPercent.toDouble());
-          final trimPos = pos(trimPercent.toDouble());
-          return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Background track
-              Center(
-                child: Container(
-                  height: 4,
-                  width: width,
-                  decoration: BoxDecoration(
-                    color: const Color(0x1AFFFFFF),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              // Active range (low to high)
-              Positioned(
-                left: lowPos / 100 * width,
-                width: (highPos - lowPos) / 100 * width,
-                top: 10,
-                child: Container(
-                  height: 4,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF00C6FF), Color(0xFF00FF88)],
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              // Center mark
-              Positioned(
-                left: pos(0) / 100 * width - 4,
-                top: 6,
-                child: Container(
-                  width: 8,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: AppColors.textDim,
-                    borderRadius: BorderRadius.circular(1),
-                  ),
-                ),
-              ),
-              // Trim mark
-              Positioned(
-                left: trimPos / 100 * width - 5,
-                top: 2,
-                child: Container(
-                  width: 10,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF00C6FF),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
       ),
     );
   }
