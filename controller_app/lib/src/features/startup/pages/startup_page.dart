@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
-import '../../../core/providers.dart';
 
 class StartupPage extends ConsumerStatefulWidget {
   const StartupPage({super.key});
@@ -23,13 +22,10 @@ class _StartupPageState extends ConsumerState<StartupPage> {
     });
   }
 
+  static const _startupDuration = Duration(seconds: 5);
+
   Future<void> _bootstrap() async {
-    try {
-      await ref.read(receiverRepositoryProvider).startScan();
-    } catch (error) {
-      debugPrint('startup scan skipped: $error');
-    }
-    await Future<void>.delayed(const Duration(seconds: 3));
+    await Future<void>.delayed(_startupDuration);
     if (!mounted) {
       return;
     }

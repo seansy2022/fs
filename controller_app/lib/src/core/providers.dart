@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_ble/rc_ble.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
@@ -10,11 +11,21 @@ import '../features/settings/controllers/settings_controller.dart';
 import '../features/settings/models/app_settings_state.dart';
 
 final receiverRepositoryProvider = Provider<ReceiverRepository>((ref) {
-  final transport = MockProtocolLinkTransport();
+  // 根据用户要求，该项目仅在 Android 和 iOS 上运行
+  final isMobile = !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  final transport = isMobile
+      ? FlutterBlueTransport()
+      : MockProtocolLinkTransport();
+
   final client = ReceiverBleClient(transport: transport);
   final repository = ReceiverRepository(client: client);
   ref.onDispose(() async {
-    await transport.dispose();
+    if (transport is MockProtocolLinkTransport) {
+      await transport.dispose();
+    }
     await repository.dispose();
   });
   return repository;
