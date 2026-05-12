@@ -7,7 +7,6 @@ import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
-import '../models/app_settings_state.dart';
 import '../widgets/settings_workspace.dart';
 
 class FailsafePage extends ConsumerStatefulWidget {
@@ -71,60 +70,40 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
     }
   }
 
-  Future<void> _saveConfig() async {
+  Future<void> _startTest() async {
     try {
-      await ref.read(receiverRepositoryProvider).writeFailsafe(
-        ReceiverFailsafeConfig(
-          throttleUs: _throttleHold ? 0 : _throttleUs,
-          steeringUs: _steeringHold ? 0 : _steeringUs,
-        ),
-      );
-    } catch (_) {
+      setState(() => _testing = true);
+      await ref.read(receiverRepositoryProvider).stopControlLoop();
       if (mounted) {
         await AlertIconWidget.show(
           context,
-          title: '保存失败',
-          message: '无法保存失控保护设置，请重试。',
-          confirmText: '确定',
+          title: '测试模式',
+          message: '已断开控制信号，接收机将进入失控保护状态。\n点击"恢复"按钮恢复控制。',
+          confirmText: '恢复',
         );
+        await _restoreControl();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _testing = false);
       }
     }
   }
 
-  Future<void> _startTest() async {
-    setState(() => _testing = true);
-    await ref.read(receiverRepositoryProvider).stopControlLoop();
-    if (mounted) {
-      await AlertIconWidget.show(
-        context,
-        title: '测试模式',
-        message: '已断开控制信号，接收机将进入失控保护状态。\n点击"恢复"按钮恢复控制。',
-        confirmText: '恢复',
-      );
-      await _restoreControl();
-    }
-  }
-
   Future<void> _restoreControl() async {
-    if (!mounted) return;
-    setState(() => _testing = false);
-    await ref.read(receiverRepositoryProvider).startControlLoop();
+    try {
+      if (!mounted) return;
+      setState(() => _testing = false);
+      await ref.read(receiverRepositoryProvider).startControlLoop();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _testing = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final connected =
-        ref.watch(receiverConnectionProvider).valueOrNull ==
-        ReceiverConnectionState.connected;
-    final settings = ref.watch(appSettingsProvider);
-
-    // Dynamic auxiliary channels with non-none function
-    final auxChannels = settings.channels
-        .asMap()
-        .entries
-        .where((e) => e.key >= 2 && e.value.function != AuxiliaryFunction.none)
-        .toList(growable: false);
-
     return Column(
       children: [
         _FailsafeChannelStrip(
@@ -133,7 +112,7 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
           hold: _steeringHold,
           onHoldChanged: (v) => setState(() => _steeringHold = v),
           onValueChanged: (v) => setState(() => _steeringUs = v),
-          enabled: connected,
+          enabled: true,
         ),
         const SizedBox(height: 8),
         _FailsafeChannelStrip(
@@ -142,51 +121,20 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
           hold: _throttleHold,
           onHoldChanged: (v) => setState(() => _throttleHold = v),
           onValueChanged: (v) => setState(() => _throttleUs = v),
-          enabled: connected,
+          enabled: true,
         ),
         const SizedBox(height: 8),
-        // Auxiliary channels (informational - protocol doesn't support aux failsafe)
-        for (final entry in auxChannels) ...[
-          SettingsStrip(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${entry.value.channelLabel} (${_functionLabel(entry.value.function)})',
-                    style: const TextStyle(color: AppColors.text, fontSize: 14),
-                  ),
-                ),
-                const Text(
-                  '保持',
-                  style: TextStyle(color: AppColors.textDim, fontSize: 14),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-        // Save button
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: PrimaryButton(
-            text: '保存设置',
-            width: double.infinity,
-            enabled: connected && !_testing,
-            onTap: connected && !_testing ? _saveConfig : null,
-          ),
-        ),
-        const SizedBox(height: 12),
         // Test button
         Center(
           child: SizedBox(
             width: 174,
             height: 44,
             child: PrimaryButton(
-              text: _testing ? '测试中...' : '测试',
-              type: PrimaryButtonType.normal,
-              enabled: connected && !_testing,
+              text: 'TEST',
+              type: PrimaryButtonType.primary,
+              enabled: true,
               padding: EdgeInsets.zero,
-              onTap: connected && !_testing ? _startTest : null,
+              onTap: _testing ? _restoreControl : _startTest,
             ),
           ),
         ),
@@ -194,33 +142,11 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
       ],
     );
   }
-
-  String _functionLabel(AuxiliaryFunction function) {
-    switch (function) {
-      case AuxiliaryFunction.none:
-        return '无';
-      case AuxiliaryFunction.headlight:
-        return '大灯';
-      case AuxiliaryFunction.warningLight:
-        return '警示灯';
-      case AuxiliaryFunction.gearControl:
-        return '挡位控制';
-      case AuxiliaryFunction.gyro:
-        return '陀螺仪';
-      case AuxiliaryFunction.brakeLight:
-        return '刹车灯';
-      case AuxiliaryFunction.reverseLight:
-        return '倒车灯';
-      case AuxiliaryFunction.leftSignal:
-        return '左转灯';
-      case AuxiliaryFunction.rightSignal:
-        return '右转灯';
-    }
-  }
 }
 
-class _FailsafeChannelStrip extends StatelessWidget {
+class _FailsafeChannelStrip extends StatefulWidget {
   const _FailsafeChannelStrip({
+    super.key,
     required this.title,
     required this.valueUs,
     required this.hold,
@@ -237,6 +163,11 @@ class _FailsafeChannelStrip extends StatelessWidget {
   final bool enabled;
 
   @override
+  State<_FailsafeChannelStrip> createState() => _FailsafeChannelStripState();
+}
+
+class _FailsafeChannelStripState extends State<_FailsafeChannelStrip> {
+  @override
   Widget build(BuildContext context) {
     return SettingsStrip(
       child: Row(
@@ -244,34 +175,16 @@ class _FailsafeChannelStrip extends StatelessWidget {
           SizedBox(
             width: 60,
             child: Text(
-              title,
+              widget.title,
               style: const TextStyle(color: AppColors.text, fontSize: 14),
             ),
           ),
           const Spacer(),
-          ItemButton(
-            text: '保持',
-            selected: hold,
-            fontSize: 14,
-            width: 74,
-            height: 28,
-            onTap: enabled ? () => onHoldChanged(true) : null,
-          ),
-          const SizedBox(width: 12),
-          ItemButton(
-            text: '固定值',
-            selected: !hold,
-            fontSize: 14,
-            width: 74,
-            height: 28,
-            onTap: enabled ? () => onHoldChanged(false) : null,
-          ),
-          if (!hold) ...[
-            const SizedBox(width: 12),
+          if (!widget.hold) ...[
             GestureDetector(
-              onTap: enabled ? () => _editValue(context) : null,
+              onTap: widget.enabled ? () => _editValue(context) : null,
               child: Container(
-                width: 72,
+                width: 88,
                 height: 36,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
@@ -283,7 +196,7 @@ class _FailsafeChannelStrip extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  '${valueUs}us',
+                  '${widget.valueUs}',
                   style: const TextStyle(
                     color: AppColors.text,
                     fontSize: 14,
@@ -292,14 +205,25 @@ class _FailsafeChannelStrip extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(width: 12),
           ],
+          ItemButton(
+            text: widget.hold ? '保持' : '固定值',
+            selected: true,
+            fontSize: 14,
+            width: 74,
+            height: 28,
+            onTap: widget.enabled
+                ? () => widget.onHoldChanged(!widget.hold)
+                : null,
+          ),
         ],
       ),
     );
   }
 
   void _editValue(BuildContext context) {
-    final controller = TextEditingController(text: valueUs.toString());
+    final controller = TextEditingController(text: widget.valueUs.toString());
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -311,7 +235,7 @@ class _FailsafeChannelStrip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                '输入数值 (us)',
+                '输入数值',
                 style: TextStyle(
                   color: AppColors.text,
                   fontSize: 16,
@@ -353,11 +277,9 @@ class _FailsafeChannelStrip extends StatelessWidget {
                     text: '确定',
                     width: 80,
                     onTap: () {
-                      final text = controller.text.trim();
-                      final parsed = int.tryParse(text);
-                      if (parsed != null) {
-                        onValueChanged(parsed.clamp(1000, 2000));
-                      }
+                      final parsed =
+                          int.tryParse(controller.text.trim()) ?? 1500;
+                      widget.onValueChanged(parsed.clamp(1000, 2000));
                       Navigator.of(ctx).pop();
                     },
                   ),

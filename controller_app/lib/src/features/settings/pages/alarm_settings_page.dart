@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_ui/rc_ui.dart';
 
@@ -34,41 +34,52 @@ class AlarmSettingsContent extends ConsumerWidget {
       child: Column(
         children: [
           SettingsStrip(
-            child: CellSwitchWidget(
+            child: _LabeledRow(
               title: '低模型电压报警',
-              value: settings.lowVoltageEnabled,
-              onChanged: (value) =>
-                  controller.updateBatterySettings(enabled: value),
+              trailing: _AlarmToggleSwitch(
+                value: settings.lowVoltageEnabled,
+                onChanged: (value) =>
+                    controller.updateBatterySettings(enabled: value),
+              ),
             ),
           ),
           if (settings.lowVoltageEnabled) ...[
             const SizedBox(height: 8),
             SettingsStrip(
               child: Padding(
-                padding: const EdgeInsets.only(left: 40, right: 16),
+                padding: const EdgeInsets.only(left: 20, right: 20),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      '电量转换',
-                      style: TextStyle(color: AppColors.text, fontSize: 14),
-                    ),
-                    const SizedBox(width: 8),
-                    RCButton(
-                      onTap: () => _showBatteryTypeDialog(context, settings.batteryType, controller),
-                      active: true,
-                      enableRepeat: false,
-                      width: 72,
-                      height: 32,
-                      textWidget: Text(
-                        _batteryTypeLabel(settings.batteryType),
-                        style: const TextStyle(
-                          color: AppColors.text,
-                          fontSize: 14,
-                          fontWeight: AppFonts.w600,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          '电量转换',
+                          style: TextStyle(color: AppColors.text, fontSize: 14),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        RCButton(
+                          onTap: () => _showBatteryTypeDialog(
+                            context,
+                            settings.batteryType,
+                            controller,
+                          ),
+                          active: true,
+                          enableRepeat: false,
+                          width: 72,
+                          height: 32,
+                          textWidget: Text(
+                            _batteryTypeLabel(settings.batteryType),
+                            style: const TextStyle(
+                              color: AppColors.text,
+                              fontSize: 14,
+                              fontWeight: AppFonts.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const Spacer(),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -89,7 +100,6 @@ class AlarmSettingsContent extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(width: 40),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -103,7 +113,9 @@ class AlarmSettingsContent extends ConsumerWidget {
                           onSubmitted: (raw) {
                             final value = _extractNumber(raw);
                             if (value == null) return;
-                            controller.updateBatterySettings(fullVoltage: value);
+                            controller.updateBatterySettings(
+                              fullVoltage: value,
+                            );
                           },
                         ),
                       ],
@@ -115,7 +127,7 @@ class AlarmSettingsContent extends ConsumerWidget {
             const SizedBox(height: 8),
             SettingsStrip(
               child: Padding(
-                padding: const EdgeInsets.only(right: 40),
+                padding: const EdgeInsets.only(left: 20, right: 40),
                 child: _LabeledRow(
                   title: '报警电量',
                   trailing: Row(
@@ -155,7 +167,7 @@ class AlarmSettingsContent extends ConsumerWidget {
             const SizedBox(height: 8),
             SettingsStrip(
               child: Padding(
-                padding: const EdgeInsets.only(right: 40),
+                padding: const EdgeInsets.only(left: 20, right: 40),
                 child: _LabeledRow(
                   title: '报警提示',
                   trailing: Row(
@@ -186,11 +198,13 @@ class AlarmSettingsContent extends ConsumerWidget {
           ],
           const SizedBox(height: 8),
           SettingsStrip(
-            child: CellSwitchWidget(
+            child: _LabeledRow(
               title: '模型低信号报警',
-              value: settings.lowSignalEnabled,
-              onChanged: (value) =>
-                  controller.updateSignalSettings(enabled: value),
+              trailing: _AlarmToggleSwitch(
+                value: settings.lowSignalEnabled,
+                onChanged: (value) =>
+                    controller.updateSignalSettings(enabled: value),
+              ),
             ),
           ),
           if (settings.lowSignalEnabled) ...[
@@ -290,56 +304,22 @@ void _showBatteryTypeDialog(
   BatteryType current,
   SettingsController controller,
 ) {
-  showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF1B2A4A),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      content: SizedBox(
-        width: 260,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '选择电池类型',
-              style: TextStyle(
-                color: AppColors.text,
-                fontSize: 16,
-                fontWeight: AppFonts.w700,
-              ),
-            ),
-            const SizedBox(height: 16),
-            for (final type in BatteryType.values) ...[
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: PrimaryButton(
-                    text: _batteryTypeLabel(type),
-                    type: type == current
-                        ? PrimaryButtonType.primary
-                        : PrimaryButtonType.normal,
-                    onTap: () {
-                      controller.updateBatterySettings(batteryType: type);
-                      Navigator.of(ctx).pop();
-                    },
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: PrimaryButton(
-                text: '取消',
-                type: PrimaryButtonType.normal,
-                onTap: () => Navigator.of(ctx).pop(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
+  final options = BatteryType.values
+      .map(_batteryTypeLabel)
+      .toList(growable: false);
+
+  AlertListDialog.show(
+    context,
+    title: '选择电池类型',
+    width: 350,
+    options: options,
+    selectedOption: _batteryTypeLabel(current),
+    onOptionSelected: (selection) {
+      final type = BatteryType.values.firstWhere(
+        (value) => _batteryTypeLabel(value) == selection,
+      );
+      controller.updateBatterySettings(batteryType: type);
+    },
   );
 }
 
@@ -381,6 +361,63 @@ class _LabeledRow extends StatelessWidget {
   }
 }
 
+class _AlarmToggleSwitch extends StatelessWidget {
+  const _AlarmToggleSwitch({required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onChanged(!value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        width: 52,
+        height: 28,
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: value ? null : const Color(0xFF465D7A),
+          gradient: value
+              ? const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [Color(0xFF0072FF), Color(0xFF00C8FF)],
+                )
+              : null,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFF7DA2CE).withValues(alpha: 0.6),
+            width: 0.5,
+          ),
+        ),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: const BoxDecoration(
+              color: Color(0xFFEDF5FF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x40001024),
+                  blurRadius: 4,
+                  offset: Offset(0, 0),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _InputBox extends StatelessWidget {
   const _InputBox({required this.text, required this.onSubmitted});
 
@@ -405,7 +442,10 @@ class _InputBox extends StatelessWidget {
         decoration: InputDecoration(
           counterText: '',
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 6,
+            vertical: 6,
+          ),
           filled: true,
           fillColor: const Color(0xFF0A1E3A),
           border: OutlineInputBorder(
@@ -418,7 +458,10 @@ class _InputBox extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: AppColors.primaryBright, width: 1),
+            borderSide: const BorderSide(
+              color: AppColors.primaryBright,
+              width: 1,
+            ),
           ),
         ),
         onFieldSubmitted: onSubmitted,

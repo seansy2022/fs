@@ -45,8 +45,10 @@ class TankMixingContent extends ConsumerWidget {
           rightActive: rightActive,
           leftTrackValue: left,
           rightTrackValue: right,
-          onLeftValueChanged: (v) => controller.updateTrackMix(left: v.toDouble()),
-          onRightValueChanged: (v) => controller.updateTrackMix(right: v.toDouble()),
+          onLeftValueChanged: (v) =>
+              controller.updateTrackMix(left: v.toDouble()),
+          onRightValueChanged: (v) =>
+              controller.updateTrackMix(right: v.toDouble()),
           onForwardTap: () => _toggleForward(controller, forwardActive),
           onBackwardTap: () => _toggleBackward(controller, backwardActive),
           onLeftTap: () => _toggleLeft(controller, leftActive),
@@ -126,11 +128,7 @@ class _TankMixingPanel extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _SidePair(
-            label: '左转',
-            active: leftActive,
-            onTap: onLeftTap,
-          ),
+          _SidePair(label: '左转', active: leftActive, onTap: onLeftTap),
           const SizedBox(width: 12),
           Column(
             mainAxisSize: MainAxisSize.min,
@@ -138,11 +136,6 @@ class _TankMixingPanel extends StatelessWidget {
               SizedBox(
                 height: 220,
                 child: TankProgressTrack(value: leftTrackValue),
-              ),
-              const SizedBox(height: 8),
-              _TrackValueEdit(
-                value: leftTrackValue,
-                onChanged: onLeftValueChanged,
               ),
             ],
           ),
@@ -158,10 +151,10 @@ class _TankMixingPanel extends StatelessWidget {
                     rightActive: forwardActive,
                     onTap: onForwardTap,
                   ),
-                  const SizedBox(height:8),
+                  const SizedBox(height: 8),
                   SizedBox(
-                    width: 100,
-                    height: 130,
+                    width: 88,
+                    height: 116,
                     child: SvgPicture.asset(
                       AppAssets.tank,
                       fit: BoxFit.contain,
@@ -184,132 +177,13 @@ class _TankMixingPanel extends StatelessWidget {
             children: [
               SizedBox(
                 height: 220,
-                child: TankProgressTrack(
-                  value: rightTrackValue,
-                  flipX: true,
-                ),
-              ),
-              const SizedBox(height: 8),
-              _TrackValueEdit(
-                value: rightTrackValue,
-                onChanged: onRightValueChanged,
+                child: TankProgressTrack(value: rightTrackValue, flipX: true),
               ),
             ],
           ),
           const SizedBox(width: 12),
-          _SidePair(
-            label: '右转',
-            active: rightActive,
-            onTap: onRightTap,
-          ),
+          _SidePair(label: '右转', active: rightActive, onTap: onRightTap),
         ],
-      ),
-    );
-  }
-}
-
-class _TrackValueEdit extends StatelessWidget {
-  const _TrackValueEdit({
-    required this.value,
-    required this.onChanged,
-  });
-
-  final int value;
-  final ValueChanged<int> onChanged;
-
-  void _onTap(BuildContext context) {
-    final controller = TextEditingController(text: value.toString());
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1B2A4A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: SizedBox(
-          width: 220,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                '输入数值 (%)',
-                style: TextStyle(
-                  color: AppColors.text,
-                  fontSize: 16,
-                  fontWeight: AppFonts.w700,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(signed: true),
-                textAlign: TextAlign.center,
-                maxLength: 4,
-                style: const TextStyle(
-                  color: AppColors.text,
-                  fontSize: 24,
-                  fontWeight: AppFonts.w700,
-                ),
-                decoration: const InputDecoration(
-                  counterText: '',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  PrimaryButton(
-                    text: '取消',
-                    width: 80,
-                    type: PrimaryButtonType.normal,
-                    onTap: () => Navigator.of(ctx).pop(),
-                  ),
-                  PrimaryButton(
-                    text: '确定',
-                    width: 80,
-                    onTap: () {
-                      final text = controller.text.trim();
-                      final parsed = int.tryParse(text);
-                      if (parsed != null) {
-                        onChanged(parsed.clamp(-100, 100));
-                      }
-                      Navigator.of(ctx).pop();
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _onTap(context),
-      child: Container(
-        width: 60,
-        height: 32,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: const Color(0x661B2D4D),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: const Color(0xFF0072FF), width: 0.5),
-        ),
-        child: Text(
-          '$value%',
-          style: const TextStyle(
-            color: AppColors.text,
-            fontSize: 13,
-            fontWeight: AppFonts.w700,
-          ),
-        ),
       ),
     );
   }
@@ -367,7 +241,7 @@ class _CenterRow extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: 110,
+          width: 92,
           child: leftIsButton
               ? Align(
                   alignment: Alignment.centerRight,
@@ -375,9 +249,9 @@ class _CenterRow extends StatelessWidget {
                 )
               : _MetricLabel(label: leftLabel!),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 12),
         SizedBox(
-          width: 110,
+          width: 92,
           child: rightIsButton
               ? Align(
                   alignment: Alignment.centerLeft,
