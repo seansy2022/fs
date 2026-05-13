@@ -6,7 +6,7 @@ enum ControlMode { fixedPosition, floating }
 
 enum GyroMode { off, directionOnly, all }
 
-enum BatteryType { twoCell, threeCell, custom }
+enum BatteryType { oneCell, twoCell, threeCell, fourCell, other }
 
 enum BackgroundMusicMode { defaultTrack, localTrack }
 
@@ -180,7 +180,7 @@ class AppSettingsState {
       trackMixRight: 100,
       lowVoltageEnabled: true,
       batteryType: BatteryType.twoCell,
-      minimumVoltage: 6.2,
+      minimumVoltage: 6.0,
       fullVoltage: 8.4,
       batteryAlertPercent: 15,
       batteryVoice: true,
@@ -290,7 +290,7 @@ class AppSettingsState {
       trackMixLeft: (json['trackMixLeft']! as num).toDouble(),
       trackMixRight: (json['trackMixRight']! as num).toDouble(),
       lowVoltageEnabled: json['lowVoltageEnabled']! as bool,
-      batteryType: BatteryType.values.byName(json['batteryType']! as String),
+      batteryType: _batteryTypeFromStorage(json['batteryType']! as String),
       minimumVoltage: (json['minimumVoltage']! as num).toDouble(),
       fullVoltage: (json['fullVoltage']! as num).toDouble(),
       batteryAlertPercent: (json['batteryAlertPercent']! as num).toDouble(),
@@ -308,4 +308,18 @@ class AppSettingsState {
       backgroundMusicName: json['backgroundMusicName']! as String,
     );
   }
+}
+
+BatteryType _batteryTypeFromStorage(String raw) {
+  switch (raw) {
+    case 'custom':
+      return BatteryType.other;
+    case 'oneCell':
+    case 'twoCell':
+    case 'threeCell':
+    case 'fourCell':
+    case 'other':
+      return BatteryType.values.byName(raw);
+  }
+  return BatteryType.twoCell;
 }

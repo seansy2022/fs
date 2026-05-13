@@ -6,6 +6,7 @@ import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
 import '../controllers/settings_controller.dart';
 import '../models/app_settings_state.dart';
+import '../widgets/numeric_input_dialog.dart';
 import '../widgets/select_option_toggle.dart';
 import '../widgets/settings_workspace.dart';
 
@@ -88,13 +89,25 @@ class AlarmSettingsContent extends ConsumerWidget {
                           style: TextStyle(color: AppColors.text, fontSize: 14),
                         ),
                         const SizedBox(width: 8),
-                        _InputBox(
-                          text: settings.minimumVoltage.toStringAsFixed(1),
-                          onSubmitted: (raw) {
-                            final value = _extractNumber(raw);
+                        _TapInputBox(
+                          text:
+                              '${_formatDisplayNumber(settings.minimumVoltage)}V',
+                          onTap: () async {
+                            final raw = await NumericInputDialog.show(
+                              context,
+                              title: '最低电压',
+                              initialValue: _formatDisplayNumber(
+                                settings.minimumVoltage,
+                              ),
+                              unit: 'V',
+                            );
+                            final value = _extractNumber(raw ?? '');
                             if (value == null) return;
                             controller.updateBatterySettings(
-                              minimumVoltage: value.clamp(2.0, 15.0),
+                              minimumVoltage: _clampMinimumVoltage(
+                                value,
+                                settings,
+                              ),
                             );
                           },
                         ),
@@ -108,13 +121,22 @@ class AlarmSettingsContent extends ConsumerWidget {
                           style: TextStyle(color: AppColors.text, fontSize: 14),
                         ),
                         const SizedBox(width: 8),
-                        _InputBox(
-                          text: '${settings.fullVoltage.toStringAsFixed(1)}V',
-                          onSubmitted: (raw) {
-                            final value = _extractNumber(raw);
+                        _TapInputBox(
+                          text:
+                              '${_formatDisplayNumber(settings.fullVoltage)}V',
+                          onTap: () async {
+                            final raw = await NumericInputDialog.show(
+                              context,
+                              title: '满电电压',
+                              initialValue: _formatDisplayNumber(
+                                settings.fullVoltage,
+                              ),
+                              unit: 'V',
+                            );
+                            final value = _extractNumber(raw ?? '');
                             if (value == null) return;
                             controller.updateBatterySettings(
-                              fullVoltage: value,
+                              fullVoltage: _clampFullVoltage(value, settings),
                             );
                           },
                         ),
@@ -141,23 +163,23 @@ class AlarmSettingsContent extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      _InputBox(
+                      _TapInputBox(
                         text: '${settings.batteryAlertPercent.round()}%',
-                        onSubmitted: (raw) {
-                          final value = _extractNumber(raw);
+                        onTap: () async {
+                          final raw = await NumericInputDialog.show(
+                            context,
+                            title: '报警电量',
+                            initialValue: settings.batteryAlertPercent
+                                .round()
+                                .toString(),
+                            unit: '%',
+                          );
+                          final value = _extractNumber(raw ?? '');
                           if (value == null) return;
                           controller.updateBatterySettings(
-                            alertPercent: value.clamp(0, 100),
+                            alertPercent: value.clamp(0, 99),
                           );
                         },
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '≈${_alarmVoltage(settings).toStringAsFixed(1)}V',
-                        style: const TextStyle(
-                          color: AppColors.textDim,
-                          fontSize: 13,
-                        ),
                       ),
                     ],
                   ),
@@ -222,10 +244,18 @@ class AlarmSettingsContent extends ConsumerWidget {
                           style: TextStyle(color: AppColors.text, fontSize: 14),
                         ),
                         const SizedBox(width: 8),
-                        _InputBox(
-                          text: settings.signalThreshold.round().toString(),
-                          onSubmitted: (raw) {
-                            final value = _extractNumber(raw);
+                        _TapInputBox(
+                          text: '${settings.signalThreshold.round()}%',
+                          onTap: () async {
+                            final raw = await NumericInputDialog.show(
+                              context,
+                              title: '报警信号值',
+                              initialValue: settings.signalThreshold
+                                  .round()
+                                  .toString(),
+                              unit: '%',
+                            );
+                            final value = _extractNumber(raw ?? '');
                             if (value == null) return;
                             controller.updateSignalSettings(
                               threshold: value.clamp(0, 100),
@@ -325,18 +355,17 @@ void _showBatteryTypeDialog(
 
 String _batteryTypeLabel(BatteryType type) {
   switch (type) {
+    case BatteryType.oneCell:
+      return '1S';
     case BatteryType.twoCell:
-      return '2S (6.0-8.4V)';
+      return '2S';
     case BatteryType.threeCell:
-      return '3S (9.0-12.6V)';
-    case BatteryType.custom:
-      return '自定义';
+      return '3S';
+    case BatteryType.fourCell:
+      return '4S';
+    case BatteryType.other:
+      return '其他';
   }
-}
-
-double _alarmVoltage(AppSettingsState settings) {
-  final range = settings.fullVoltage - settings.minimumVoltage;
-  return settings.minimumVoltage + range * settings.batteryAlertPercent / 100;
 }
 
 class _LabeledRow extends StatelessWidget {
@@ -418,53 +447,34 @@ class _AlarmToggleSwitch extends StatelessWidget {
   }
 }
 
-class _InputBox extends StatelessWidget {
-  const _InputBox({required this.text, required this.onSubmitted});
+class _TapInputBox extends StatelessWidget {
+  const _TapInputBox({required this.text, required this.onTap});
 
   final String text;
-  final ValueChanged<String> onSubmitted;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 60,
-      height: 28,
-      child: TextFormField(
-        key: ValueKey(text),
-        initialValue: text,
-        textAlign: TextAlign.center,
-        maxLength: 4,
-        style: const TextStyle(
-          color: AppColors.text,
-          fontSize: 14,
-          fontWeight: AppFonts.w600,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        width: 72,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(0xFF0A1E3A),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: const Color(0xFF2C4A73), width: 0.8),
         ),
-        decoration: InputDecoration(
-          counterText: '',
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 6,
-            vertical: 6,
-          ),
-          filled: true,
-          fillColor: const Color(0xFF0A1E3A),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFF2C4A73), width: 0.8),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFF2C4A73), width: 0.8),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(
-              color: AppColors.primaryBright,
-              width: 1,
-            ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: AppColors.text,
+            fontSize: 14,
+            fontWeight: AppFonts.w600,
           ),
         ),
-        onFieldSubmitted: onSubmitted,
       ),
     );
   }
@@ -474,4 +484,23 @@ double? _extractNumber(String raw) {
   final cleaned = raw.trim().replaceAll(RegExp(r'[^0-9.]'), '');
   if (cleaned.isEmpty || cleaned.length > 4) return null;
   return double.tryParse(cleaned);
+}
+
+double _clampMinimumVoltage(double value, AppSettingsState settings) {
+  final upperBound = (settings.fullVoltage - 1).clamp(2.5, 29.0);
+  return _roundToTenth(value.clamp(2.5, upperBound));
+}
+
+double _clampFullVoltage(double value, AppSettingsState settings) {
+  final lowerBound = (settings.minimumVoltage + 1).clamp(3.5, 30.0);
+  return _roundToTenth(value.clamp(lowerBound, 30.0));
+}
+
+double _roundToTenth(double value) => (value * 10).roundToDouble() / 10;
+
+String _formatDisplayNumber(double value) {
+  if (value == value.roundToDouble()) {
+    return value.round().toString();
+  }
+  return value.toStringAsFixed(1);
 }

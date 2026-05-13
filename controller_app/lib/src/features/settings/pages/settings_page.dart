@@ -228,6 +228,37 @@ class BasicSettingsContent extends ConsumerWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              SettingsStrip(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _onBackgroundMusicTap(context, ref),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '背景音乐',
+                              style: TextStyle(color: AppColors.text, fontSize: 14),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              settings.backgroundMusicName,
+                              style: const TextStyle(
+                                color: AppColors.textDim,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: AppColors.textDim, size: 22),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -281,6 +312,26 @@ Future<void> _onExitBleModeTap(BuildContext context, WidgetRef ref) async {
       message: '当前未连接接收机，无需退出蓝牙模式。',
       confirmText: '确定',
     );
+  }
+}
+
+Future<void> _onBackgroundMusicTap(BuildContext context, WidgetRef ref) async {
+  final currentName = ref.read(appSettingsProvider).backgroundMusicName;
+
+  final result = await AlertIconWidget.show(
+    context,
+    title: '背景音乐',
+    message: '当前：$currentName\n\n是否使用默认背景音乐？',
+    cancelText: '取消',
+    confirmText: '默认背景音乐',
+  );
+
+  if (result == true && context.mounted) {
+    // 恢复默认背景音乐
+    ref.read(appSettingsProvider.notifier).updateBackgroundMusic(
+          mode: BackgroundMusicMode.defaultTrack,
+          name: '默认背景音乐',
+        );
   }
 }
 

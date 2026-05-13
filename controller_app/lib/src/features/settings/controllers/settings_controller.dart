@@ -125,12 +125,16 @@ class SettingsController extends StateNotifier<AppSettingsState> {
     AppSettingsState current,
   ) {
     switch (batteryType) {
+      case BatteryType.oneCell:
+        return current.copyWith(minimumVoltage: 3.0, fullVoltage: 4.2);
       case BatteryType.twoCell:
-        return current.copyWith(minimumVoltage: 6.2, fullVoltage: 8.4);
+        return current.copyWith(minimumVoltage: 6.0, fullVoltage: 8.4);
       case BatteryType.threeCell:
-        return current.copyWith(minimumVoltage: 9.3, fullVoltage: 12.6);
-      case BatteryType.custom:
-        return current;
+        return current.copyWith(minimumVoltage: 9.0, fullVoltage: 12.6);
+      case BatteryType.fourCell:
+        return current.copyWith(minimumVoltage: 12.0, fullVoltage: 16.8);
+      case BatteryType.other:
+        return current.copyWith(minimumVoltage: 6.0, fullVoltage: 8.4);
     }
   }
 }
