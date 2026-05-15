@@ -104,6 +104,7 @@ class AlertBlueWidget extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0xFF002149),
             borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xA37DA2CE)),
           ),
           child: Column(
             children: [
@@ -172,15 +173,15 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 52,
+      height: 60,
       child: Row(
         children: [
           _IconTapButton(
             onTap: onRefresh,
             child: SvgPicture.asset(
               AppAssets.refresh,
-              width: 18,
-              height: 18,
+              width: 24,
+              height: 24,
               colorFilter: const ColorFilter.mode(
                 AppColors.text,
                 BlendMode.srcIn,
@@ -212,7 +213,7 @@ class _Header extends StatelessWidget {
             onTap: onClose,
             child: const Icon(
               Icons.close,
-              size: 18,
+              size: 24,
               color: Color(0xFF7DA2CE),
             ),
           ),
@@ -231,9 +232,9 @@ class _ItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: 44,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         child: Row(
           children: [
             Expanded(
@@ -311,7 +312,7 @@ class _IconTapButton extends StatelessWidget {
         onTap: onTap,
         child: SizedBox(
           width: 44,
-          height: 52,
+          height: 60,
           child: Center(child: child),
         ),
       ),

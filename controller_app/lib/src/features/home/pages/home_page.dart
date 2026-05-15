@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
@@ -157,7 +156,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             width: 112,
                             height: 120,
                             child: HomeMetric(
-                              label: 'RX电压',
+                              label: 'RX电量',
                               value: batteryLevel != null
                                   ? '$batteryLevel'
                                   : '--',
@@ -202,7 +201,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                             text: '开始',
                             width: 160,
                             height: 44,
-                            enabled: connected || kDebugMode,
                             gradient: const LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
@@ -211,7 +209,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 AppColors.primary,
                               ],
                             ),
-                            disabledColor: const Color.fromRGBO(27, 45, 77, 1),
                             textColor: AppColors.bg,
                             icon: SvgPicture.asset(
                               'assets/icons/home_start.svg',
@@ -322,9 +319,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       context: context,
       barrierDismissible: true,
       barrierColor: const Color(0xCC000000),
-      builder: (dialogContext) => _BluetoothActionDialog(
-        hasConnectedDevice: connectedDevice?.connected ?? false,
-      ),
+      builder: (dialogContext) => const _BluetoothActionDialog(),
     );
 
     if (!context.mounted) return;
@@ -442,11 +437,12 @@ class _BluetoothListDialogContentState
           statusColor = const Color(0xFF67E600);
         } else {
           status = '离线';
+          statusColor = const Color(0xFFFF8A65);
         }
       } else {
         // 从未连接过的设备显示“未配对”
         status = '未配对';
-        statusColor = Colors.white.withOpacity(0.45);
+        statusColor = Colors.white.withValues(alpha: 0.45);
       }
 
       return AlertBlueItem(
@@ -471,18 +467,16 @@ class _BluetoothListDialogContentState
           await ref
               .read(rememberedDevicesProvider.notifier)
               .rememberDevice(device);
-          if (mounted) {
-            Navigator.of(context).pop();
-          }
+          if (!context.mounted) return;
+          Navigator.of(context).pop();
         } catch (e) {
-          if (mounted) {
-            AlertIconWidget.show(
-              context,
-              title: '连接失败',
-              message: '无法连接到设备，请重试。',
-              confirmText: '知道了',
-            );
-          }
+          if (!context.mounted) return;
+          AlertIconWidget.show(
+            context,
+            title: '连接失败',
+            message: '无法连接到设备，请重试。',
+            confirmText: '知道了',
+          );
         }
       },
       onDelete: (item) async {
@@ -507,9 +501,7 @@ class _BluetoothListDialogContentState
 
 /// 弹窗2的自定义对话框 — 蓝牙已开启时的操作选择
 class _BluetoothActionDialog extends StatelessWidget {
-  const _BluetoothActionDialog({required this.hasConnectedDevice});
-
-  final bool hasConnectedDevice;
+  const _BluetoothActionDialog();
 
   @override
   Widget build(BuildContext context) {
@@ -517,7 +509,7 @@ class _BluetoothActionDialog extends StatelessWidget {
       type: MaterialType.transparency,
       child: Center(
         child: Container(
-          width: 300,
+          width: 343,
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             color: const Color(0xFF002149),
@@ -598,9 +590,7 @@ class _HomeActionButton extends StatelessWidget {
     required this.icon,
     this.width = 174,
     this.height = 44,
-    this.enabled = true,
     this.backgroundColor,
-    this.disabledColor,
     this.gradient,
     this.textColor = AppColors.onPrimary,
   });
@@ -610,9 +600,7 @@ class _HomeActionButton extends StatelessWidget {
   final Widget icon;
   final double width;
   final double height;
-  final bool enabled;
   final Color? backgroundColor;
-  final Color? disabledColor;
   final Gradient? gradient;
   final Color textColor;
 
@@ -620,13 +608,13 @@ class _HomeActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: enabled ? onTap : null,
+      onTap: onTap,
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: enabled ? backgroundColor : (disabledColor ?? const Color.fromRGBO(27, 45, 77, 1)),
-          gradient: enabled ? gradient : null,
+          color: backgroundColor,
+          gradient: gradient,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
@@ -637,7 +625,7 @@ class _HomeActionButton extends StatelessWidget {
             Text(
               text,
               style: TextStyle(
-                color: enabled ? textColor : AppColors.textDim,
+                color: textColor,
                 fontSize: AppFonts.s16,
                 fontWeight: AppFonts.w700,
               ),
