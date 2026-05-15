@@ -6,6 +6,7 @@ import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
 import '../controllers/settings_controller.dart';
 import '../models/app_settings_state.dart';
+import '../widgets/numeric_input_dialog.dart';
 import '../widgets/select_option_toggle.dart';
 import '../widgets/settings_workspace.dart';
 
@@ -179,7 +180,7 @@ class _ChannelSettingsContentState
             ),
           ),
           for (final field in displaySpec.fields) ...[
-            _FieldLabel(field.label),
+            _FieldLabel(field.label, width: field.label.length > 1 ? 52 : 32),
             Expanded(
               flex: 12,
               child: field.inputType == _ChannelFieldInputType.button
@@ -474,16 +475,19 @@ class _ChannelDisplayFieldSpec {
 }
 
 class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.value);
+  const _FieldLabel(this.value, {required this.width});
 
   final String value;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 32,
+      width: width,
       child: Text(
         value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
         style: const TextStyle(color: AppColors.text, fontSize: 14),
       ),
@@ -530,77 +534,19 @@ class _ChannelValueInput extends StatelessWidget {
   final int value;
   final ValueChanged<int> onChanged;
 
-  void _openEditor(BuildContext context) {
-    final controller = TextEditingController(text: value.toString());
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1B2A4A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: SizedBox(
-          width: 220,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                '输入数值 (%)',
-                style: TextStyle(
-                  color: AppColors.text,
-                  fontSize: 16,
-                  fontWeight: AppFonts.w700,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(
-                  signed: true,
-                ),
-                textAlign: TextAlign.center,
-                maxLength: 4,
-                style: const TextStyle(
-                  color: AppColors.text,
-                  fontSize: 24,
-                  fontWeight: AppFonts.w700,
-                ),
-                decoration: const InputDecoration(
-                  counterText: '',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  PrimaryButton(
-                    text: '取消',
-                    width: 80,
-                    type: PrimaryButtonType.normal,
-                    onTap: () => Navigator.of(ctx).pop(),
-                  ),
-                  PrimaryButton(
-                    text: '确定',
-                    width: 80,
-                    onTap: () {
-                      final parsed = int.tryParse(controller.text.trim());
-                      if (parsed != null) {
-                        onChanged(parsed.clamp(-100, 100));
-                      }
-                      Navigator.of(ctx).pop();
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+  Future<void> _openEditor(BuildContext context) async {
+    final raw = await NumericInputDialog.show(
+      context,
+      title: '设置值',
+      initialValue: value.toString(),
+      unit: '%',
+      allowSigned: true,
+      allowDecimal: false,
+      maxLength: 4,
     );
+    final parsed = int.tryParse(raw?.trim() ?? '');
+    if (parsed == null) return;
+    onChanged(parsed.clamp(-100, 100));
   }
 
   @override

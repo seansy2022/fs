@@ -88,11 +88,11 @@ void main() {
     await tester.tap(find.descendant(of: row, matching: find.text('0%')));
     await tester.pumpAndSettle();
 
-    expect(find.text('输入数值 (%)'), findsOneWidget);
+    expect(find.text('设置值'), findsNWidgets(2));
     expect(find.byType(TextField), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), '25');
-    await tester.tap(find.text('确定'));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
     expect(
@@ -171,6 +171,24 @@ void main() {
     final title = tester.widget<Text>(find.text('陀螺仪(CH3)'));
     expect(title.maxLines, 1);
     expect(title.overflow, TextOverflow.ellipsis);
+  });
+
+  testWidgets('gyro field label stays on one line', (tester) async {
+    await _pumpPage(
+      tester,
+      _stateWithChannels(
+        ch3Function: AuxiliaryFunction.gyro,
+        ch4Function: AuxiliaryFunction.none,
+      ),
+    );
+
+    final label = tester.widget<Text>(
+      find
+          .descendant(of: _rowFor('陀螺仪(CH3)'), matching: find.text('设置值'))
+          .first,
+    );
+    expect(label.maxLines, 1);
+    expect(label.overflow, TextOverflow.ellipsis);
   });
 }
 

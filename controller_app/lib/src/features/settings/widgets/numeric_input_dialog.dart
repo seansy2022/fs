@@ -8,17 +8,26 @@ class NumericInputDialog extends StatefulWidget {
     required this.title,
     required this.unit,
     required this.initialValue,
+    this.allowSigned = false,
+    this.allowDecimal = true,
+    this.maxLength = 4,
   });
 
   final String title;
   final String unit;
   final String initialValue;
+  final bool allowSigned;
+  final bool allowDecimal;
+  final int maxLength;
 
   static Future<String?> show(
     BuildContext context, {
     required String title,
     required String initialValue,
     required String unit,
+    bool allowSigned = false,
+    bool allowDecimal = true,
+    int maxLength = 4,
   }) {
     return showGeneralDialog<String>(
       context: context,
@@ -30,6 +39,9 @@ class NumericInputDialog extends StatefulWidget {
           title: title,
           unit: unit,
           initialValue: initialValue,
+          allowSigned: allowSigned,
+          allowDecimal: allowDecimal,
+          maxLength: maxLength,
         );
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
@@ -73,93 +85,109 @@ class _NumericInputDialogState extends State<NumericInputDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final viewInsets = MediaQuery.of(context).viewInsets;
+
     return Material(
       color: Colors.transparent,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _dismiss,
         child: SafeArea(
-          child: Center(
-            child: GestureDetector(
-              onTap: () {},
-              child: SizedBox(
-                width: 311,
-                height: 125.5,
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF002149),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        widget.title,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColors.text,
-                          fontSize: 18,
-                          fontWeight: AppFonts.w600,
+          child: AnimatedPadding(
+            key: const ValueKey('numeric-input-dialog-padding'),
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.only(bottom: viewInsets.bottom),
+            child: Center(
+              child: GestureDetector(
+                onTap: () {},
+                child: SizedBox(
+                  width: 311,
+                  height: 125.5,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF002149),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          widget.title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.text,
+                            fontSize: 18,
+                            fontWeight: AppFonts.w600,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.center,
-                        child: Container(
-                          width: 263,
-                          height: 40,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: const Color(0x661B2D4D),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: const Color(0xFF00C6FF),
-                              width: 1,
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.center,
+                          child: Container(
+                            width: 263,
+                            height: 40,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: const Color(0x661B2D4D),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: const Color(0xFF00C6FF),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _controller,
+                                    autofocus: true,
+                                    keyboardType:
+                                        TextInputType.numberWithOptions(
+                                          signed: widget.allowSigned,
+                                          decimal: widget.allowDecimal,
+                                        ),
+                                    textInputAction: TextInputAction.done,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(
+                                          _allowedInputPattern(
+                                            allowSigned: widget.allowSigned,
+                                            allowDecimal: widget.allowDecimal,
+                                          ),
+                                        ),
+                                      ),
+                                      LengthLimitingTextInputFormatter(
+                                        widget.maxLength,
+                                      ),
+                                    ],
+                                    style: const TextStyle(
+                                      color: AppColors.text,
+                                      fontSize: 16,
+                                      fontWeight: AppFonts.w600,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                    ),
+                                    onSubmitted: _dismiss,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  widget.unit,
+                                  style: const TextStyle(
+                                    color: Color(0xFF465D7A),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _controller,
-                                  autofocus: true,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  textInputAction: TextInputAction.done,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.allow(
-                                      RegExp(r'[0-9.]'),
-                                    ),
-                                    LengthLimitingTextInputFormatter(4),
-                                  ],
-                                  style: const TextStyle(
-                                    color: AppColors.text,
-                                    fontSize: 16,
-                                    fontWeight: AppFonts.w600,
-                                  ),
-                                  decoration: const InputDecoration(
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                  ),
-                                  onSubmitted: _dismiss,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                widget.unit,
-                                style: const TextStyle(
-                                  color: Color(0xFF465D7A),
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -169,4 +197,13 @@ class _NumericInputDialogState extends State<NumericInputDialog> {
       ),
     );
   }
+}
+
+String _allowedInputPattern({
+  required bool allowSigned,
+  required bool allowDecimal,
+}) {
+  final signs = allowSigned ? r'\-' : '';
+  final decimal = allowDecimal ? r'\.' : '';
+  return '[$signs${decimal}0-9]';
 }
