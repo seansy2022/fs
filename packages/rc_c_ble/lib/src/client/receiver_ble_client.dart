@@ -1,21 +1,24 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:rc_ble/rc_ble.dart';
-
 import '../models/receiver_models.dart';
 import '../protocol/receiver_command.dart';
 import '../protocol/receiver_frame.dart';
 import '../protocol/receiver_frame_parser.dart';
 import '../protocol/receiver_protocol_codec.dart';
+import '../transport/flutter_blue_receiver_transport.dart';
+import '../transport/receiver_link_transport.dart';
 
 class ReceiverBleClient {
   ReceiverBleClient({
     LinkTransport? transport,
     this.requestTimeout = const Duration(milliseconds: 900),
-  }) : _transport = transport ?? FlutterBlueTransport() {
+  }) : _transport = transport ?? FlutterBlueReceiverTransport() {
     _incomingSub = _transport.incomingBytes.listen(_onBytes);
-    _scanSub = _transport.scanResults.listen(_onScanResults);
+    _scanSub = _transport.scanResults.listen(
+      _onScanResults,
+      onError: _onScanError,
+    );
     _adapterSub = _transport.adapterState.listen((state) {
       _adapterState = state;
       _adapterCtrl.add(state);
@@ -25,6 +28,7 @@ class ReceiverBleClient {
   final LinkTransport _transport;
   final Duration requestTimeout;
   final ReceiverFrameParser _parser = ReceiverFrameParser();
+  static const Duration _scanRestartCooldown = Duration(milliseconds: 700);
 
   StreamSubscription<AdapterState>? _adapterSub;
 
@@ -34,6 +38,8 @@ class ReceiverBleClient {
       StreamController<ReceiverConnectionState>.broadcast();
   final StreamController<ReceiverInfo?> _infoCtrl =
       StreamController<ReceiverInfo?>.broadcast();
+  final StreamController<int?> _connectedRssiCtrl =
+      StreamController<int?>.broadcast();
   final StreamController<ReceiverFirmwareInfo?> _firmwareCtrl =
       StreamController<ReceiverFirmwareInfo?>.broadcast();
   final StreamController<ReceiverFrame> _frameCtrl =
@@ -44,20 +50,28 @@ class ReceiverBleClient {
   StreamSubscription<List<int>>? _incomingSub;
   StreamSubscription<List<BluetoothScanDevice>>? _scanSub;
   Timer? _controlLoop;
+  Timer? _rssiLoop;
   Completer<ReceiverFrame>? _pendingResponse;
   bool Function(ReceiverFrame frame)? _pendingMatcher;
   ReceiverConnectionState _connectionState =
       ReceiverConnectionState.disconnected;
   List<ReceiverScanDevice> _scanResults = const <ReceiverScanDevice>[];
   ReceiverInfo? _receiverInfo;
+  int? _connectedRssi;
   ReceiverFirmwareInfo? _firmwareInfo;
   ReceiverControlValues _controlValues = const ReceiverControlValues();
   String? _connectedRemoteId;
   AdapterState _adapterState = AdapterState.unknown;
+  Future<void> _scanQueue = Future<void>.value();
+  bool _isScanning = false;
+  bool _rssiPollingEnabled = false;
+  bool _rssiReadInFlight = false;
+  DateTime? _lastScanStopAt;
 
   ReceiverConnectionState get connectionState => _connectionState;
   List<ReceiverScanDevice> get scanResults => _scanResults;
   ReceiverInfo? get receiverInfo => _receiverInfo;
+  int? get connectedRssi => _connectedRssi;
   ReceiverFirmwareInfo? get firmwareInfo => _firmwareInfo;
   AdapterState get adapterState => _adapterState;
 
@@ -76,6 +90,11 @@ class ReceiverBleClient {
     yield* _infoCtrl.stream;
   }
 
+  Stream<int?> get connectedRssiStream async* {
+    yield _connectedRssi;
+    yield* _connectedRssiCtrl.stream;
+  }
+
   Stream<ReceiverFirmwareInfo?> get firmwareInfoStream async* {
     yield _firmwareInfo;
     yield* _firmwareCtrl.stream;
@@ -90,20 +109,52 @@ class ReceiverBleClient {
 
   Stream<ReceiverFrame> get frameStream => _frameCtrl.stream;
 
-  Future<void> startScan() async {
-    _setConnectionState(
-      _connectionState == ReceiverConnectionState.connected
-          ? ReceiverConnectionState.connected
-          : ReceiverConnectionState.scanning,
-    );
-    await _transport.startScan();
+  Future<void> startScan() {
+    return _enqueueScanOperation(() async {
+      if (_isScanning) {
+        if (_connectionState != ReceiverConnectionState.connected) {
+          _setConnectionState(ReceiverConnectionState.scanning);
+        }
+        return;
+      }
+      _setConnectionState(
+        _connectionState == ReceiverConnectionState.connected
+            ? ReceiverConnectionState.connected
+            : ReceiverConnectionState.scanning,
+      );
+      await _waitForScanCooldown();
+      try {
+        await _transport.startScan();
+        _isScanning = true;
+      } catch (error) {
+        _isScanning = false;
+        _lastScanStopAt = DateTime.now();
+        if (_connectionState == ReceiverConnectionState.scanning) {
+          _setConnectionState(ReceiverConnectionState.disconnected);
+        }
+        rethrow;
+      }
+    });
   }
 
-  Future<void> stopScan() async {
-    await _transport.stopScan();
-    if (_connectionState == ReceiverConnectionState.scanning) {
-      _setConnectionState(ReceiverConnectionState.disconnected);
-    }
+  Future<void> stopScan() {
+    return _enqueueScanOperation(() async {
+      if (!_isScanning) {
+        if (_connectionState == ReceiverConnectionState.scanning) {
+          _setConnectionState(ReceiverConnectionState.disconnected);
+        }
+        return;
+      }
+      try {
+        await _transport.stopScan();
+      } finally {
+        _isScanning = false;
+        _lastScanStopAt = DateTime.now();
+        if (_connectionState == ReceiverConnectionState.scanning) {
+          _setConnectionState(ReceiverConnectionState.disconnected);
+        }
+      }
+    });
   }
 
   Future<void> connect(String remoteId) async {
@@ -117,16 +168,21 @@ class ReceiverBleClient {
         .toList(growable: false);
     _scanCtrl.add(_scanResults);
     _setConnectionState(ReceiverConnectionState.connected);
+    _seedConnectedRssiFromScan(remoteId);
+    _startConnectedRssiPolling();
   }
 
   Future<void> disconnect() async {
     _controlLoop?.cancel();
     _controlLoop = null;
+    _stopConnectedRssiPolling();
     final remoteId = _connectedRemoteId;
     _connectedRemoteId = null;
     _receiverInfo = null;
+    _connectedRssi = null;
     _firmwareInfo = null;
     _infoCtrl.add(null);
+    _connectedRssiCtrl.add(null);
     _firmwareCtrl.add(null);
     if (remoteId != null) {
       await _transport.disconnect(remoteId);
@@ -191,8 +247,7 @@ class ReceiverBleClient {
     _controlLoop = null;
     await _sendRequest(
       buildExitBleModeRequest(_requireRfmId()),
-      matcher: (response) =>
-          response.command == ReceiverCommand.exitBleMode.id,
+      matcher: (response) => response.command == ReceiverCommand.exitBleMode.id,
     );
   }
 
@@ -290,12 +345,15 @@ class ReceiverBleClient {
 
   Future<void> dispose() async {
     _controlLoop?.cancel();
+    _stopConnectedRssiPolling();
+    await stopScan();
     await _incomingSub?.cancel();
     await _scanSub?.cancel();
     await _adapterSub?.cancel();
     await _scanCtrl.close();
     await _connectionCtrl.close();
     await _infoCtrl.close();
+    await _connectedRssiCtrl.close();
     await _adapterCtrl.close();
     await _firmwareCtrl.close();
     await _frameCtrl.close();
@@ -318,16 +376,32 @@ class ReceiverBleClient {
   }
 
   void _onScanResults(List<BluetoothScanDevice> devices) {
-    _scanResults = devices
-        .map(
-          (device) => ReceiverScanDevice(
-            remoteId: device.remoteId,
-            name: device.name,
-            rssi: device.rssi,
-            connected: device.remoteId == _connectedRemoteId,
-          ),
-        )
-        .toList(growable: false);
+    final deduped = <String, ReceiverScanDevice>{};
+    for (final device in devices) {
+      final next = ReceiverScanDevice(
+        remoteId: device.remoteId,
+        name: device.name,
+        rssi: device.rssi,
+        connected: device.remoteId == _connectedRemoteId,
+      );
+      final current = deduped[device.remoteId];
+      if (current == null) {
+        deduped[device.remoteId] = next;
+        continue;
+      }
+      final preferred = _preferScanDevice(current, next);
+      deduped[device.remoteId] = preferred;
+    }
+    _scanResults = deduped.values.toList(growable: false);
+    _scanCtrl.add(_scanResults);
+  }
+
+  void _onScanError(Object error, StackTrace stackTrace) {
+    _isScanning = false;
+    _lastScanStopAt = DateTime.now();
+    if (_connectionState == ReceiverConnectionState.scanning) {
+      _setConnectionState(ReceiverConnectionState.disconnected);
+    }
     _scanCtrl.add(_scanResults);
   }
 
@@ -376,5 +450,105 @@ class ReceiverBleClient {
   void _setConnectionState(ReceiverConnectionState state) {
     _connectionState = state;
     _connectionCtrl.add(state);
+  }
+
+  void _seedConnectedRssiFromScan(String remoteId) {
+    final scanDevice = _scanResults
+        .where((device) => device.remoteId == remoteId)
+        .cast<ReceiverScanDevice?>()
+        .firstOrNull;
+    if (scanDevice == null) {
+      return;
+    }
+    _connectedRssi = scanDevice.rssi;
+    _connectedRssiCtrl.add(scanDevice.rssi);
+  }
+
+  void _startConnectedRssiPolling() {
+    _rssiLoop?.cancel();
+    _rssiPollingEnabled = true;
+    unawaited(_readConnectedRssi());
+    _rssiLoop = Timer.periodic(const Duration(seconds: 1), (_) {
+      unawaited(_readConnectedRssi());
+    });
+  }
+
+  void _stopConnectedRssiPolling() {
+    _rssiPollingEnabled = false;
+    _rssiLoop?.cancel();
+    _rssiLoop = null;
+    _rssiReadInFlight = false;
+  }
+
+  Future<void> _readConnectedRssi() async {
+    if (_rssiReadInFlight) {
+      return;
+    }
+    final remoteId = _connectedRemoteId;
+    if (remoteId == null ||
+        _connectionState != ReceiverConnectionState.connected) {
+      return;
+    }
+    _rssiReadInFlight = true;
+    try {
+      final rssi = await _transport.readRssi(remoteId);
+      if (!_rssiPollingEnabled ||
+          _connectedRemoteId != remoteId ||
+          _connectionState != ReceiverConnectionState.connected) {
+        return;
+      }
+      _connectedRssi = rssi;
+      _connectedRssiCtrl.add(rssi);
+    } catch (_) {
+      // RSSI reads are best-effort; connection state and control traffic own
+      // disconnect handling.
+    } finally {
+      _rssiReadInFlight = false;
+    }
+  }
+
+  ReceiverScanDevice _preferScanDevice(
+    ReceiverScanDevice current,
+    ReceiverScanDevice next,
+  ) {
+    if (next.connected && !current.connected) {
+      return next;
+    }
+    if (next.name.trim().isNotEmpty && current.name.trim().isEmpty) {
+      return next;
+    }
+    if (next.rssi > current.rssi) {
+      return next;
+    }
+    return current;
+  }
+
+  Future<void> _enqueueScanOperation(Future<void> Function() task) {
+    final completer = Completer<void>();
+    _scanQueue = _scanQueue.then((_) async {
+      try {
+        await task();
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      } catch (error, stack) {
+        if (!completer.isCompleted) {
+          completer.completeError(error, stack);
+        }
+      }
+    });
+    return completer.future;
+  }
+
+  Future<void> _waitForScanCooldown() async {
+    final lastScanStopAt = _lastScanStopAt;
+    if (lastScanStopAt == null) {
+      return;
+    }
+    final elapsed = DateTime.now().difference(lastScanStopAt);
+    final remaining = _scanRestartCooldown - elapsed;
+    if (remaining > Duration.zero) {
+      await Future<void>.delayed(remaining);
+    }
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -8,10 +9,13 @@ import 'package:rc_ui/rc_ui.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/providers.dart';
+import '../../../provider/bluetooth_domain_provider.dart';
 import '../../settings/models/app_settings_state.dart';
 import '../controllers/control_controller.dart';
+import '../providers/gyro_prompt_provider.dart';
+import '../widgets/bluetooth_svg_toggle_button.dart';
 import '../widgets/floating_control_zone.dart';
-import '../widgets/trim_control.dart';
+import '../widgets/steering_indicator_row.dart';
 
 class ControlPage extends ConsumerStatefulWidget {
   const ControlPage({super.key});
@@ -45,6 +49,11 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     super.initState();
     unawaited(_initializeBackgroundVideo());
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        ref
+            .read(bluetoothDomainControllerProvider.notifier)
+            .ensureScanStopped(),
+      );
       unawaited(_activate());
     });
   }
@@ -186,9 +195,30 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     final connectionState =
         ref.watch(receiverConnectionProvider).valueOrNull ??
         ReceiverConnectionState.disconnected;
+    final connectedRssi = ref.watch(connectedRssiProvider).valueOrNull;
     final controlState = ref.watch(controlControllerProvider);
     final controlController = ref.read(controlControllerProvider.notifier);
     final settings = ref.watch(appSettingsProvider);
+    if (kDebugMode) {
+      debugPrint('[control-page] build gyroMode=${settings.gyroMode.name}');
+    }
+    ref.listen<AsyncValue<GyroPrompt>>(gyroPromptProvider, (_, next) {
+      next.whenData((value) {
+        if (kDebugMode) {
+          debugPrint(
+            '[control-page] gyroPrompt=(${value.steering.toStringAsFixed(2)},${value.throttle.toStringAsFixed(2)})',
+          );
+        }
+        unawaited(
+          ref
+              .read(controlControllerProvider.notifier)
+              .setGyroPrompt(
+                steering: value.steering,
+                throttle: value.throttle,
+              ),
+        );
+      });
+    });
 
     final connected = connectionState == ReceiverConnectionState.connected;
     final connectedDevice = info == null
@@ -198,11 +228,15 @@ class _ControlPageState extends ConsumerState<ControlPage> {
               .cast<ReceiverScanDevice?>()
               .firstOrNull;
     final batteryLevel = connected ? (info?.batteryLevel ?? 0) : 0;
-    final rssi = connected ? connectedDevice?.rssi : null;
+    final rssi = connected ? (connectedRssi ?? connectedDevice?.rssi) : null;
 
     final channelFunctions = settings.channels.map((c) => c.function).toSet();
-    final showHeadlight = channelFunctions.contains(AuxiliaryFunction.headlight);
-    final showWarningLight = channelFunctions.contains(AuxiliaryFunction.warningLight);
+    final showHeadlight = channelFunctions.contains(
+      AuxiliaryFunction.headlight,
+    );
+    final showWarningLight = channelFunctions.contains(
+      AuxiliaryFunction.warningLight,
+    );
     final leftPadIsThrottle = settings.handedness == Handedness.leftThrottle;
     const topControlAnchorTop = 65.0;
     const audioButtonsSize = 36.0;
@@ -235,7 +269,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                   ),
                 ),
                 Positioned(
-                  top: topControlAnchorTop, // 49(back button height) + 16
+                  top: driveModeTop,
                   left: 40,
                   child: _TopLowerBar(
                     musicOn: controlState.backgroundMusicOn,
@@ -244,6 +278,22 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                     onSound: controlController.toggleSoundEffects,
                   ),
                 ),
+                if (settings.gyroMode != GyroMode.off)
+                  Positioned(
+                    top: driveModeTop,
+                    left: 0,
+                    right: 0,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: SteeringIndicatorRow(
+                        steering: controlState.steering,
+                        throttle: controlState.throttle,
+                        itemCount: settings.gyroMode == GyroMode.all ? 2 : 1,
+                        size: 48,
+                        gap: 40,
+                      ),
+                    ),
+                  ),
                 Positioned(
                   top: driveModeTop,
                   right: 40,
@@ -286,7 +336,8 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                             const Spacer(),
                             _TrimToggle(
                               value: controlState.sliderButtonsVisible,
-                              onChanged: (_) => controlController.toggleSliderButtons(),
+                              onChanged: (_) =>
+                                  controlController.toggleSliderButtons(),
                             ),
                           ],
                         ),
@@ -347,21 +398,25 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final List<Widget> lightButtons = [];
     if (showHeadlight) {
-      lightButtons.add(_CircleIconBtn.svg(
-        assetPath: 'assets/icons/wifi_signal.svg',
-        active: headlightOn,
-        onTap: onHeadlight,
-      ));
+      lightButtons.add(
+        _CircleIconBtn.svg(
+          assetPath: 'assets/icons/wifi_signal.svg',
+          active: headlightOn,
+          onTap: onHeadlight,
+        ),
+      );
     }
     if (showWarningLight) {
       if (lightButtons.isNotEmpty) {
         lightButtons.add(const SizedBox(width: 16));
       }
-      lightButtons.add(_CircleIconBtn(
-        icon: Icons.flash_on,
-        active: warningLightOn,
-        onTap: onWarningLight,
-      ));
+      lightButtons.add(
+        _CircleIconBtn(
+          icon: Icons.flash_on,
+          active: warningLightOn,
+          onTap: onWarningLight,
+        ),
+      );
     }
 
     return Padding(
@@ -378,11 +433,7 @@ class _TopBar extends StatelessWidget {
                 height: 16,
               ),
               const SizedBox(width: 16),
-              BatteryWidget(
-                value: battery.toDouble(),
-                width: 29,
-                height: 16,
-              ),
+              BatteryWidget(value: battery.toDouble(), width: 29, height: 16),
             ],
           ),
           const Spacer(),
@@ -433,26 +484,17 @@ class _TopLowerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // const SizedBox(width: 147), // 129(back width) + 18(gap)
-        _CircleIconBtn.svg(
-          assetPath: musicOn
-              ? 'assets/icons/music_on.svg'
-              : 'assets/icons/music_off.svg',
-          active: musicOn,
-          onTap: onMusic,
-        ),
-        const SizedBox(width: 16),
-        _CircleIconBtn.svg(
-          assetPath: soundOn
-              ? 'assets/icons/sound_on.svg'
-              : 'assets/icons/sound_off.svg',
-          active: soundOn,
-          onTap: onSound,
-        ),
-      ],
+    return SizedBox(
+      height: 48,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          BluetoothSvgToggleButton(value: musicOn, onTap: onMusic),
+          const SizedBox(width: 16),
+          SoundSvgToggleButton(value: soundOn, onTap: onSound),
+        ],
+      ),
     );
   }
 }
@@ -494,10 +536,7 @@ class _CircleIconBtn extends StatelessWidget {
         child: assetPath != null
             ? Padding(
                 padding: const EdgeInsets.all(9),
-                child: SvgPicture.asset(
-                  assetPath!,
-                  fit: BoxFit.contain,
-                ),
+                child: SvgPicture.asset(assetPath!, fit: BoxFit.contain),
               )
             : Icon(
                 icon,
@@ -662,10 +701,7 @@ class _ControlArea extends StatelessWidget {
 }
 
 class _TrimToggle extends StatelessWidget {
-  const _TrimToggle({
-    required this.value,
-    required this.onChanged,
-  });
+  const _TrimToggle({required this.value, required this.onChanged});
 
   final bool value;
   final ValueChanged<bool> onChanged;

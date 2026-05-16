@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
+import '../../../provider/app_settings_provider.dart';
+import '../../settings/models/app_settings_state.dart';
+
 class ControlScreenState {
   const ControlScreenState({
     this.steering = 0,
@@ -68,30 +71,71 @@ class ControlScreenState {
 }
 
 class ControlController extends StateNotifier<ControlScreenState> {
-  ControlController(this._repository) : super(const ControlScreenState());
+  ControlController(this._ref, this._repository)
+    : super(const ControlScreenState());
 
+  final Ref _ref;
   final ReceiverRepository _repository;
+  double _touchSteering = 0;
+  double _touchThrottle = 0;
+  double _gyroSteering = 0;
+  double _gyroThrottle = 0;
 
   Future<void> activate() async {
     await _repository.startControlLoop();
     state = state.copyWith(loopActive: true);
-    await _push();
+    await _syncPromptAndPush();
   }
 
   Future<void> deactivate() async {
     await _repository.stopControlLoop();
-    state = state.copyWith(loopActive: false, throttle: 0, steering: 0);
+    _touchSteering = 0;
+    _touchThrottle = 0;
+    _gyroSteering = 0;
+    _gyroThrottle = 0;
+    state = state.copyWith(loopActive: false);
+    await _syncPromptAndPush();
+  }
+
+  Future<void> setGyroPrompt({
+    required double steering,
+    required double throttle,
+  }) async {
+    _gyroSteering = steering.clamp(-1, 1);
+    _gyroThrottle = throttle.clamp(-1, 1);
+    await _syncPromptAndPush();
+  }
+
+  Future<void> clearGyroPrompt() async {
+    _gyroSteering = 0;
+    _gyroThrottle = 0;
+    await _syncPromptAndPush();
+  }
+
+  Future<void> clearTouchPrompt() async {
+    _touchSteering = 0;
+    _touchThrottle = 0;
+    await _syncPromptAndPush();
+  }
+
+  Future<void> _syncPromptAndPush() async {
+    final mode = _ref.read(appSettingsProvider).gyroMode;
+    final gyroSteering = mode == GyroMode.off ? 0.0 : _gyroSteering;
+    final gyroThrottle = mode == GyroMode.all ? _gyroThrottle : 0.0;
+    final steering = (_touchSteering + gyroSteering).clamp(-1, 1).toDouble();
+    final throttle = (_touchThrottle + gyroThrottle).clamp(-1, 1).toDouble();
+    state = state.copyWith(steering: steering, throttle: throttle);
     await _push();
   }
 
   Future<void> setSteering(double value) async {
-    state = state.copyWith(steering: value.clamp(-1, 1));
-    await _push();
+    _touchSteering = value.clamp(-1, 1);
+    await _syncPromptAndPush();
   }
 
   Future<void> setThrottle(double value) async {
-    state = state.copyWith(throttle: value.clamp(-1, 1));
-    await _push();
+    _touchThrottle = value.clamp(-1, 1);
+    await _syncPromptAndPush();
   }
 
   Future<void> adjustTrim(int delta) async {

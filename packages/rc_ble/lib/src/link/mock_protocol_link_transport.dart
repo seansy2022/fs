@@ -49,6 +49,13 @@ class MockProtocolLinkTransport implements LinkTransport {
   @override
   Future<void> startScan() async {
     _log('startScan');
+    _scanCtrl.add([
+      const BluetoothScanDevice(
+        remoteId: 'MOCK_RC_001',
+        name: 'Mock RC MG11',
+        rssi: -127,
+      ),
+    ]);
     // 模拟延迟后发现设备
     Timer(const Duration(milliseconds: 800), () {
       _scanCtrl.add([
@@ -147,14 +154,15 @@ class MockProtocolLinkTransport implements LinkTransport {
   }
 
   void _emitA1() {
-    _tick++;
-    final data = List<int>.filled(22, 0);
-    // Fill CH1..CH11 with some moving values
+    final data = List<int>.filled(24, 0);
     for (var i = 0; i < 11; i++) {
-      final value = (sin(_tick / 10 + i) * 100).round();
-      data[i * 2] = value & 0xFF;
-      data[i * 2 + 1] = (value >> 8) & 0xFF;
+      final wave = sin((_tick + i * 3) / 8.0);
+      final value = (1500 + (wave * 500).round()).clamp(1000, 2000);
+      final idx = i * 2;
+      data[idx] = value & 0xFF;
+      data[idx + 1] = (value >> 8) & 0xFF;
     }
+    _tick++;
     _emitFrame(
       BluetoothFrame(
         seq: _nextSeq(),
@@ -164,7 +172,7 @@ class MockProtocolLinkTransport implements LinkTransport {
       ),
     );
     if (_tick % 10 == 0) {
-      _log('push A1 channelDisplay len=22');
+      _log('push A1 channelDisplay len=22 tick=$_tick');
     }
   }
 
@@ -200,10 +208,15 @@ class MockProtocolLinkTransport implements LinkTransport {
   }
 
   bool _isConfigCommand(BluetoothCommand cmd) {
-    return cmd.id >= 0x11 && cmd.id <= 0x1D;
+    return cmd.id >= BluetoothCommand.channelReverse.id &&
+        cmd.id <= BluetoothCommand.systemSetting.id;
   }
 
   void _emitAck(int seq, int command) {
+    final cmd = BluetoothCommand.fromId(command);
+    _log(
+      'send ACK cmd=${cmd?.name ?? command}(0x${command.toRadixString(16)}) seq=$seq code=0x20',
+    );
     _emitFrame(
       BluetoothFrame(seq: seq, command: command, length: 1, data: const [0x20]),
     );

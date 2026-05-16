@@ -1,8 +1,7 @@
-import 'package:rc_ble/rc_ble.dart';
-
 import '../client/receiver_ble_client.dart';
 import '../models/receiver_models.dart';
 import '../session/receiver_session_controller.dart';
+import '../transport/receiver_link_transport.dart';
 
 class ReceiverRepository {
   factory ReceiverRepository({ReceiverBleClient? client}) {
@@ -20,6 +19,7 @@ class ReceiverRepository {
   ReceiverConnectionState get connectionState => session.connectionState;
   List<ReceiverScanDevice> get scanResults => session.scanResults;
   ReceiverInfo? get receiverInfo => session.receiverInfo;
+  int? get connectedRssi => session.connectedRssi;
   ReceiverFirmwareInfo? get firmwareInfo => session.firmwareInfo;
   AdapterState get adapterState => session.adapterState;
 
@@ -28,6 +28,7 @@ class ReceiverRepository {
   Stream<ReceiverConnectionState> get connectionStateStream =>
       session.connectionStateStream;
   Stream<ReceiverInfo?> get receiverInfoStream => session.receiverInfoStream;
+  Stream<int?> get connectedRssiStream => session.connectedRssiStream;
   Stream<ReceiverFirmwareInfo?> get firmwareInfoStream =>
       session.firmwareInfoStream;
   Stream<AdapterState> get adapterStateStream => session.adapterStateStream;

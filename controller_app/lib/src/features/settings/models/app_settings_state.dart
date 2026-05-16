@@ -192,7 +192,7 @@ class AppSettingsState {
       reconnectVoice: true,
       reconnectVibration: false,
       backgroundMusicMode: BackgroundMusicMode.defaultTrack,
-      backgroundMusicName: '默认背景音乐',
+      backgroundMusicName: '默认',
     );
   }
 

@@ -127,26 +127,26 @@ class _ChannelSettingsContentState
     required ChannelSetting channel,
     required SettingsController controller,
   }) {
-    return SettingsStrip(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: AppColors.text, fontSize: 14),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _selectFunction(context, channelIndex, channel, controller),
+      child: SettingsStrip(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(color: AppColors.text, fontSize: 14),
+              ),
             ),
-          ),
-          GestureDetector(
-            onTap: () =>
-                _selectFunction(context, channelIndex, channel, controller),
-            child: const Icon(
+            const Icon(
               Icons.chevron_right,
               color: AppColors.textDim,
               size: 22,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -166,7 +166,7 @@ class _ChannelSettingsContentState
       isSpecialAuxChannel: isSpecialAuxChannel,
     );
 
-    return SettingsStrip(
+    final row = SettingsStrip(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       child: Row(
         children: [
@@ -228,6 +228,16 @@ class _ChannelSettingsContentState
           ],
         ],
       ),
+    );
+
+    if (!showFunction || !isSpecialAuxChannel) {
+      return row;
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _selectFunction(context, channelIndex, channel, controller),
+      child: row,
     );
   }
 

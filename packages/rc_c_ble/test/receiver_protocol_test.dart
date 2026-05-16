@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rc_ble/rc_ble.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 import 'package:rc_c_ble/src/protocol/receiver_checksum16.dart';
 import 'package:rc_c_ble/src/protocol/receiver_frame_parser.dart';
@@ -92,16 +91,20 @@ void main() {
       }
     };
 
-    await client.connect('dev-1');
-    await client.readReceiverInfo();
+    try {
+      await client.connect('dev-1');
+      await client.readReceiverInfo();
 
-    final progress = await client
-        .startUpgrade(
-          Uint8List.fromList(List<int>.generate(48, (index) => index)),
-        )
-        .toList();
-    expect(progress.last.stage, ReceiverUpgradeStage.completed);
-    expect(progress.last.sentChunks, 2);
+      final progress = await client
+          .startUpgrade(
+            Uint8List.fromList(List<int>.generate(48, (index) => index)),
+          )
+          .toList();
+      expect(progress.last.stage, ReceiverUpgradeStage.completed);
+      expect(progress.last.sentChunks, 2);
+    } finally {
+      await client.dispose();
+    }
   });
 }
 
@@ -114,7 +117,7 @@ class _FakeTransport implements LinkTransport {
   void Function(List<int> bytes)? onSend;
 
   @override
-  LinkType get type => LinkType.ble;
+  ReceiverLinkType get type => ReceiverLinkType.ble;
 
   @override
   Stream<List<int>> get incomingBytes => _incomingCtrl.stream;
@@ -137,6 +140,9 @@ class _FakeTransport implements LinkTransport {
 
   @override
   Future<void> disconnect(String remoteId) async {}
+
+  @override
+  Future<int> readRssi(String remoteId) async => -60;
 
   void emit(List<int> bytes) {
     scheduleMicrotask(() => _incomingCtrl.add(bytes));

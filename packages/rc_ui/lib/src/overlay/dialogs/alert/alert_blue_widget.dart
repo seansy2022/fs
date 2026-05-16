@@ -102,9 +102,8 @@ class AlertBlueWidget extends StatelessWidget {
           height: height,
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 30),
           decoration: BoxDecoration(
-            color: const Color(0xFF002149),
+            color: const Color(0xFF1B2D4D),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xA37DA2CE)),
           ),
           child: Column(
             children: [
@@ -138,7 +137,9 @@ class AlertBlueWidget extends StatelessWidget {
                           final item = items[index];
                           return GestureDetector(
                             behavior: HitTestBehavior.opaque,
-                            onTap: onTap == null ? null : () => onTap!.call(item),
+                            onTap: onTap == null
+                                ? null
+                                : () => onTap!.call(item),
                             child: _ItemRow(
                               item: item,
                               onDelete: onDelete == null
@@ -211,11 +212,7 @@ class _Header extends StatelessWidget {
           ),
           _IconTapButton(
             onTap: onClose,
-            child: SvgPicture.string(
-              _kCloseIconSvg,
-              width: 24,
-              height: 24,
-            ),
+            child: SvgPicture.string(_kCloseIconSvg, width: 24, height: 24),
           ),
         ],
       ),
@@ -268,11 +265,17 @@ class _ItemRow extends StatelessWidget {
                 fontWeight: AppFonts.w500,
               ),
             ),
-            const SizedBox(width: 8),
-            _IconTapButton(
-              onTap: onDelete,
-              child: SvgPicture.string(_kDeleteIconSvg, width: 20, height: 20),
-            ),
+            if (onDelete != null) ...[
+              const SizedBox(width: 10),
+              _IconTapButton(
+                onTap: onDelete,
+                child: SvgPicture.string(
+                  _kDeleteIconSvg,
+                  width: 20,
+                  height: 20,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -310,11 +313,7 @@ class _IconTapButton extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: SizedBox(
-          width: 44,
-          height: 60,
-          child: Center(child: child),
-        ),
+        child: SizedBox(width: 44, height: 60, child: Center(child: child)),
       ),
     );
   }
@@ -350,11 +349,7 @@ class _RotatingLoadingIconState extends State<_RotatingLoadingIcon>
   Widget build(BuildContext context) {
     return RotationTransition(
       turns: _controller,
-      child: SvgPicture.string(
-        _kRotatingLoadingSvg,
-        width: 24,
-        height: 24,
-      ),
+      child: SvgPicture.string(_kRotatingLoadingSvg, width: 24, height: 24),
     );
   }
 }

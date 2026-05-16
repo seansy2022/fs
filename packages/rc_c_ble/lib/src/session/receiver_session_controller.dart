@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:rc_ble/rc_ble.dart';
-
 import '../client/receiver_ble_client.dart';
 import '../models/receiver_models.dart';
+import '../transport/receiver_link_transport.dart';
 
 class ReceiverSessionController {
   ReceiverSessionController(this._client) {
@@ -19,6 +18,10 @@ class ReceiverSessionController {
     _infoSub = _client.receiverInfoStream.listen((info) {
       _receiverInfo = info;
       _infoCtrl.add(info);
+    });
+    _connectedRssiSub = _client.connectedRssiStream.listen((rssi) {
+      _connectedRssi = rssi;
+      _connectedRssiCtrl.add(rssi);
     });
     _firmwareSub = _client.firmwareInfoStream.listen((info) {
       _firmwareInfo = info;
@@ -37,6 +40,8 @@ class ReceiverSessionController {
       StreamController<ReceiverConnectionState>.broadcast();
   final StreamController<ReceiverInfo?> _infoCtrl =
       StreamController<ReceiverInfo?>.broadcast();
+  final StreamController<int?> _connectedRssiCtrl =
+      StreamController<int?>.broadcast();
   final StreamController<ReceiverFirmwareInfo?> _firmwareCtrl =
       StreamController<ReceiverFirmwareInfo?>.broadcast();
   final StreamController<AdapterState> _adapterCtrl =
@@ -45,6 +50,7 @@ class ReceiverSessionController {
   StreamSubscription<List<ReceiverScanDevice>>? _scanSub;
   StreamSubscription<ReceiverConnectionState>? _connectionSub;
   StreamSubscription<ReceiverInfo?>? _infoSub;
+  StreamSubscription<int?>? _connectedRssiSub;
   StreamSubscription<ReceiverFirmwareInfo?>? _firmwareSub;
   StreamSubscription<AdapterState>? _adapterSub;
 
@@ -52,12 +58,14 @@ class ReceiverSessionController {
   ReceiverConnectionState _connectionState =
       ReceiverConnectionState.disconnected;
   ReceiverInfo? _receiverInfo;
+  int? _connectedRssi;
   ReceiverFirmwareInfo? _firmwareInfo;
   AdapterState _adapterState = AdapterState.unknown;
 
   List<ReceiverScanDevice> get scanResults => _scanResults;
   ReceiverConnectionState get connectionState => _connectionState;
   ReceiverInfo? get receiverInfo => _receiverInfo;
+  int? get connectedRssi => _connectedRssi;
   ReceiverFirmwareInfo? get firmwareInfo => _firmwareInfo;
   AdapterState get adapterState => _adapterState;
 
@@ -74,6 +82,11 @@ class ReceiverSessionController {
   Stream<ReceiverInfo?> get receiverInfoStream async* {
     yield _receiverInfo;
     yield* _infoCtrl.stream;
+  }
+
+  Stream<int?> get connectedRssiStream async* {
+    yield _connectedRssi;
+    yield* _connectedRssiCtrl.stream;
   }
 
   Stream<ReceiverFirmwareInfo?> get firmwareInfoStream async* {
@@ -122,11 +135,13 @@ class ReceiverSessionController {
     await _scanSub?.cancel();
     await _connectionSub?.cancel();
     await _infoSub?.cancel();
+    await _connectedRssiSub?.cancel();
     await _firmwareSub?.cancel();
     await _adapterSub?.cancel();
     await _scanCtrl.close();
     await _connectionCtrl.close();
     await _infoCtrl.close();
+    await _connectedRssiCtrl.close();
     await _adapterCtrl.close();
     await _firmwareCtrl.close();
   }

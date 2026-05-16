@@ -8,7 +8,8 @@ import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
-import '../../../core/permissions.dart';
+import '../../../provider/bluetooth_domain_provider.dart';
+import '../../bluetooth/widgets/bluetooth_connect_feedback.dart';
 
 const _blueSvg = '''
 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none">
@@ -30,69 +31,57 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  bool _autoScanDismissed = false;
-  bool _autoScanStarted = false;
+  DateTime? _lastHandledPromptAt;
+  bool _handlingPrompt = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startAutoScan();
+      unawaited(
+        ref
+            .read(bluetoothDomainControllerProvider.notifier)
+            .bootstrapHomeBluetooth(),
+      );
     });
-  }
-
-  Future<void> _startAutoScan() async {
-    if (_autoScanStarted) return;
-    _autoScanStarted = true;
-    await ref.read(receiverRepositoryProvider).startScan();
   }
 
   @override
   Widget build(BuildContext context) {
+    final bluetoothState = ref.watch(bluetoothDomainControllerProvider);
+    ref.listen<BluetoothDomainState>(bluetoothDomainControllerProvider, (
+      _,
+      next,
+    ) {
+      final promptAt = next.lastBootstrapPromptAt;
+      if (_handlingPrompt ||
+          next.pendingBootstrapPrompt == BluetoothBootstrapPrompt.none ||
+          promptAt == null ||
+          promptAt == _lastHandledPromptAt) {
+        return;
+      }
+      _lastHandledPromptAt = promptAt;
+      _handlingPrompt = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _showBootstrapPrompt(next.pendingBootstrapPrompt);
+        _handlingPrompt = false;
+      });
+    });
+
     final connectionState =
         ref.watch(receiverConnectionProvider).valueOrNull ??
         ReceiverConnectionState.disconnected;
     final receiverInfo = ref.watch(receiverInfoProvider).valueOrNull;
-    final devices = ref.watch(mergedReceiverDevicesProvider);
-    final remembered = ref.watch(rememberedDevicesProvider);
-    final rememberedIds = remembered.map((device) => device.remoteId).toSet();
-    final adapterAsync = ref.watch(adapterStateProvider);
-
-    final connectedDevice = receiverInfo == null
-        ? null
-        : devices
-              .where((device) => device.remoteId == receiverInfo.remoteId)
-              .cast<ReceiverScanDevice?>()
-              .firstOrNull;
-
+    final connectedDevice = bluetoothState.connectedDevice;
     final connected = connectionState == ReceiverConnectionState.connected;
     final batteryLevel = receiverInfo?.batteryLevel;
     final rssi = connectedDevice?.rssi;
     final deviceName = connectedDevice?.name ?? '--';
 
-    // Auto-scan dialog3: detect online remembered devices
-    if (!_autoScanDismissed && connectedDevice == null) {
-      final onlineRemembered = devices
-          .where(
-            (d) =>
-                rememberedIds.contains(d.remoteId) &&
-                !d.connected &&
-                d.rssi > -120,
-          )
-          .toList(growable: false);
-      if (onlineRemembered.isNotEmpty) {
-        final firstOnline = onlineRemembered.first;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _showDialog3(firstOnline);
-        });
-      }
-    }
-
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 背景图铺满全屏
           Positioned.fill(
             child: Image.asset(
               'lib/src/assets/image_enhanced.png',
@@ -113,11 +102,9 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
             ),
           ),
-          // 内容
           SafeArea(
             child: Stack(
               children: [
-                // 右上角蓝牙连接按钮
                 Positioned(
                   top: 16,
                   left: 16,
@@ -138,17 +125,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                     active: connected,
                     isRounded: true,
-                    onTap: () {
-                      _onBluetoothTap(context, ref, adapterAsync, devices, connectedDevice);
-                    },
+                    onTap: () => _onBluetoothTap(context),
                   ),
                 ),
-                // 中间内容
                 Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // RX电压 和 信号强度
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -156,7 +139,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             width: 112,
                             height: 120,
                             child: HomeMetric(
-                              label: 'RX电量',
+                              label: 'RX\u7535\u91cf',
                               value: batteryLevel != null
                                   ? '$batteryLevel'
                                   : '--',
@@ -169,7 +152,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             width: 112,
                             height: 120,
                             child: HomeMetric(
-                              label: '信号强度',
+                              label: '\u4fe1\u53f7\u5f3a\u5ea6',
                               value: rssi != null ? '$rssi' : '--',
                               unit: rssi != null ? 'dBm' : '',
                               emphasize: connected,
@@ -178,27 +161,41 @@ class _HomePageState extends ConsumerState<HomePage> {
                         ],
                       ),
                       const SizedBox(height: 48),
-                      // 设置 和 开始 按钮
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _HomeActionButton(
-                            text: '设置',
+                            text: '\u8bbe\u7f6e',
                             width: 174,
                             height: 44,
-                            backgroundColor: const Color.fromRGBO(27, 45, 77, 1),
+                            backgroundColor: const Color.fromRGBO(
+                              27,
+                              45,
+                              77,
+                              1,
+                            ),
                             icon: SvgPicture.asset(
                               'assets/icons/home_settings.svg',
                               width: 15,
                               height: 15,
                             ),
-                            onTap: () {
-                              Navigator.of(context).pushNamed(AppRoutes.settings);
+                            onTap: () async {
+                              await ref
+                                  .read(
+                                    bluetoothDomainControllerProvider.notifier,
+                                  )
+                                  .ensureScanStopped();
+                              if (!context.mounted) {
+                                return;
+                              }
+                              Navigator.of(
+                                context,
+                              ).pushNamed(AppRoutes.settings);
                             },
                           ),
                           const SizedBox(width: 20),
                           _HomeActionButton(
-                            text: '开始',
+                            text: '\u5f00\u59cb',
                             width: 160,
                             height: 44,
                             gradient: const LinearGradient(
@@ -215,8 +212,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                               width: 20,
                               height: 17,
                             ),
-                            onTap: () {
-                              Navigator.of(context).pushNamed(AppRoutes.control);
+                            onTap: () async {
+                              await ref
+                                  .read(
+                                    bluetoothDomainControllerProvider.notifier,
+                                  )
+                                  .ensureScanStopped();
+                              if (!context.mounted) {
+                                return;
+                              }
+                              Navigator.of(
+                                context,
+                              ).pushNamed(AppRoutes.control);
                             },
                           ),
                         ],
@@ -232,276 +239,119 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Future<void> _onBluetoothTap(
-    BuildContext context,
-    WidgetRef ref,
-    AsyncValue<AdapterState> adapterAsync,
-    List<ReceiverScanDevice> devices,
-    ReceiverScanDevice? connectedDevice,
-  ) async {
-    final adapterState = adapterAsync.valueOrNull ?? AdapterState.unknown;
-
-    if (adapterState != AdapterState.on) {
-      // 蓝牙未开启 → 弹窗1
-      _showDialog1(context, ref);
-    } else {
-      // 蓝牙已开启
-      final hasPermission = await hasBluetoothPermissions();
-      if (!hasPermission) {
-        if (context.mounted) {
-          final granted = await requestBluetoothPermissions(context);
-          if (!granted) return;
-        } else {
-          return;
-        }
+  Future<void> _showBootstrapPrompt(BluetoothBootstrapPrompt prompt) async {
+    if (!mounted) {
+      return;
+    }
+    final bluetoothController = ref.read(
+      bluetoothDomainControllerProvider.notifier,
+    );
+    if (prompt == BluetoothBootstrapPrompt.permissionRequired) {
+      final confirm = await AlertIconWidget.show(
+        context,
+        title: '\u84dd\u7259\u6743\u9650\u672a\u5f00\u542f',
+        message:
+            '\u8bf7\u5f00\u542f\u84dd\u7259\u6743\u9650\u540e\u518d\u7ee7\u7eed\u3002',
+        cancelText: '\u53d6\u6d88',
+        confirmText: '\u53bb\u5f00\u542f',
+      );
+      await bluetoothController.clearBootstrapPrompt();
+      if (confirm == true) {
+        await bluetoothController.requestPermissionOrOpenSettings();
+        await bluetoothController.retryHomeBluetooth();
       }
-
-      if (connectedDevice != null && connectedDevice.connected) {
-        // 已连接 → 弹窗2 (管理连接)
-        _showDialog2(context, ref, devices, connectedDevice);
-      } else {
-        // 未连接 → 显示蓝牙列表弹窗
-        _showBluetoothListDialog(context, ref, devices);
+      return;
+    }
+    if (prompt == BluetoothBootstrapPrompt.bluetoothOff) {
+      final confirm = await AlertIconWidget.show(
+        context,
+        title: '\u84dd\u7259\u672a\u5f00\u542f',
+        message:
+            '\u9700\u8981\u6253\u5f00\u84dd\u7259\u624d\u80fd\u8fde\u63a5\u63a5\u6536\u673a\uff0c\u662f\u5426\u524d\u5f80\u6253\u5f00\u84dd\u7259\uff1f',
+        cancelText: '\u5426',
+        confirmText: '\u662f',
+      );
+      await bluetoothController.clearBootstrapPrompt();
+      if (confirm == true) {
+        await bluetoothController.openBluetoothSettings();
+        await bluetoothController.retryHomeBluetooth();
       }
     }
   }
 
-  /// 显示蓝牙列表弹窗
-  Future<void> _showBluetoothListDialog(
-    BuildContext context,
-    WidgetRef ref,
-    List<ReceiverScanDevice> devices,
-  ) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: const Color(0xCC000000),
-      builder: (dialogContext) => const _BluetoothListDialogContent(),
+  Future<void> _onBluetoothTap(BuildContext context) async {
+    final bluetoothController = ref.read(
+      bluetoothDomainControllerProvider.notifier,
     );
-  }
-
-  /// 弹窗1: 蓝牙未开启，询问是否打开蓝牙
-  Future<void> _showDialog1(BuildContext context, WidgetRef ref) async {
-    final result = await AlertIconWidget.show(
-      context,
-      title: '蓝牙未开启',
-      message: '需要打开蓝牙才能连接接收机，是否打开蓝牙？',
-      cancelText: '否',
-      confirmText: '是',
-    );
-    if (result == true) {
-      await ref.read(receiverRepositoryProvider).turnOnAdapter();
-      // 等待蓝牙开启
-      await Future<void>.delayed(const Duration(seconds: 1));
-      if (!context.mounted) return;
-      final adapterState = ref.read(receiverRepositoryProvider).adapterState;
-      if (adapterState == AdapterState.on) {
-        if (context.mounted) {
-          Navigator.of(context).pushNamed(AppRoutes.pairing);
-        }
-      } else {
-        // 用户拒绝权限，弹窗保持打开状态（已关闭的状态下等待）
-        if (context.mounted) {
-          _showDialog1(context, ref);
-        }
-      }
+    final bluetoothState = ref.read(bluetoothDomainControllerProvider);
+    var availability = bluetoothState.availability;
+    if (availability == BluetoothAvailability.unknown) {
+      availability = await bluetoothController.ensureReadyForEntry();
     }
-  }
+    if (!context.mounted) {
+      return;
+    }
+    if (availability == BluetoothAvailability.bluetoothOff) {
+      await _showBootstrapPrompt(BluetoothBootstrapPrompt.bluetoothOff);
+      return;
+    }
+    if (availability == BluetoothAvailability.permissionRequired) {
+      await _showBootstrapPrompt(BluetoothBootstrapPrompt.permissionRequired);
+      return;
+    }
+    if (availability == BluetoothAvailability.unsupported) {
+      await AlertIconWidget.show(
+        context,
+        title: '\u84dd\u7259\u4e0d\u53ef\u7528',
+        message:
+            '\u5f53\u524d\u8bbe\u5907\u4e0d\u652f\u6301\u84dd\u7259\u8fde\u63a5\u3002',
+        confirmText: '\u77e5\u9053\u4e86',
+      );
+      return;
+    }
+    if (availability == BluetoothAvailability.unknown) {
+      await AlertIconWidget.show(
+        context,
+        title: '\u72b6\u6001\u83b7\u53d6\u4e2d',
+        message:
+            '\u6b63\u5728\u83b7\u53d6\u84dd\u7259\u72b6\u6001\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002',
+        confirmText: '\u77e5\u9053\u4e86',
+      );
+      return;
+    }
 
-  /// 弹窗2: 蓝牙已开启，已配对设备列表 / 去配对
-  Future<void> _showDialog2(
-    BuildContext context,
-    WidgetRef ref,
-    List<ReceiverScanDevice> devices,
-    ReceiverScanDevice? connectedDevice,
-  ) async {
+    if (!context.mounted) {
+      return;
+    }
     final option = await showDialog<String>(
       context: context,
       barrierDismissible: true,
       barrierColor: const Color(0xCC000000),
-      builder: (dialogContext) => const _BluetoothActionDialog(),
+      builder: (dialogContext) => const _BluetoothEntryDialog(),
     );
-
-    if (!context.mounted) return;
-
+    if (!context.mounted) {
+      return;
+    }
     if (option == 'paired_list') {
-      _showBluetoothListDialog(context, ref, devices);
-    } else if (option == 'go_pairing') {
-      if (connectedDevice?.connected == true) {
-        // 已连接接收机 → 弹窗4
-        _showDialog4(context);
-      } else {
-        Navigator.of(context).pushNamed(AppRoutes.pairing);
-      }
-    }
-  }
-
-  /// 弹窗3: 搜索到在线的已配对设备
-  Future<void> _showDialog3(ReceiverScanDevice device) async {
-    if (!mounted) return;
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: const Color(0xCC000000),
-      builder: (dialogContext) => AlertIconWidget(
-        title: '发现已配对设备',
-        message: '检测到 ${device.name} 在线，是否连接？',
-        cancelText: '不再提示',
-        confirmText: '是',
-      ),
-    );
-    if (!mounted) return;
-    if (result == true) {
-      // 连接此设备
-      try {
-        await ref.read(receiverRepositoryProvider).connect(device.remoteId);
-        await ref.read(rememberedDevicesProvider.notifier).rememberDevice(device);
-      } catch (_) {
-        // 连接失败静默处理
-      }
-      _autoScanDismissed = true;
-    } else {
-      // 不再提示
-      _autoScanDismissed = true;
-    }
-  }
-
-  /// 弹窗4: 已连接接收机，确认断开并去配对
-  Future<void> _showDialog4(BuildContext context) async {
-    final result = await AlertIconWidget.show(
-      context,
-      title: '提示',
-      message: '已连接接收机，断开当前连接并去配对？',
-      cancelText: '否',
-      confirmText: '是',
-    );
-    if (result == true && context.mounted) {
-      await ref.read(receiverRepositoryProvider).disconnect();
-      if (context.mounted) {
-        Navigator.of(context).pushNamed(AppRoutes.pairing);
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-}
-
-class _BluetoothListDialogContent extends ConsumerStatefulWidget {
-  const _BluetoothListDialogContent();
-
-  @override
-  ConsumerState<_BluetoothListDialogContent> createState() =>
-      _BluetoothListDialogContentState();
-}
-
-class _BluetoothListDialogContentState
-    extends ConsumerState<_BluetoothListDialogContent> {
-  @override
-  void initState() {
-    super.initState();
-    // 打开弹窗自动开始扫描
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(receiverRepositoryProvider).startScan();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final devices = ref.watch(mergedReceiverDevicesProvider);
-    final remembered = ref.watch(rememberedDevicesProvider);
-    final rememberedIds = remembered.map((r) => r.remoteId).toSet();
-
-    final connectionState =
-        ref.watch(receiverConnectionProvider).valueOrNull ??
-        ReceiverConnectionState.disconnected;
-    final isScanning = connectionState == ReceiverConnectionState.scanning;
-
-    final filteredDevices =
-        devices.where((d) => d.name.trim().isNotEmpty).toList();
-
-    final items = filteredDevices.map((d) {
-      final isRemembered = rememberedIds.contains(d.remoteId);
-      String status = '';
-      Color? statusColor;
-
-      if (d.connected) {
-        status = '正在使用';
-        statusColor = const Color(0xFF67E600);
-      } else if (isRemembered) {
-        // 只有之前连接过的设备才显示“在线/离线”
-        if (d.rssi > -120) {
-          status = '在线';
-          statusColor = const Color(0xFF67E600);
-        } else {
-          status = '离线';
-          statusColor = const Color(0xFFFF8A65);
-        }
-      } else {
-        // 从未连接过的设备显示“未配对”
-        status = '未配对';
-        statusColor = Colors.white.withValues(alpha: 0.45);
-      }
-
-      return AlertBlueItem(
-        title: d.name,
-        status: status,
-        statusColor: statusColor,
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        barrierColor: const Color(0xCC000000),
+        builder: (_) => const _PairedDevicesDialogContent(),
       );
-    }).toList();
-
-    return AlertBlueWidget(
-      title: '已配对设备列表',
-      items: items,
-      headerLoading: isScanning,
-      emptyText: '暂无已识别设备',
-      onRefresh: () {
-        ref.read(receiverRepositoryProvider).startScan();
-      },
-      onTap: (item) async {
-        final device = filteredDevices.firstWhere((d) => d.name == item.title);
-        try {
-          await ref.read(receiverRepositoryProvider).connect(device.remoteId);
-          await ref
-              .read(rememberedDevicesProvider.notifier)
-              .rememberDevice(device);
-          if (!context.mounted) return;
-          Navigator.of(context).pop();
-        } catch (e) {
-          if (!context.mounted) return;
-          AlertIconWidget.show(
-            context,
-            title: '连接失败',
-            message: '无法连接到设备，请重试。',
-            confirmText: '知道了',
-          );
-        }
-      },
-      onDelete: (item) async {
-        final device = filteredDevices.firstWhere((d) => d.name == item.title);
-        final confirmed = await AlertIconWidget.show(
-          context,
-          title: '删除设备',
-          message: '确定要删除设备 ${device.name} 吗？',
-          cancelText: '取消',
-          confirmText: '确定',
-        );
-        if (confirmed == true) {
-          await ref
-              .read(rememberedDevicesProvider.notifier)
-              .removeDevice(device.remoteId);
-        }
-      },
-      onClose: () => Navigator.of(context).pop(),
-    );
+    } else if (option == 'scan_pairing') {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        barrierColor: const Color(0xCC000000),
+        builder: (_) => const _ScanDevicesDialogContent(),
+      );
+    }
   }
 }
 
-/// 弹窗2的自定义对话框 — 蓝牙已开启时的操作选择
-class _BluetoothActionDialog extends StatelessWidget {
-  const _BluetoothActionDialog();
+class _BluetoothEntryDialog extends StatelessWidget {
+  const _BluetoothEntryDialog();
 
   @override
   Widget build(BuildContext context) {
@@ -522,7 +372,7 @@ class _BluetoothActionDialog extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
                 child: Text(
-                  '蓝牙已开启',
+                  '\u8bbe\u5907\u5165\u53e3',
                   style: TextStyle(
                     color: Color(0xFFEDF5FF),
                     fontSize: 16,
@@ -532,19 +382,231 @@ class _BluetoothActionDialog extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _ActionButton(
-                text: '已配对设备列表',
+                text: '\u5df2\u914d\u5bf9\u8bbe\u5907\u5217\u8868',
                 onTap: () => Navigator.of(context).pop('paired_list'),
               ),
               const SizedBox(height: 8),
               _ActionButton(
-                text: '去配对',
-                onTap: () => Navigator.of(context).pop('go_pairing'),
+                text: '\u53bb\u914d\u5bf9',
+                onTap: () => Navigator.of(context).pop('scan_pairing'),
               ),
               const SizedBox(height: 16),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PairedDevicesDialogContent extends ConsumerWidget {
+  const _PairedDevicesDialogContent();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bluetoothState = ref.watch(bluetoothDomainControllerProvider);
+    final devices = bluetoothState.pairedDevices;
+    final bluetoothController = ref.read(
+      bluetoothDomainControllerProvider.notifier,
+    );
+    final items = devices
+        .map(
+          (device) => AlertBlueItem(
+            title: device.name,
+            status: device.isConnected
+                ? '\u5df2\u8fde\u63a5'
+                : '\u672a\u8fde\u63a5',
+            statusColor: device.isConnected
+                ? const Color(0xFF00C6FF)
+                : Colors.white.withValues(alpha: 0.65),
+          ),
+        )
+        .toList(growable: false);
+
+    return AlertBlueWidget(
+      title: '\u5df2\u914d\u5bf9\u8bbe\u5907\u5217\u8868',
+      items: items,
+      emptyText: '\u6682\u65e0\u5386\u53f2\u8bbe\u5907',
+      onTap: (item) async {
+        final target = devices.firstWhere((d) => d.name == item.title);
+        if (target.isConnected) {
+          return;
+        }
+        final result = await showBluetoothConnectFeedback(
+          context,
+          connect: () => bluetoothController.connect(target.remoteId),
+        );
+        if (context.mounted &&
+            result == BluetoothConnectFeedbackResult.success) {
+          Navigator.of(context).pop();
+        }
+      },
+      onDelete: (item) async {
+        final target = devices.firstWhere((d) => d.name == item.title);
+        final confirmed = await AlertIconWidget.show(
+          context,
+          title: '\u5220\u9664\u8bbe\u5907',
+          message:
+              '\u786e\u5b9a\u5220\u9664\u8bbe\u5907 ${target.name} \u5417\uff1f',
+          cancelText: '\u53d6\u6d88',
+          confirmText: '\u786e\u5b9a',
+        );
+        if (confirmed != true) {
+          return;
+        }
+        try {
+          if (target.isConnected) {
+            await bluetoothController.disconnect();
+          }
+          await bluetoothController.removeRememberedDevice(target.remoteId);
+        } catch (_) {
+          if (!context.mounted) {
+            return;
+          }
+          await AlertIconWidget.show(
+            context,
+            title: '\u5220\u9664\u5931\u8d25',
+            message:
+                '\u5220\u9664\u5386\u53f2\u8bbe\u5907\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5\u3002',
+            confirmText: '\u77e5\u9053\u4e86',
+          );
+        }
+      },
+      onClose: () => Navigator.of(context).pop(),
+    );
+  }
+}
+
+class _ScanDevicesDialogContent extends ConsumerStatefulWidget {
+  const _ScanDevicesDialogContent();
+
+  @override
+  ConsumerState<_ScanDevicesDialogContent> createState() =>
+      _ScanDevicesDialogContentState();
+}
+
+class _ScanDevicesDialogContentState
+    extends ConsumerState<_ScanDevicesDialogContent> {
+  bool _sessionActive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!_sessionActive || !mounted) {
+        return;
+      }
+      await _ensureListScanWithFeedback();
+    });
+  }
+
+  @override
+  void dispose() {
+    _sessionActive = false;
+    unawaited(
+      ref
+          .read(bluetoothDomainControllerProvider.notifier)
+          .stopScan(sessionOwner: BluetoothScanOwner.listPage),
+    );
+    super.dispose();
+  }
+
+  Future<void> _ensureListScanWithFeedback() async {
+    if (!_sessionActive || !mounted) {
+      return;
+    }
+    final started = await ref
+        .read(bluetoothDomainControllerProvider.notifier)
+        .startListScanSession();
+    if (!_sessionActive || !mounted) {
+      return;
+    }
+    if (!started) {
+      await AlertIconWidget.show(
+        context,
+        title: '\u626b\u63cf\u5931\u8d25',
+        message:
+            '\u65e0\u6cd5\u542f\u52a8\u84dd\u7259\u626b\u63cf\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002',
+        confirmText: '\u77e5\u9053\u4e86',
+      );
+    }
+  }
+
+  Future<void> _refreshScanWithFeedback() async {
+    if (!_sessionActive || !mounted) {
+      return;
+    }
+    final refreshed = await ref
+        .read(bluetoothDomainControllerProvider.notifier)
+        .refreshScan();
+    if (!_sessionActive || !mounted) {
+      return;
+    }
+    if (!refreshed) {
+      await AlertIconWidget.show(
+        context,
+        title: '\u5237\u65b0\u5931\u8d25',
+        message:
+            '\u84dd\u7259\u626b\u63cf\u5237\u65b0\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002',
+        confirmText: '\u77e5\u9053\u4e86',
+      );
+    }
+  }
+
+  Future<void> _connectDevice(ReceiverDeviceView target) async {
+    if (!_sessionActive || !mounted) {
+      return;
+    }
+    final result = await showBluetoothConnectFeedback(
+      context,
+      connect: () => ref
+          .read(bluetoothDomainControllerProvider.notifier)
+          .connect(target.remoteId),
+    );
+    if (!_sessionActive || !mounted) {
+      return;
+    }
+    if (result == BluetoothConnectFeedbackResult.success) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bluetoothState = ref.watch(bluetoothDomainControllerProvider);
+    final devices = bluetoothState.discoveredDevices;
+    final items = devices
+        .map(
+          (device) => AlertBlueItem(
+            title: device.name,
+            status: device.isConnected
+                ? '\u5df2\u8fde\u63a5'
+                : '\u672a\u8fde\u63a5',
+            statusColor: device.isConnected
+                ? const Color(0xFF00C6FF)
+                : Colors.white.withValues(alpha: 0.65),
+          ),
+        )
+        .toList(growable: false);
+
+    return AlertBlueWidget(
+      title: '\u53bb\u914d\u5bf9',
+      items: items,
+      headerLoading: bluetoothState.isScanning || bluetoothState.isWorking,
+      onRefresh: bluetoothState.isWorking ? null : _refreshScanWithFeedback,
+      emptyText: '\u6682\u65e0\u53ef\u7528\u84dd\u7259\u8bbe\u5907',
+      onTap: (item) async {
+        final target = devices.firstWhere((d) => d.name == item.title);
+        if (target.isConnected) {
+          return;
+        }
+        await _connectDevice(target);
+      },
+      onDelete: null,
+      onClose: () {
+        _sessionActive = false;
+        Navigator.of(context).pop();
+      },
     );
   }
 }
@@ -572,10 +634,7 @@ class _ActionButton extends StatelessWidget {
           ),
           child: Text(
             text,
-            style: const TextStyle(
-              color: Color(0xFFEDF5FF),
-              fontSize: 14,
-            ),
+            style: const TextStyle(color: Color(0xFFEDF5FF), fontSize: 14),
           ),
         ),
       ),

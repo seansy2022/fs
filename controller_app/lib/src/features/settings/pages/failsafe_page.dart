@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rc_c_ble/rc_c_ble.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
+import '../widgets/numeric_input_dialog.dart';
 import '../widgets/settings_workspace.dart';
 
 class FailsafePage extends ConsumerStatefulWidget {
@@ -146,7 +146,6 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
 
 class _FailsafeChannelStrip extends StatefulWidget {
   const _FailsafeChannelStrip({
-    super.key,
     required this.title,
     required this.valueUs,
     required this.hold,
@@ -181,29 +180,13 @@ class _FailsafeChannelStripState extends State<_FailsafeChannelStrip> {
           ),
           const Spacer(),
           if (!widget.hold) ...[
-            GestureDetector(
+            ItemButton(
+              text: '${widget.valueUs}',
+              selected: true,
+              fontSize: 14,
+              width: 88,
+              height: 28,
               onTap: widget.enabled ? () => _editValue(context) : null,
-              child: Container(
-                width: 88,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0x661B2D4D),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: const Color(0xFF0072FF),
-                    width: 0.5,
-                  ),
-                ),
-                child: Text(
-                  '${widget.valueUs}',
-                  style: const TextStyle(
-                    color: AppColors.text,
-                    fontSize: 14,
-                    fontWeight: AppFonts.w700,
-                  ),
-                ),
-              ),
             ),
             const SizedBox(width: 12),
           ],
@@ -222,73 +205,17 @@ class _FailsafeChannelStripState extends State<_FailsafeChannelStrip> {
     );
   }
 
-  void _editValue(BuildContext context) {
-    final controller = TextEditingController(text: widget.valueUs.toString());
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1B2A4A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: SizedBox(
-          width: 220,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                '输入数值',
-                style: TextStyle(
-                  color: AppColors.text,
-                  fontSize: 16,
-                  fontWeight: AppFonts.w700,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                maxLength: 4,
-                style: const TextStyle(
-                  color: AppColors.text,
-                  fontSize: 24,
-                  fontWeight: AppFonts.w700,
-                ),
-                decoration: const InputDecoration(
-                  counterText: '',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  PrimaryButton(
-                    text: '取消',
-                    width: 80,
-                    type: PrimaryButtonType.normal,
-                    onTap: () => Navigator.of(ctx).pop(),
-                  ),
-                  PrimaryButton(
-                    text: '确定',
-                    width: 80,
-                    onTap: () {
-                      final parsed =
-                          int.tryParse(controller.text.trim()) ?? 1500;
-                      widget.onValueChanged(parsed.clamp(1000, 2000));
-                      Navigator.of(ctx).pop();
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+  Future<void> _editValue(BuildContext context) async {
+    final raw = await NumericInputDialog.show(
+      context,
+      title: '固定值',
+      initialValue: widget.valueUs.toString(),
+      unit: 'us',
+      allowDecimal: false,
+      maxLength: 4,
     );
+    final parsed = int.tryParse(raw?.trim() ?? '');
+    if (parsed == null) return;
+    widget.onValueChanged(parsed.clamp(1000, 2000));
   }
 }

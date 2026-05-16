@@ -1,31 +1,34 @@
-import 'dart:async';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rc_ble/rc_ble.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
 import '../features/bluetooth/controllers/device_history_controller.dart';
 import '../features/control/controllers/control_controller.dart';
-import '../features/settings/controllers/settings_controller.dart';
-import '../features/settings/models/app_settings_state.dart';
+export '../provider/app_settings_provider.dart';
+
+class ReceiverDeviceView {
+  const ReceiverDeviceView({
+    required this.remoteId,
+    required this.name,
+    required this.isConnected,
+    required this.isRemembered,
+    required this.isOnline,
+    required this.rssi,
+    this.scanDevice,
+  });
+
+  final String remoteId;
+  final String name;
+  final bool isConnected;
+  final bool isRemembered;
+  final bool isOnline;
+  final int? rssi;
+  final ReceiverScanDevice? scanDevice;
+}
 
 final receiverRepositoryProvider = Provider<ReceiverRepository>((ref) {
-  // 根据用户要求，该项目仅在 Android 和 iOS 上运行
-  final isMobile = !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
-
-  final transport = isMobile
-      ? FlutterBlueTransport()
-      : MockProtocolLinkTransport();
-
-  final client = ReceiverBleClient(transport: transport);
+  final client = ReceiverBleClient();
   final repository = ReceiverRepository(client: client);
   ref.onDispose(() async {
-    if (transport is MockProtocolLinkTransport) {
-      await transport.dispose();
-    }
     await repository.dispose();
   });
   return repository;
@@ -39,6 +42,10 @@ final receiverConnectionProvider = StreamProvider<ReceiverConnectionState>((
 
 final receiverInfoProvider = StreamProvider<ReceiverInfo?>((ref) {
   return ref.watch(receiverRepositoryProvider).receiverInfoStream;
+});
+
+final connectedRssiProvider = StreamProvider<int?>((ref) {
+  return ref.watch(receiverRepositoryProvider).connectedRssiStream;
 });
 
 final receiverDevicesProvider = StreamProvider<List<ReceiverScanDevice>>((ref) {
@@ -62,17 +69,81 @@ final rememberedDevicesProvider =
       return DeviceHistoryController();
     });
 
-final appSettingsProvider =
-    StateNotifierProvider<SettingsController, AppSettingsState>((ref) {
-      return SettingsController();
-    });
-
 final controlControllerProvider =
     StateNotifierProvider.autoDispose<ControlController, ControlScreenState>((
       ref,
     ) {
-      return ControlController(ref.watch(receiverRepositoryProvider));
+      return ControlController(ref, ref.watch(receiverRepositoryProvider));
     });
+
+final scanSessionDevicesProvider = Provider<List<ReceiverDeviceView>>((ref) {
+  final scanned = ref
+      .watch(receiverDevicesProvider)
+      .maybeWhen(
+        data: (devices) => devices,
+        orElse: () => const <ReceiverScanDevice>[],
+      )
+      .where((device) => device.name.trim().isNotEmpty)
+      .toList(growable: false);
+  final rememberedIds = ref
+      .watch(rememberedDevicesProvider)
+      .map((device) => device.remoteId)
+      .toSet();
+
+  return scanned
+      .map(
+        (device) => ReceiverDeviceView(
+          remoteId: device.remoteId,
+          name: device.name,
+          isConnected: device.connected,
+          isRemembered: rememberedIds.contains(device.remoteId),
+          isOnline: device.rssi > -120,
+          rssi: device.rssi,
+          scanDevice: device,
+        ),
+      )
+      .toList(growable: false);
+});
+
+final pairedReceiverDevicesProvider = Provider<List<ReceiverDeviceView>>((ref) {
+  final remembered = ref.watch(rememberedDevicesProvider);
+  final scanned = ref
+      .watch(receiverDevicesProvider)
+      .maybeWhen(
+        data: (devices) => devices,
+        orElse: () => const <ReceiverScanDevice>[],
+      );
+  final receiverInfo = ref.watch(receiverInfoProvider).valueOrNull;
+  final scannedMap = <String, ReceiverScanDevice>{
+    for (final device in scanned) device.remoteId: device,
+  };
+  String? connectedIdFromScan;
+  for (final device in scanned) {
+    if (device.connected) {
+      connectedIdFromScan = device.remoteId;
+      break;
+    }
+  }
+
+  final connectedId = receiverInfo?.remoteId ?? connectedIdFromScan;
+
+  return remembered
+      .map((entry) {
+        final scan = scannedMap[entry.remoteId];
+        final isConnected =
+            scan?.connected == true || connectedId == entry.remoteId;
+        return ReceiverDeviceView(
+          remoteId: entry.remoteId,
+          name: entry.name,
+          isConnected: isConnected,
+          isRemembered: true,
+          isOnline: (scan?.rssi ?? -127) > -120,
+          rssi: scan?.rssi,
+          scanDevice: scan,
+        );
+      })
+      .toList(growable: false);
+});
 
 final mergedReceiverDevicesProvider = Provider<List<ReceiverScanDevice>>((ref) {
   final scanned = ref
@@ -107,8 +178,10 @@ final mergedReceiverDevicesProvider = Provider<List<ReceiverScanDevice>>((ref) {
       return leftScore.compareTo(rightScore);
     }
     // Same score group: sort by last used time descending.
-    final leftTime = lastUsed[left.remoteId] ?? DateTime.fromMillisecondsSinceEpoch(0);
-    final rightTime = lastUsed[right.remoteId] ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final leftTime =
+        lastUsed[left.remoteId] ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final rightTime =
+        lastUsed[right.remoteId] ?? DateTime.fromMillisecondsSinceEpoch(0);
     return rightTime.compareTo(leftTime);
   });
   return results;

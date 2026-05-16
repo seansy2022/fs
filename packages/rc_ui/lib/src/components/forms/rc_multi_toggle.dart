@@ -10,7 +10,9 @@ class RcMultiToggle<T> extends StatelessWidget {
     this.width,
     this.height = 24,
     this.fontSize = AppFonts.s12,
+    this.fontWeight = AppFonts.w700,
     this.keepSingleJoinBorder = false,
+    this.uppercaseLabels = true,
   });
 
   /// 选项列表，可以是简单的 String，也可以是自定义对象（配合 labelBuilder）
@@ -25,7 +27,9 @@ class RcMultiToggle<T> extends StatelessWidget {
   final double? width;
   final double height;
   final double fontSize;
+  final FontWeight fontWeight;
   final bool keepSingleJoinBorder;
+  final bool uppercaseLabels;
 
   @override
   Widget build(BuildContext context) {
@@ -124,14 +128,12 @@ class RcMultiToggle<T> extends StatelessWidget {
                   foregroundDecoration: null,
                   alignment: Alignment.center,
                   child: Text(
-                    value is bool
-                        ? (index == 0 ? 'OFF' : 'ON')
-                        : value.toString().toUpperCase(),
+                    _labelFor(value, index),
                     style: TextStyle(
                       color: isSelected
                           ? Colors.white
                           : const Color(0xFF7DA2CE),
-                      fontWeight: AppFonts.w700,
+                      fontWeight: fontWeight,
                       fontSize: fontSize,
                     ),
                   ),
@@ -142,5 +144,13 @@ class RcMultiToggle<T> extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _labelFor(T value, int index) {
+    if (value is bool) {
+      return index == 0 ? 'OFF' : 'ON';
+    }
+    final label = value.toString();
+    return uppercaseLabels ? label.toUpperCase() : label;
   }
 }

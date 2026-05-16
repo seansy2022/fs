@@ -124,6 +124,40 @@ void main() {
     expect(find.text('右转灯'), findsNothing);
   });
 
+  testWidgets('CH4 function cell opens selector dialog', (tester) async {
+    await _pumpPage(
+      tester,
+      _stateWithChannels(
+        ch3Function: AuxiliaryFunction.none,
+        ch4Function: AuxiliaryFunction.none,
+      ),
+    );
+
+    await tester.tap(find.text('无(CH4)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择辅助功能'), findsOneWidget);
+    expect(find.text('挡位控制'), findsOneWidget);
+  });
+
+  testWidgets('configured CH3 function cell opens selector dialog', (
+    tester,
+  ) async {
+    await _pumpPage(
+      tester,
+      _stateWithChannels(
+        ch3Function: AuxiliaryFunction.headlight,
+        ch4Function: AuxiliaryFunction.none,
+      ),
+    );
+
+    await tester.tap(find.text('大灯(CH3)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择辅助功能'), findsOneWidget);
+    expect(find.text('警示灯'), findsOneWidget);
+  });
+
   testWidgets('none state shows function label with channel suffix', (
     tester,
   ) async {
