@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:rc_ui/src/core/theme/app_theme.dart';
 
 const _kControlWidth = 100.0;
 const _kControlHeight = 206.0;
@@ -10,7 +9,10 @@ const _kClickButtonActiveSvgAsset =
     'packages/rc_ui/lib/src/assets/assets/\u70b9\u51fb.svg';
 const _kClickButtonInactiveSvgAsset =
     'packages/rc_ui/lib/src/assets/assets/\u70b9\u51fb_wei.svg';
-const _kClickButtonSvgAsset = 'packages/rc_ui/lib/src/assets/assets/点击.svg';
+
+const controlThumbKey = ValueKey<String>('control-thumb');
+const controlPositiveKey = ValueKey<String>('control-positive');
+const controlNegativeKey = ValueKey<String>('control-negative');
 
 const _kThumbSvg = '''
 <svg xmlns="http://www.w3.org/2000/svg" width="88" height="88" viewBox="0 0 88 88" fill="none">
@@ -34,6 +36,8 @@ class Control extends StatefulWidget {
     double? width,
     double? height,
     this.thumbSize = 44,
+    this.allowPositive = true,
+    this.allowNegative = true,
   }) : width =
            width ??
            (direction == ControlSliderDirection.vertical
@@ -60,54 +64,69 @@ class Control extends StatefulWidget {
   /// 手柄点大小
   final double thumbSize;
 
+  /// 是否允许正方向（水平向右 / 垂直向上）
+  final bool allowPositive;
+
+  /// 是否允许负方向（水平向左 / 垂直向下）
+  final bool allowNegative;
+
   @override
   State<Control> createState() => _ControlState();
 }
 
 class _ControlState extends State<Control> {
-  double _value = 0; // -100 到 100
+  static const _epsilon = 0.0001;
+
+  double _value = 0; // [-100, 100]
   bool _isDragging = false;
 
-  void _updateValue(Offset localPosition) {
-    final isVertical = widget.direction == ControlSliderDirection.vertical;
-    double newValue;
+  bool get _isVertical => widget.direction == ControlSliderDirection.vertical;
 
-    if (isVertical) {
-      // 垂直方向：顶部为 100，底部为 -100
-      final range = widget.height - widget.thumbSize;
-      final center = range / 2;
-      final position = localPosition.dy - widget.thumbSize / 2;
-      newValue = ((center - position) / center * 100).clamp(-100.0, 100.0);
-    } else {
-      // 水平方向：左侧为 -100，右侧为 100
-      final range = widget.width - widget.thumbSize;
-      final center = range / 2;
-      final position = localPosition.dx - widget.thumbSize / 2;
-      newValue = ((position - center) / center * 100).clamp(-100.0, 100.0);
+  double get _maxTravel {
+    final axisExtent = _isVertical ? widget.height : widget.width;
+    return (axisExtent - widget.thumbSize) / 2;
+  }
+
+  void _updateValue(Offset localPosition) {
+    final center = Offset(widget.width / 2, widget.height / 2);
+    final axisDelta = _isVertical
+        ? localPosition.dy - center.dy
+        : localPosition.dx - center.dx;
+    final clampedDelta = axisDelta.clamp(-_maxTravel, _maxTravel).toDouble();
+    double nextValue = _isVertical
+        ? (-clampedDelta / _maxTravel) * 100
+        : (clampedDelta / _maxTravel) * 100;
+
+    if (!widget.allowPositive && nextValue > 0) {
+      nextValue = 0;
+    } else if (!widget.allowNegative && nextValue < 0) {
+      nextValue = 0;
     }
 
-    if (newValue != _value) {
-      setState(() => _value = newValue);
-      widget.onChanged(newValue.round());
+    if ((nextValue - _value).abs() >= _epsilon) {
+      setState(() => _value = nextValue);
+      widget.onChanged(nextValue.round());
     }
   }
 
   void _reset() {
-    if (_value != 0) {
+    if (_value.abs() >= _epsilon) {
       setState(() => _value = 0);
       widget.onChanged(0);
     }
   }
+
   String _buttonAsset({required bool positiveSide}) {
     final isActive =
-        _isDragging && ((positiveSide && _value > 0) || (!positiveSide && _value < 0));
-    return isActive ? _kClickButtonActiveSvgAsset : _kClickButtonInactiveSvgAsset;
+        (positiveSide && _value > _epsilon) ||
+        (!positiveSide && _value < -_epsilon);
+    return isActive
+        ? _kClickButtonActiveSvgAsset
+        : _kClickButtonInactiveSvgAsset;
   }
 
   @override
   Widget build(BuildContext context) {
-    final isVertical = widget.direction == ControlSliderDirection.vertical;
-
     return GestureDetector(
       onPanStart: (details) {
         if (!_isDragging) {
@@ -115,9 +134,22 @@ class _ControlState extends State<Control> {
         }
         _updateValue(details.localPosition);
       },
-      onPanUpdate: (details) => _updateValue(details.localPosition),
-      onPanEnd: (_) => _reset(),
-      onPanCancel: _reset,
+      onPanUpdate: (details) {
+        if (!_isDragging) return;
+        _updateValue(details.localPosition);
+      },
+      onPanEnd: (_) {
+        if (_isDragging) {
+          setState(() => _isDragging = false);
+        }
+        _reset();
+      },
+      onPanCancel: () {
+        if (_isDragging) {
+          setState(() => _isDragging = false);
+        }
+        _reset();
+      },
       child: SizedBox(
         width: widget.width,
         height: widget.height,
@@ -125,16 +157,16 @@ class _ControlState extends State<Control> {
           alignment: Alignment.center,
           clipBehavior: Clip.none,
           children: [
-            // 垂直方向：上面的点击按钮（旋转-90度）
-            if (isVertical)
+            if (_isVertical)
               Positioned(
                 top: 0,
                 child: SizedBox(
                   width: widget.width,
                   height: widget.width,
                   child: Transform.rotate(
-                    angle: -math.pi / 2, // -90度
+                    angle: -math.pi / 2,
                     child: SvgPicture.asset(
+                      key: controlPositiveKey,
                       _buttonAsset(positiveSide: true),
                       width: widget.width,
                       height: widget.width,
@@ -143,16 +175,16 @@ class _ControlState extends State<Control> {
                   ),
                 ),
               ),
-            // 垂直方向：下面的点击按钮（旋转90度）
-            if (isVertical)
+            if (_isVertical)
               Positioned(
                 bottom: 0,
                 child: SizedBox(
                   width: widget.width,
                   height: widget.width,
                   child: Transform.rotate(
-                    angle: math.pi / 2, // 90度
+                    angle: math.pi / 2,
                     child: SvgPicture.asset(
+                      key: controlNegativeKey,
                       _buttonAsset(positiveSide: false),
                       width: widget.width,
                       height: widget.width,
@@ -161,8 +193,7 @@ class _ControlState extends State<Control> {
                   ),
                 ),
               ),
-            // 水平方向：左边的点击按钮（旋转-180度，箭头指向左）
-            if (!isVertical)
+            if (!_isVertical)
               Positioned(
                 left: 0,
                 top: 0,
@@ -172,6 +203,7 @@ class _ControlState extends State<Control> {
                   child: Transform.rotate(
                     angle: -math.pi,
                     child: SvgPicture.asset(
+                      key: controlNegativeKey,
                       _buttonAsset(positiveSide: false),
                       width: widget.height,
                       height: widget.height,
@@ -180,8 +212,7 @@ class _ControlState extends State<Control> {
                   ),
                 ),
               ),
-            // 水平方向：右边的点击按钮（不旋转，箭头指向右）
-            if (!isVertical)
+            if (!_isVertical)
               Positioned(
                 right: 0,
                 top: 0,
@@ -189,6 +220,7 @@ class _ControlState extends State<Control> {
                   width: widget.height,
                   height: widget.height,
                   child: SvgPicture.asset(
+                    key: controlPositiveKey,
                     _buttonAsset(positiveSide: true),
                     width: widget.height,
                     height: widget.height,
@@ -196,8 +228,7 @@ class _ControlState extends State<Control> {
                   ),
                 ),
               ),
-            // 手柄点（始终显示）
-            _buildThumb(isVertical),
+            if (_isDragging) _buildThumb(_isVertical),
           ],
         ),
       ),
@@ -223,6 +254,7 @@ class _ControlState extends State<Control> {
       left: left,
       top: top,
       child: SizedBox(
+        key: controlThumbKey,
         width: widget.thumbSize,
         height: widget.thumbSize,
         child: SvgPicture.string(
@@ -233,69 +265,5 @@ class _ControlState extends State<Control> {
         ),
       ),
     );
-  }
-}
-
-class _TrackPainter extends CustomPainter {
-  _TrackPainter({required this.value, required this.isVertical});
-
-  final double value;
-  final bool isVertical;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // 绘制中心线
-    final centerPaint = Paint()
-      ..color = AppColors.outline
-      ..strokeWidth = 1;
-
-    if (isVertical) {
-      final centerX = size.width / 2;
-      canvas.drawLine(
-        Offset(centerX, 0),
-        Offset(centerX, size.height),
-        centerPaint,
-      );
-    } else {
-      final centerY = size.height / 2;
-      canvas.drawLine(
-        Offset(0, centerY),
-        Offset(size.width, centerY),
-        centerPaint,
-      );
-    }
-
-    // 绘制活动区域
-    if (value.abs() > 0) {
-      final activePaint = Paint()
-        ..shader = LinearGradient(
-          begin: isVertical ? Alignment.topCenter : Alignment.centerLeft,
-          end: isVertical ? Alignment.bottomCenter : Alignment.centerRight,
-          colors: const [Color(0xFF00C6FF), Color(0xFF92FE9D)],
-        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-
-      if (isVertical) {
-        final centerY = size.height / 2;
-        final thumbY = centerY - (value / 100 * centerY);
-        canvas.drawLine(
-          Offset(size.width / 2, centerY),
-          Offset(size.width / 2, thumbY),
-          activePaint..strokeWidth = 3,
-        );
-      } else {
-        final centerX = size.width / 2;
-        final thumbX = centerX + (value / 100 * centerX);
-        canvas.drawLine(
-          Offset(centerX, size.height / 2),
-          Offset(thumbX, size.height / 2),
-          activePaint..strokeWidth = 3,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _TrackPainter oldDelegate) {
-    return oldDelegate.value != value;
   }
 }

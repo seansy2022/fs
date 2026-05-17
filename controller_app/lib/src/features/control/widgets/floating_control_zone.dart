@@ -5,8 +5,12 @@ enum FloatingControlDirection { vertical, horizontal }
 
 const floatingControlBaseKey = ValueKey<String>('floating-control-base');
 const floatingControlThumbKey = ValueKey<String>('floating-control-thumb');
-const floatingControlPositiveKey = ValueKey<String>('floating-control-positive');
-const floatingControlNegativeKey = ValueKey<String>('floating-control-negative');
+const floatingControlPositiveKey = ValueKey<String>(
+  'floating-control-positive',
+);
+const floatingControlNegativeKey = ValueKey<String>(
+  'floating-control-negative',
+);
 
 const _kControlWidth = 100.0;
 const _kControlHeight = 206.0;
@@ -23,24 +27,40 @@ class FloatingControlZone extends StatefulWidget {
     required this.onChanged,
     double? width,
     double? height,
+    double? controlWidth,
+    double? controlHeight,
     this.thumbSize = 44,
     this.allowPositive = true,
     this.allowNegative = true,
-  }) : width =
-           width ??
+  }) : controlWidth =
+           controlWidth ??
            (direction == FloatingControlDirection.vertical
                ? _kControlWidth
                : _kControlHeight),
-       height =
-           height ??
+       controlHeight =
+           controlHeight ??
            (direction == FloatingControlDirection.vertical
                ? _kControlHeight
-               : _kControlWidth);
+               : _kControlWidth),
+       width =
+           width ??
+           (controlWidth ??
+               (direction == FloatingControlDirection.vertical
+                   ? _kControlWidth
+                   : _kControlHeight)),
+       height =
+           height ??
+           (controlHeight ??
+               (direction == FloatingControlDirection.vertical
+                   ? _kControlHeight
+                   : _kControlWidth));
 
   final FloatingControlDirection direction;
   final ValueChanged<double> onChanged;
   final double width;
   final double height;
+  final double controlWidth;
+  final double controlHeight;
   final double thumbSize;
   final bool allowPositive;
   final bool allowNegative;
@@ -54,29 +74,46 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
   double _axisOffset = 0;
   bool _visible = false;
 
-  bool get _isVertical =>
-      widget.direction == FloatingControlDirection.vertical;
+  bool get _isVertical => widget.direction == FloatingControlDirection.vertical;
 
   bool get _hasDirectionalIntent => _axisOffset.abs() > 0;
 
   String _buttonAsset({required bool positiveSide}) {
-    final isActive = _visible && switch ((positiveSide, _isVertical)) {
-      (true, true) => _axisOffset < 0,
-      (false, true) => _axisOffset > 0,
-      (true, false) => _axisOffset > 0,
-      (false, false) => _axisOffset < 0,
-    };
-    return isActive ? _kClickButtonActiveSvgAsset : _kClickButtonInactiveSvgAsset;
+    final isActive =
+        _visible &&
+        switch ((positiveSide, _isVertical)) {
+          (true, true) => _axisOffset < 0,
+          (false, true) => _axisOffset > 0,
+          (true, false) => _axisOffset > 0,
+          (false, false) => _axisOffset < 0,
+        };
+    return isActive
+        ? _kClickButtonActiveSvgAsset
+        : _kClickButtonInactiveSvgAsset;
   }
 
   double get _maxTravel {
-    final axisExtent = _isVertical ? widget.height : widget.width;
+    final axisExtent = _isVertical ? widget.controlHeight : widget.controlWidth;
     return (axisExtent - widget.thumbSize) / 2;
   }
 
+  Offset _clampOrigin(Offset origin) {
+    final size = context.size;
+    if (size == null) {
+      return origin;
+    }
+    final halfWidth = widget.controlWidth / 2;
+    final halfHeight = widget.controlHeight / 2;
+    return Offset(
+      origin.dx.clamp(halfWidth, size.width - halfWidth).toDouble(),
+      origin.dy.clamp(halfHeight, size.height - halfHeight).toDouble(),
+    );
+  }
+
   void _handlePanDown(Offset localPosition) {
+    final clampedOrigin = _clampOrigin(localPosition);
     setState(() {
-      _origin = localPosition;
+      _origin = clampedOrigin;
       _axisOffset = 0;
       _visible = true;
     });
@@ -174,9 +211,10 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
     }
 
     if (_isVertical) {
-      final top = origin.dy - (widget.height / 2);
-      final bottom = origin.dy + (widget.height / 2) - widget.width;
-      final left = origin.dx - (widget.width / 2);
+      final top = origin.dy - (widget.controlHeight / 2);
+      final bottom =
+          origin.dy + (widget.controlHeight / 2) - widget.controlWidth;
+      final left = origin.dx - (widget.controlWidth / 2);
       final showPositive = _axisOffset < 0;
 
       return IgnorePointer(
@@ -189,15 +227,15 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
                 left: left,
                 top: top,
                 child: SizedBox(
-                  width: widget.width,
-                  height: widget.width,
+                  width: widget.controlWidth,
+                  height: widget.controlWidth,
                   child: Transform.rotate(
                     angle: -1.5707963267948966,
                     child: SvgPicture.asset(
                       key: floatingControlPositiveKey,
                       _buttonAsset(positiveSide: true),
-                      width: widget.width,
-                      height: widget.width,
+                      width: widget.controlWidth,
+                      height: widget.controlWidth,
                       fit: BoxFit.contain,
                     ),
                   ),
@@ -209,15 +247,15 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
                 left: left,
                 top: bottom,
                 child: SizedBox(
-                  width: widget.width,
-                  height: widget.width,
+                  width: widget.controlWidth,
+                  height: widget.controlWidth,
                   child: Transform.rotate(
                     angle: 1.5707963267948966,
                     child: SvgPicture.asset(
                       key: floatingControlNegativeKey,
                       _buttonAsset(positiveSide: false),
-                      width: widget.width,
-                      height: widget.width,
+                      width: widget.controlWidth,
+                      height: widget.controlWidth,
                       fit: BoxFit.contain,
                     ),
                   ),
@@ -228,9 +266,9 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
       );
     }
 
-    final left = origin.dx - (widget.width / 2);
-    final right = origin.dx + (widget.width / 2) - widget.height;
-    final top = origin.dy - (widget.height / 2);
+    final left = origin.dx - (widget.controlWidth / 2);
+    final right = origin.dx + (widget.controlWidth / 2) - widget.controlHeight;
+    final top = origin.dy - (widget.controlHeight / 2);
     final showPositive = _axisOffset > 0;
 
     return IgnorePointer(
@@ -243,13 +281,13 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
               left: right,
               top: top,
               child: SizedBox(
-                width: widget.height,
-                height: widget.height,
+                width: widget.controlHeight,
+                height: widget.controlHeight,
                 child: SvgPicture.asset(
                   key: floatingControlPositiveKey,
                   _buttonAsset(positiveSide: true),
-                  width: widget.height,
-                  height: widget.height,
+                  width: widget.controlHeight,
+                  height: widget.controlHeight,
                   fit: BoxFit.contain,
                 ),
               ),
@@ -260,15 +298,15 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
               left: left,
               top: top,
               child: SizedBox(
-                width: widget.height,
-                height: widget.height,
+                width: widget.controlHeight,
+                height: widget.controlHeight,
                 child: Transform.rotate(
                   angle: -3.141592653589793,
                   child: SvgPicture.asset(
                     key: floatingControlNegativeKey,
                     _buttonAsset(positiveSide: false),
-                    width: widget.height,
-                    height: widget.height,
+                    width: widget.controlHeight,
+                    height: widget.controlHeight,
                     fit: BoxFit.contain,
                   ),
                 ),

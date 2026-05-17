@@ -129,4 +129,45 @@ void main() {
     expect(find.byKey(floatingControlPositiveKey), findsOneWidget);
     expect(find.byKey(floatingControlNegativeKey), findsNothing);
   });
+
+  testWidgets(
+    'floating control clamps touch origin to keep control fully visible',
+    (tester) async {
+      final values = <double>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: FloatingControlZone(
+                direction: FloatingControlDirection.horizontal,
+                width: 300,
+                height: 300,
+                onChanged: values.add,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final zone = find.byType(FloatingControlZone);
+      final zoneRect = tester.getRect(zone);
+      final gesture = await tester.startGesture(
+        zoneRect.topLeft + const Offset(5, 5),
+      );
+      await tester.pump();
+
+      expect(values.last, 0);
+      expect(find.byKey(floatingControlThumbKey), findsOneWidget);
+
+      final thumbRect = tester.getRect(find.byKey(floatingControlThumbKey));
+      final localCenter = thumbRect.center - zoneRect.topLeft;
+      expect(localCenter.dx, closeTo(103, 1.0));
+      expect(localCenter.dy, closeTo(50, 1.0));
+
+      await gesture.up();
+      await tester.pump();
+      expect(find.byKey(floatingControlThumbKey), findsNothing);
+    },
+  );
 }
