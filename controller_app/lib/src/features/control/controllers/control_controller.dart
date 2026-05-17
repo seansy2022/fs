@@ -120,8 +120,11 @@ class ControlController extends StateNotifier<ControlScreenState> {
 
   Future<void> _syncPromptAndPush() async {
     final mode = _ref.read(appSettingsProvider).gyroMode;
-    final gyroSteering = mode == GyroMode.off ? 0.0 : _gyroSteering;
-    final gyroThrottle = mode == GyroMode.all ? _gyroThrottle : 0.0;
+    final gyroActive = state.gyroEnabled && mode != GyroMode.off;
+    final gyroSteering = gyroActive ? _gyroSteering : 0.0;
+    final gyroThrottle = gyroActive && mode == GyroMode.all
+        ? _gyroThrottle
+        : 0.0;
     final steering = (_touchSteering + gyroSteering).clamp(-1, 1).toDouble();
     final throttle = (_touchThrottle + gyroThrottle).clamp(-1, 1).toDouble();
     state = state.copyWith(steering: steering, throttle: throttle);
@@ -153,9 +156,20 @@ class ControlController extends StateNotifier<ControlScreenState> {
     await _push();
   }
 
+  Future<void> setGyroEnabled(bool enabled) async {
+    if (state.gyroEnabled == enabled) {
+      return;
+    }
+    state = state.copyWith(gyroEnabled: enabled);
+    if (!enabled) {
+      _gyroSteering = 0;
+      _gyroThrottle = 0;
+    }
+    await _syncPromptAndPush();
+  }
+
   Future<void> toggleGyro() async {
-    state = state.copyWith(gyroEnabled: !state.gyroEnabled);
-    await _push();
+    await setGyroEnabled(!state.gyroEnabled);
   }
 
   void toggleBackgroundMusic() {

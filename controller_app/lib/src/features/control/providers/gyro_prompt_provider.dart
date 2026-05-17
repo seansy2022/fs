@@ -65,8 +65,9 @@ final gyroPromptProvider = StreamProvider.autoDispose<GyroPrompt>((ref) async* {
   )) {
     final rollDegree = _degree(math.atan2(event.x, event.z));
     final pitchDegree = _degree(math.atan2(event.y, event.z));
-    final steering = _mapDegreeToUnit(rollDegree);
-    final throttle = _mapDegreeToUnit(-pitchDegree);
+    // In all-mode, left/right tilt controls steering and front/back tilt controls throttle.
+    final steering = _mapDegreeToUnit(pitchDegree);
+    final throttle = _mapDegreeToUnit(-rollDegree);
     sample += 1;
     if (kDebugMode && sample % 8 == 0) {
       debugPrint(

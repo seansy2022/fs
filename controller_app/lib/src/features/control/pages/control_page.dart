@@ -15,6 +15,7 @@ import '../controllers/control_controller.dart';
 import '../providers/gyro_prompt_provider.dart';
 import '../widgets/bluetooth_svg_toggle_button.dart';
 import '../widgets/floating_control_zone.dart';
+import '../widgets/gyro_svg_toggle_button.dart';
 import '../widgets/steering_indicator_row.dart';
 
 class ControlPage extends ConsumerStatefulWidget {
@@ -89,6 +90,19 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     if (repository.receiverInfo != null) {
       await ref.read(controlControllerProvider.notifier).activate();
     }
+  }
+
+  Future<void> _handleGyroToggle(AppSettingsState settings) async {
+    if (settings.gyroMode == GyroMode.off) {
+      await AlertIconWidget.show(
+        context,
+        title: '陀螺仪未开启',
+        message: '请先在设置页面开启陀螺仪功能。',
+        confirmText: '确定',
+      );
+      return;
+    }
+    await ref.read(controlControllerProvider.notifier).toggleGyro();
   }
 
   @override
@@ -202,8 +216,26 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     if (kDebugMode) {
       debugPrint('[control-page] build gyroMode=${settings.gyroMode.name}');
     }
+    ref.listen<GyroMode>(appSettingsProvider.select((s) => s.gyroMode), (
+      _,
+      nextMode,
+    ) {
+      if (nextMode == GyroMode.off) {
+        unawaited(
+          ref.read(controlControllerProvider.notifier).setGyroEnabled(false),
+        );
+      }
+    });
     ref.listen<AsyncValue<GyroPrompt>>(gyroPromptProvider, (_, next) {
       next.whenData((value) {
+        final latestSettings = ref.read(appSettingsProvider);
+        final latestControlState = ref.read(controlControllerProvider);
+        final gyroControlEnabled =
+            latestSettings.gyroMode != GyroMode.off &&
+            latestControlState.gyroEnabled;
+        if (!gyroControlEnabled) {
+          return;
+        }
         if (kDebugMode) {
           debugPrint(
             '[control-page] gyroPrompt=(${value.steering.toStringAsFixed(2)},${value.throttle.toStringAsFixed(2)})',
@@ -237,6 +269,8 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     final showWarningLight = channelFunctions.contains(
       AuxiliaryFunction.warningLight,
     );
+    final gyroControlEnabled =
+        settings.gyroMode != GyroMode.off && controlState.gyroEnabled;
     final leftPadIsThrottle = settings.handedness == Handedness.leftThrottle;
     const topControlAnchorTop = 65.0;
     const audioButtonsSize = 36.0;
@@ -278,7 +312,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                     onSound: controlController.toggleSoundEffects,
                   ),
                 ),
-                if (settings.gyroMode != GyroMode.off)
+                if (gyroControlEnabled)
                   Positioned(
                     top: driveModeTop,
                     left: 0,
@@ -309,22 +343,22 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                 // Main content column
                 Column(
                   children: [
-                    // Only show top bar when connected
-                    if (connected)
-                      _TopBar(
-                        battery: batteryLevel,
-                        rssi: rssi,
-                        showHeadlight: showHeadlight,
-                        headlightOn: controlState.headlightsOn,
-                        onHeadlight: controlController.toggleHeadlights,
-                        showWarningLight: showWarningLight,
-                        warningLightOn: controlState.warningLightsOn,
-                        onWarningLight: controlController.toggleWarningLights,
-                        onDirection: controlController.toggleSliderButtons,
-                        directionOn: controlState.sliderButtonsVisible,
-                        onNetwork: controlController.toggleGyro,
-                        networkOn: controlState.gyroEnabled,
-                      ),
+                    _TopBar(
+                      battery: batteryLevel,
+                      rssi: rssi,
+                      showHeadlight: showHeadlight,
+                      headlightOn: controlState.headlightsOn,
+                      onHeadlight: controlController.toggleHeadlights,
+                      showWarningLight: showWarningLight,
+                      warningLightOn: controlState.warningLightsOn,
+                      onWarningLight: controlController.toggleWarningLights,
+                      onDirection: controlController.toggleSliderButtons,
+                      directionOn: controlState.sliderButtonsVisible,
+                      onNetwork: () {
+                        unawaited(_handleGyroToggle(settings));
+                      },
+                      networkOn: controlState.gyroEnabled,
+                    ),
                     if (!connected) const SizedBox(height: 16),
 
                     // Trim switch
@@ -419,42 +453,45 @@ class _TopBar extends StatelessWidget {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          const SizedBox(width: 129),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SignalWidget(
-                value: _rssiToPercent(rssi).toDouble(),
-                width: 29,
-                height: 16,
-              ),
-              const SizedBox(width: 16),
-              BatteryWidget(value: battery.toDouble(), width: 29, height: 16),
-            ],
-          ),
-          const Spacer(),
-          Row(
-            children: [
-              ...lightButtons,
-              if (lightButtons.isNotEmpty) const SizedBox(width: 16),
-              _CircleIconBtn.svg(
-                assetPath: 'assets/icons/sync_arrows.svg',
-                active: directionOn,
-                onTap: onDirection,
-              ),
-              const SizedBox(width: 16),
-              _CircleIconBtn.svg(
-                assetPath: 'assets/icons/broadcast.svg',
-                active: networkOn,
-                onTap: onNetwork,
-              ),
-            ],
-          ),
-        ],
+    return SizedBox(
+      height: 49,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            const SizedBox(width: 129),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SignalWidget(
+                  value: _rssiToPercent(rssi).toDouble(),
+                  width: 29,
+                  height: 16,
+                ),
+                const SizedBox(width: 16),
+                BatteryWidget(value: battery.toDouble(), width: 29, height: 16),
+              ],
+            ),
+            const Spacer(),
+            Row(
+              children: [
+                ...lightButtons,
+                if (lightButtons.isNotEmpty) const SizedBox(width: 16),
+                _CircleIconBtn.svg(
+                  assetPath: 'assets/icons/sync_arrows.svg',
+                  active: directionOn,
+                  onTap: onDirection,
+                ),
+                const SizedBox(width: 16),
+                GyroSvgToggleButton(
+                  value: networkOn,
+                  onTap: onNetwork,
+                  size: 36,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

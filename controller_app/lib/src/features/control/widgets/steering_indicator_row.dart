@@ -42,7 +42,7 @@ class SteeringIndicatorRow extends StatelessWidget {
             ? _IndicatorType.throttle
             : _IndicatorType.steering;
         final value = indicatorType == _IndicatorType.throttle
-            ? -throttle
+            ? throttle
             : steering;
         return Padding(
           padding: EdgeInsets.only(right: index == itemCount - 1 ? 0 : gap),
