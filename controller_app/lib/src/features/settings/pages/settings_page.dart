@@ -95,10 +95,10 @@ class BasicSettingsContent extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, _) {
-        const gyroOptions = ['关闭', '方向', 'all'];
+        const gyroOptions = ['方向', '油门', 'all'];
         final selectedGyroLabel = switch (settings.gyroMode) {
-          GyroMode.off => '关闭',
           GyroMode.directionOnly => '方向',
+          GyroMode.throttleOnly => '油门',
           GyroMode.all => 'all',
         };
 
@@ -230,8 +230,8 @@ class BasicSettingsContent extends ConsumerWidget {
                       uppercaseLabels: false,
                       onChanged: (value) =>
                           controller.setGyroMode(switch (value) {
-                            '关闭' => GyroMode.off,
                             '方向' => GyroMode.directionOnly,
+                            '油门' => GyroMode.throttleOnly,
                             _ => GyroMode.all,
                           }),
                     ),

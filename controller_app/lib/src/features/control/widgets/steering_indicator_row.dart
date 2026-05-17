@@ -17,12 +17,15 @@ const _indicatorPointerSvg = '''
 
 enum _IndicatorType { steering, throttle }
 
+enum SingleIndicatorType { steering, throttle }
+
 class SteeringIndicatorRow extends StatelessWidget {
   const SteeringIndicatorRow({
     super.key,
     required this.steering,
     required this.throttle,
     this.itemCount = 1,
+    this.singleType = SingleIndicatorType.steering,
     this.size = 48,
     this.gap = 40,
   }) : assert(itemCount >= 1 && itemCount <= 2);
@@ -30,6 +33,7 @@ class SteeringIndicatorRow extends StatelessWidget {
   final double steering;
   final double throttle;
   final int itemCount;
+  final SingleIndicatorType singleType;
   final double size;
   final double gap;
 
@@ -39,6 +43,8 @@ class SteeringIndicatorRow extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: List<Widget>.generate(itemCount, (index) {
         final indicatorType = itemCount == 2 && index == 1
+            ? _IndicatorType.throttle
+            : singleType == SingleIndicatorType.throttle
             ? _IndicatorType.throttle
             : _IndicatorType.steering;
         final value = indicatorType == _IndicatorType.throttle

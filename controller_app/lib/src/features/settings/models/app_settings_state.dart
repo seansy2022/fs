@@ -4,7 +4,7 @@ enum Handedness { leftThrottle, rightThrottle }
 
 enum ControlMode { fixedPosition, floating }
 
-enum GyroMode { off, directionOnly, all }
+enum GyroMode { directionOnly, throttleOnly, all }
 
 enum BatteryType { oneCell, twoCell, threeCell, fourCell, other }
 
@@ -137,7 +137,7 @@ class AppSettingsState {
     return AppSettingsState(
       handedness: Handedness.rightThrottle,
       controlMode: ControlMode.fixedPosition,
-      gyroMode: GyroMode.off,
+      gyroMode: GyroMode.throttleOnly,
       channels: const <ChannelSetting>[
         ChannelSetting(
           channelLabel: 'CH1',
@@ -282,7 +282,7 @@ class AppSettingsState {
     return AppSettingsState(
       handedness: Handedness.values.byName(json['handedness']! as String),
       controlMode: ControlMode.values.byName(json['controlMode']! as String),
-      gyroMode: GyroMode.values.byName(json['gyroMode']! as String),
+      gyroMode: _gyroModeFromStorage(json['gyroMode']! as String),
       channels: (json['channels']! as List<dynamic>)
           .whereType<Map<String, dynamic>>()
           .map(ChannelSetting.fromJson)
@@ -322,4 +322,17 @@ BatteryType _batteryTypeFromStorage(String raw) {
       return BatteryType.values.byName(raw);
   }
   return BatteryType.twoCell;
+}
+
+GyroMode _gyroModeFromStorage(String raw) {
+  switch (raw) {
+    case 'off':
+      // Legacy value: map old "off" mode to the new default throttle mode.
+      return GyroMode.throttleOnly;
+    case 'directionOnly':
+    case 'throttleOnly':
+    case 'all':
+      return GyroMode.values.byName(raw);
+  }
+  return GyroMode.throttleOnly;
 }

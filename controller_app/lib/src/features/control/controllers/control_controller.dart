@@ -120,11 +120,13 @@ class ControlController extends StateNotifier<ControlScreenState> {
 
   Future<void> _syncPromptAndPush() async {
     final mode = _ref.read(appSettingsProvider).gyroMode;
-    final gyroActive = state.gyroEnabled && mode != GyroMode.off;
-    final gyroSteering = gyroActive ? _gyroSteering : 0.0;
-    final gyroThrottle = gyroActive && mode == GyroMode.all
-        ? _gyroThrottle
-        : 0.0;
+    final gyroActive = state.gyroEnabled;
+    final useGyroSteering =
+        mode == GyroMode.directionOnly || mode == GyroMode.all;
+    final useGyroThrottle =
+        mode == GyroMode.throttleOnly || mode == GyroMode.all;
+    final gyroSteering = gyroActive && useGyroSteering ? _gyroSteering : 0.0;
+    final gyroThrottle = gyroActive && useGyroThrottle ? _gyroThrottle : 0.0;
     final steering = (_touchSteering + gyroSteering).clamp(-1, 1).toDouble();
     final throttle = (_touchThrottle + gyroThrottle).clamp(-1, 1).toDouble();
     state = state.copyWith(steering: steering, throttle: throttle);

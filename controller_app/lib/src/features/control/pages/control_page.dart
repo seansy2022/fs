@@ -17,7 +17,9 @@ import '../widgets/bluetooth_svg_toggle_button.dart';
 import '../widgets/floating_control_zone.dart';
 import '../widgets/gyro_svg_toggle_button.dart';
 import '../widgets/steering_indicator_row.dart';
+import '../widgets/throttle_turn_signal_buttons.dart';
 import '../widgets/trim_svg_toggle_button.dart';
+import '../widgets/warning_light_svg_toggle_button.dart';
 
 class ControlPage extends ConsumerStatefulWidget {
   const ControlPage({super.key});
@@ -93,16 +95,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     }
   }
 
-  Future<void> _handleGyroToggle(AppSettingsState settings) async {
-    if (settings.gyroMode == GyroMode.off) {
-      await AlertIconWidget.show(
-        context,
-        title: '陀螺仪未开启',
-        message: '请先在设置页面开启陀螺仪功能。',
-        confirmText: '确定',
-      );
-      return;
-    }
+  Future<void> _handleGyroToggle() async {
     await ref.read(controlControllerProvider.notifier).toggleGyro();
   }
 
@@ -217,24 +210,10 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     if (kDebugMode) {
       debugPrint('[control-page] build gyroMode=${settings.gyroMode.name}');
     }
-    ref.listen<GyroMode>(appSettingsProvider.select((s) => s.gyroMode), (
-      _,
-      nextMode,
-    ) {
-      if (nextMode == GyroMode.off) {
-        unawaited(
-          ref.read(controlControllerProvider.notifier).setGyroEnabled(false),
-        );
-      }
-    });
     ref.listen<AsyncValue<GyroPrompt>>(gyroPromptProvider, (_, next) {
       next.whenData((value) {
-        final latestSettings = ref.read(appSettingsProvider);
         final latestControlState = ref.read(controlControllerProvider);
-        final gyroControlEnabled =
-            latestSettings.gyroMode != GyroMode.off &&
-            latestControlState.gyroEnabled;
-        if (!gyroControlEnabled) {
+        if (!latestControlState.gyroEnabled) {
           return;
         }
         if (kDebugMode) {
@@ -270,8 +249,10 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     final showWarningLight = channelFunctions.contains(
       AuxiliaryFunction.warningLight,
     );
-    final gyroControlEnabled =
-        settings.gyroMode != GyroMode.off && controlState.gyroEnabled;
+    final showThrottleTurnSignals =
+        channelFunctions.contains(AuxiliaryFunction.leftSignal) &&
+        channelFunctions.contains(AuxiliaryFunction.rightSignal);
+    final gyroControlEnabled = controlState.gyroEnabled;
     final leftPadIsThrottle = settings.handedness == Handedness.leftThrottle;
     const topControlAnchorTop = 65.0;
     const audioButtonsSize = 36.0;
@@ -324,6 +305,9 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                         steering: controlState.steering,
                         throttle: controlState.throttle,
                         itemCount: settings.gyroMode == GyroMode.all ? 2 : 1,
+                        singleType: settings.gyroMode == GyroMode.throttleOnly
+                            ? SingleIndicatorType.throttle
+                            : SingleIndicatorType.steering,
                         size: 48,
                         gap: 40,
                       ),
@@ -336,6 +320,8 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                     mode: controlState.highGear
                         ? RcDriveMode.high
                         : RcDriveMode.low,
+                    lowLabel: '低速',
+                    highLabel: '高速',
                     onChanged: (mode) {
                       controlController.toggleGear(mode == RcDriveMode.high);
                     },
@@ -356,9 +342,30 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                       onDirection: controlController.toggleSliderButtons,
                       directionOn: controlState.sliderButtonsVisible,
                       onNetwork: () {
-                        unawaited(_handleGyroToggle(settings));
+                        unawaited(_handleGyroToggle());
                       },
                       networkOn: controlState.gyroEnabled,
+                      showThrottleTurnSignals: showThrottleTurnSignals,
+                      leftTurnOn: controlState.leftSignalOn,
+                      rightTurnOn: controlState.rightSignalOn,
+                      onLeftTurn: () {
+                        final leftOn = controlState.leftSignalOn;
+                        unawaited(
+                          controlController.setTurnSignal(
+                            leftOn: !leftOn,
+                            rightOn: false,
+                          ),
+                        );
+                      },
+                      onRightTurn: () {
+                        final rightOn = controlState.rightSignalOn;
+                        unawaited(
+                          controlController.setTurnSignal(
+                            leftOn: false,
+                            rightOn: !rightOn,
+                          ),
+                        );
+                      },
                     ),
                     if (!connected) const SizedBox(height: 16),
 
@@ -414,6 +421,11 @@ class _TopBar extends StatelessWidget {
     required this.directionOn,
     required this.onNetwork,
     required this.networkOn,
+    required this.showThrottleTurnSignals,
+    required this.leftTurnOn,
+    required this.rightTurnOn,
+    required this.onLeftTurn,
+    required this.onRightTurn,
   });
 
   final int battery;
@@ -428,32 +440,14 @@ class _TopBar extends StatelessWidget {
   final bool directionOn;
   final VoidCallback onNetwork;
   final bool networkOn;
+  final bool showThrottleTurnSignals;
+  final bool leftTurnOn;
+  final bool rightTurnOn;
+  final VoidCallback onLeftTurn;
+  final VoidCallback onRightTurn;
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> lightButtons = [];
-    if (showHeadlight) {
-      lightButtons.add(
-        _CircleIconBtn.svg(
-          assetPath: 'assets/icons/wifi_signal.svg',
-          active: headlightOn,
-          onTap: onHeadlight,
-        ),
-      );
-    }
-    if (showWarningLight) {
-      if (lightButtons.isNotEmpty) {
-        lightButtons.add(const SizedBox(width: 16));
-      }
-      lightButtons.add(
-        _CircleIconBtn(
-          icon: Icons.flash_on,
-          active: warningLightOn,
-          onTap: onWarningLight,
-        ),
-      );
-    }
-
     return SizedBox(
       height: 49,
       child: Padding(
@@ -476,8 +470,32 @@ class _TopBar extends StatelessWidget {
             const Spacer(),
             Row(
               children: [
-                ...lightButtons,
-                if (lightButtons.isNotEmpty) const SizedBox(width: 16),
+                if (showThrottleTurnSignals) ...[
+                  ThrottleTurnSignalButtons(
+                    leftOn: leftTurnOn,
+                    rightOn: rightTurnOn,
+                    onLeftTap: onLeftTurn,
+                    onRightTap: onRightTurn,
+                    size: 36,
+                  ),
+                  const SizedBox(width: 16),
+                ],
+                if (showHeadlight) ...[
+                  _CircleIconBtn.svg(
+                    assetPath: 'assets/icons/wifi_signal.svg',
+                    active: headlightOn,
+                    onTap: onHeadlight,
+                  ),
+                  const SizedBox(width: 16),
+                ],
+                if (showWarningLight) ...[
+                  WarningLightSvgToggleButton(
+                    value: warningLightOn,
+                    onTap: onWarningLight,
+                    size: 36,
+                  ),
+                  const SizedBox(width: 16),
+                ],
                 _CircleIconBtn.svg(
                   assetPath: 'assets/icons/sync_arrows.svg',
                   active: directionOn,
@@ -701,13 +719,33 @@ class _ControlArea extends StatelessWidget {
     );
   }
 
+  Widget _buildSteeringDirectionalStick({required bool positiveSteering}) {
+    return SizedBox(
+      width: 260,
+      height: 160,
+      child: FloatingControlZone(
+        direction: FloatingControlDirection.horizontal,
+        allowPositive: positiveSteering,
+        allowNegative: !positiveSteering,
+        onChanged: (value) {
+          final nextValue = positiveSteering ? value : -value;
+          unawaited(controlController.setSteering(nextValue));
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final leftControlOverride = gyroMode == GyroMode.directionOnly
         ? _buildDirectionalStick(positiveThrottle: false)
+        : gyroMode == GyroMode.throttleOnly
+        ? _buildSteeringDirectionalStick(positiveSteering: false)
         : null;
     final rightControlOverride = gyroMode == GyroMode.directionOnly
         ? _buildDirectionalStick(positiveThrottle: true)
+        : gyroMode == GyroMode.throttleOnly
+        ? _buildSteeringDirectionalStick(positiveSteering: true)
         : null;
 
     final leftArea = leftPadIsThrottle

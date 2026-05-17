@@ -21,10 +21,6 @@ const _deadZoneDegree = 2.0;
 
 final gyroPromptProvider = StreamProvider.autoDispose<GyroPrompt>((ref) async* {
   final mode = ref.watch(appSettingsProvider.select((s) => s.gyroMode));
-  if (mode == GyroMode.off) {
-    yield const GyroPrompt.zero();
-    return;
-  }
   if (kDebugMode) {
     debugPrint('[gyro-prompt] start mode=${mode.name}');
   }
@@ -55,6 +51,25 @@ final gyroPromptProvider = StreamProvider.autoDispose<GyroPrompt>((ref) async* {
         );
       }
       yield GyroPrompt(steering: steering, throttle: 0.0);
+    }
+    return;
+  }
+
+  if (mode == GyroMode.throttleOnly) {
+    var sample = 0;
+    await for (final event in accelerometerEventStream(
+      samplingPeriod: SensorInterval.gameInterval,
+    )) {
+      final rollDegree = _degree(math.atan2(event.x, event.z));
+      final throttle = _mapDegreeToUnit(-rollDegree);
+      sample += 1;
+      if (kDebugMode && sample % 8 == 0) {
+        debugPrint(
+          '[gyro-prompt] throttle-only acc=(${event.x.toStringAsFixed(2)},${event.y.toStringAsFixed(2)},${event.z.toStringAsFixed(2)}) '
+          'roll=${rollDegree.toStringAsFixed(1)} out=(0.00,${throttle.toStringAsFixed(2)})',
+        );
+      }
+      yield GyroPrompt(steering: 0.0, throttle: throttle);
     }
     return;
   }
