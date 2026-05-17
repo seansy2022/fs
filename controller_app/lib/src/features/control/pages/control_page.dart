@@ -17,6 +17,7 @@ import '../widgets/bluetooth_svg_toggle_button.dart';
 import '../widgets/floating_control_zone.dart';
 import '../widgets/gyro_svg_toggle_button.dart';
 import '../widgets/steering_indicator_row.dart';
+import '../widgets/trim_svg_toggle_button.dart';
 
 class ControlPage extends ConsumerStatefulWidget {
   const ControlPage({super.key});
@@ -745,37 +746,10 @@ class _TrimToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return TrimSvgToggleButton(
+      value: value,
       onTap: () => onChanged(!value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: value ? const Color(0x6600C6FF) : AppColors.surfaceHighest,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: value ? const Color(0xFF00C6FF) : AppColors.primary,
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '微调',
-              style: TextStyle(
-                color: value ? AppColors.onPrimary : AppColors.textDim,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              value ? Icons.toggle_on : Icons.toggle_off,
-              size: 18,
-              color: value ? const Color(0xFF00C6FF) : AppColors.textDim,
-            ),
-          ],
-        ),
-      ),
+      size: 36,
     );
   }
 }
