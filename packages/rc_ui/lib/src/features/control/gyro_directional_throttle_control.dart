@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'floating_control_zone.dart';
+import 'vertical_floating_control_zone.dart';
 
 const gyroDirectionalThrottleUpArrowKey =
     ValueKey<String>('gyro-hint-up-arrow');
@@ -19,7 +20,7 @@ const _gyroControlInactiveSvgAsset =
     'packages/rc_ui/lib/src/assets/assets/点击_wei.svg';
 const _gyroControlThumbSvgAsset = 'packages/rc_ui/lib/src/assets/assets/手柄点.svg';
 
-class GyroDirectionalThrottleControl extends StatelessWidget {
+class GyroDirectionalThrottleControl extends StatefulWidget {
   const GyroDirectionalThrottleControl({
     super.key,
     required this.positiveThrottle,
@@ -38,26 +39,77 @@ class GyroDirectionalThrottleControl extends StatelessWidget {
   final double floatingHeight;
 
   @override
+  State<GyroDirectionalThrottleControl> createState() =>
+      _GyroDirectionalThrottleControlState();
+}
+
+class _GyroDirectionalThrottleControlState
+    extends State<GyroDirectionalThrottleControl> {
+  bool _showHint = true;
+
+  @override
+  void didUpdateWidget(covariant GyroDirectionalThrottleControl oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.showArrowHint && _showHint) {
+      _showHint = false;
+    } else if (widget.showArrowHint && !oldWidget.showArrowHint) {
+      _showHint = true;
+    }
+  }
+
+  void _setHintVisible(bool visible) {
+    if (_showHint == visible) {
+      return;
+    }
+    setState(() {
+      _showHint = visible;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final child = floating
-        ? FloatingControlZone(
-            direction: FloatingControlDirection.vertical,
-            width: floatingWidth,
-            height: floatingHeight,
-            allowPositive: positiveThrottle,
-            allowNegative: !positiveThrottle,
+    final onChanged = (double value) {
+      widget.onChanged(value);
+    };
+
+    final child = widget.floating
+        ? VerticalFloatingControlZone(
+            width: widget.floatingWidth,
+            height: widget.floatingHeight,
+            allowPositive: widget.positiveThrottle,
+            allowNegative: !widget.positiveThrottle,
             onChanged: onChanged,
           )
         : _FixedGyroDirectionalThrottleControl(
-            positiveThrottle: positiveThrottle,
+            positiveThrottle: widget.positiveThrottle,
             onChanged: onChanged,
           );
-    if (!showArrowHint) {
-      return child;
+    final interactiveChild = Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) {
+        if (widget.showArrowHint) {
+          _setHintVisible(false);
+        }
+      },
+      onPointerUp: (_) {
+        if (widget.showArrowHint) {
+          _setHintVisible(true);
+        }
+      },
+      onPointerCancel: (_) {
+        if (widget.showArrowHint) {
+          _setHintVisible(true);
+        }
+      },
+      child: child,
+    );
+    if (!widget.showArrowHint) {
+      return interactiveChild;
     }
     return _GyroArrowHintOverlay(
-      upArrow: positiveThrottle,
-      child: child,
+      upArrow: widget.positiveThrottle,
+      visible: _showHint,
+      child: interactiveChild,
     );
   }
 }
@@ -65,10 +117,12 @@ class GyroDirectionalThrottleControl extends StatelessWidget {
 class _GyroArrowHintOverlay extends StatelessWidget {
   const _GyroArrowHintOverlay({
     required this.upArrow,
+    required this.visible,
     required this.child,
   });
 
   final bool upArrow;
+  final bool visible;
   final Widget child;
 
   @override
@@ -77,32 +131,33 @@ class _GyroArrowHintOverlay extends StatelessWidget {
       alignment: Alignment.center,
       children: [
         child,
-        IgnorePointer(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: upArrow
-                ? const [
-                    _GyroHintDot(),
-                    SizedBox(height: 2),
-                    Icon(
-                      Icons.keyboard_arrow_up_rounded,
-                      key: gyroDirectionalThrottleUpArrowKey,
-                      size: 24,
-                      color: Color(0xFFEDF5FF),
-                    ),
-                  ]
-                : const [
-                    _GyroHintDot(),
-                    SizedBox(height: 2),
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      key: gyroDirectionalThrottleDownArrowKey,
-                      size: 24,
-                      color: Color(0xFFEDF5FF),
-                    ),
-                  ],
+        if (visible)
+          IgnorePointer(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: upArrow
+                  ? const [
+                      _GyroHintDot(),
+                      SizedBox(height: 2),
+                      Icon(
+                        Icons.keyboard_arrow_up_rounded,
+                        key: gyroDirectionalThrottleUpArrowKey,
+                        size: 24,
+                        color: Color(0xFFEDF5FF),
+                      ),
+                    ]
+                  : const [
+                      _GyroHintDot(),
+                      SizedBox(height: 2),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        key: gyroDirectionalThrottleDownArrowKey,
+                        size: 24,
+                        color: Color(0xFFEDF5FF),
+                      ),
+                    ],
+            ),
           ),
-        ),
       ],
     );
   }

@@ -85,6 +85,17 @@ class _ControlPageState extends ConsumerState<ControlPage> {
 
   VideoPlayerController? _backgroundVideoController;
   bool _backgroundVideoReady = false;
+  ControlController? _controlController;
+
+  ControlController _getControlController() {
+    final cached = _controlController;
+    if (cached != null) {
+      return cached;
+    }
+    final controller = ref.read(controlControllerProvider.notifier);
+    _controlController = controller;
+    return controller;
+  }
 
   @override
   void initState() {
@@ -129,20 +140,20 @@ class _ControlPageState extends ConsumerState<ControlPage> {
   Future<void> _activate() async {
     final repository = ref.read(receiverRepositoryProvider);
     if (repository.receiverInfo != null) {
-      await ref.read(controlControllerProvider.notifier).activate();
+      await _getControlController().activate();
     }
   }
 
   Future<void> _handleGyroToggle() async {
-    await ref.read(controlControllerProvider.notifier).toggleGyro();
+    await _getControlController().toggleGyro();
   }
 
   @override
   void dispose() {
     final backgroundVideoController = _backgroundVideoController;
     _backgroundVideoController = null;
+    _controlController = null;
     unawaited(backgroundVideoController?.dispose());
-    unawaited(ref.read(controlControllerProvider.notifier).deactivate());
     super.dispose();
   }
 
@@ -244,6 +255,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     final connectedRssi = ref.watch(connectedRssiProvider).valueOrNull;
     final controlState = ref.watch(controlControllerProvider);
     final controlController = ref.read(controlControllerProvider.notifier);
+    _controlController = controlController;
     final settings = ref.watch(appSettingsProvider);
 
     final connected = connectionState == ReceiverConnectionState.connected;
@@ -646,8 +658,7 @@ class _ControlArea extends StatelessWidget {
 
   Widget _buildVerticalStick() {
     if (_useFloatingStickStyle) {
-      return FloatingControlZone(
-        direction: FloatingControlDirection.vertical,
+      return VerticalFloatingControlZone(
         width: _floatingVerticalZoneWidth,
         height: _floatingVerticalZoneHeight,
         onChanged: (value) {

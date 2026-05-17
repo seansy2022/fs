@@ -1,0 +1,128 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "controller_app",
+            "cwd": "controller_app",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "controller_app (profile mode)",
+            "cwd": "controller_app",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "controller_app (release mode)",
+            "cwd": "controller_app",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "rc_configurator_flutter",
+            "cwd": "rc_configurator_flutter",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "rc_configurator_flutter (profile mode)",
+            "cwd": "rc_configurator_flutter",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "rc_configurator_flutter (release mode)",
+            "cwd": "rc_configurator_flutter",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "rc_ui_gallery",
+            "cwd": "rc_ui_gallery",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "rc_ui_gallery (profile mode)",
+            "cwd": "rc_ui_gallery",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "rc_ui_gallery (release mode)",
+            "cwd": "rc_ui_gallery",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "rc_ble",
+            "cwd": "packages\\rc_ble",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "rc_ble (profile mode)",
+            "cwd": "packages\\rc_ble",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "rc_ble (release mode)",
+            "cwd": "packages\\rc_ble",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "rc_c_ble",
+            "cwd": "packages\\rc_c_ble",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "rc_c_ble (profile mode)",
+            "cwd": "packages\\rc_c_ble",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "rc_c_ble (release mode)",
+            "cwd": "packages\\rc_c_ble",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "rc_ui",
+            "cwd": "packages\\rc_ui",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "rc_ui (profile mode)",
+            "cwd": "packages\\rc_ui",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "rc_ui (release mode)",
+            "cwd": "packages\\rc_ui",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}

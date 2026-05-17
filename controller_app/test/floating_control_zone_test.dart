@@ -14,8 +14,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: Center(
-            child: FloatingControlZone(
-              direction: FloatingControlDirection.vertical,
+            child: VerticalFloatingControlZone(
               onChanged: values.add,
             ),
           ),
@@ -23,15 +22,15 @@ void main() {
       ),
     );
 
-    final zone = find.byType(FloatingControlZone);
+    final zone = find.byType(VerticalFloatingControlZone);
     final gesture = await tester.startGesture(tester.getCenter(zone));
     await tester.pump();
 
     expect(values.last, 0);
-    expect(find.byKey(floatingControlBaseKey), findsNothing);
+    expect(find.byKey(floatingControlBaseKey), findsOneWidget);
     expect(find.byKey(floatingControlThumbKey), findsOneWidget);
-    expect(find.byKey(floatingControlPositiveKey), findsNothing);
-    expect(find.byKey(floatingControlNegativeKey), findsNothing);
+    expect(find.byKey(floatingControlPositiveKey), findsOneWidget);
+    expect(find.byKey(floatingControlNegativeKey), findsOneWidget);
 
     await gesture.moveBy(const Offset(0, -162));
     await tester.pump();
@@ -39,7 +38,7 @@ void main() {
     expect(values.last, closeTo(1, 0.001));
     expect(find.byKey(floatingControlBaseKey), findsOneWidget);
     expect(find.byKey(floatingControlPositiveKey), findsOneWidget);
-    expect(find.byKey(floatingControlNegativeKey), findsNothing);
+    expect(find.byKey(floatingControlNegativeKey), findsOneWidget);
 
     await gesture.up();
     await tester.pump();
@@ -76,8 +75,8 @@ void main() {
 
     expect(values.last, closeTo(-1, 0.001));
     expect(find.byKey(floatingControlBaseKey), findsOneWidget);
-    expect(find.byKey(floatingControlPositiveKey), findsNothing);
     expect(find.byKey(floatingControlNegativeKey), findsOneWidget);
+    expect(find.byKey(floatingControlPositiveKey), findsOneWidget);
 
     await gesture.up();
     await tester.pump();
@@ -94,8 +93,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: Center(
-            child: FloatingControlZone(
-              direction: FloatingControlDirection.vertical,
+            child: VerticalFloatingControlZone(
               allowNegative: false,
               onChanged: values.add,
             ),
@@ -104,7 +102,7 @@ void main() {
       ),
     );
 
-    final zone = find.byType(FloatingControlZone);
+    final zone = find.byType(VerticalFloatingControlZone);
     final gesture = await tester.startGesture(tester.getCenter(zone));
     await tester.pump();
 
@@ -112,9 +110,9 @@ void main() {
     await tester.pump();
 
     expect(values.last, 0);
-    expect(find.byKey(floatingControlBaseKey), findsNothing);
-    expect(find.byKey(floatingControlPositiveKey), findsNothing);
-    expect(find.byKey(floatingControlNegativeKey), findsNothing);
+    expect(find.byKey(floatingControlBaseKey), findsOneWidget);
+    expect(find.byKey(floatingControlPositiveKey), findsOneWidget);
+    expect(find.byKey(floatingControlNegativeKey), findsOneWidget);
 
     await gesture.up();
     await tester.pump();
@@ -127,8 +125,77 @@ void main() {
 
     expect(values.last, greaterThan(0));
     expect(find.byKey(floatingControlPositiveKey), findsOneWidget);
-    expect(find.byKey(floatingControlNegativeKey), findsNothing);
+    expect(find.byKey(floatingControlNegativeKey), findsOneWidget);
   });
+
+  testWidgets(
+    'vertical floating control keeps first gesture intent within one touch',
+    (tester) async {
+      final values = <double>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: VerticalFloatingControlZone(
+                onChanged: values.add,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final zone = find.byType(VerticalFloatingControlZone);
+      final gesture = await tester.startGesture(tester.getCenter(zone));
+      await tester.pump();
+
+      await gesture.moveBy(const Offset(0, -81));
+      await tester.pump();
+      expect(values.last, greaterThan(0));
+
+      await gesture.moveBy(const Offset(0, 200));
+      await tester.pump();
+      expect(values.last, 0);
+
+      await gesture.up();
+      await tester.pump();
+      expect(values.last, 0);
+    },
+  );
+
+  testWidgets(
+    'vertical floating control does not lock downward from tiny initial jitter',
+    (tester) async {
+      final values = <double>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: VerticalFloatingControlZone(
+                onChanged: values.add,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final zone = find.byType(VerticalFloatingControlZone);
+      final gesture = await tester.startGesture(tester.getCenter(zone));
+      await tester.pump();
+
+      await gesture.moveBy(const Offset(0, 4));
+      await tester.pump();
+
+      await gesture.moveBy(const Offset(0, -40));
+      await tester.pump();
+
+      expect(values.last, greaterThan(0));
+
+      await gesture.up();
+      await tester.pump();
+    },
+  );
 
   testWidgets(
     'floating control clamps touch origin to keep control fully visible',
@@ -168,6 +235,39 @@ void main() {
       await gesture.up();
       await tester.pump();
       expect(find.byKey(floatingControlThumbKey), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'vertical floating control does not throw when zone is shorter than control height',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 120,
+                height: 120,
+                child: VerticalFloatingControlZone(
+                  width: 120,
+                  height: 120,
+                  onChanged: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final zone = find.byType(VerticalFloatingControlZone);
+      final gesture = await tester.startGesture(tester.getCenter(zone));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(floatingControlThumbKey), findsOneWidget);
+
+      await gesture.up();
+      await tester.pump();
     },
   );
 }

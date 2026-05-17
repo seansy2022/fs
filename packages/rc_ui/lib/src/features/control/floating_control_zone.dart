@@ -73,6 +73,7 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
   Offset? _origin;
   double _axisOffset = 0;
   bool _visible = false;
+  _VerticalGestureIntent? _verticalGestureIntent;
 
   bool get _isVertical => widget.direction == FloatingControlDirection.vertical;
 
@@ -97,6 +98,19 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
     return (axisExtent - widget.thumbSize) / 2;
   }
 
+  double _clampAxisOrigin({
+    required double origin,
+    required double halfExtent,
+    required double sizeExtent,
+  }) {
+    if (sizeExtent <= halfExtent * 2) {
+      return sizeExtent / 2;
+    }
+    final min = halfExtent;
+    final max = sizeExtent - halfExtent;
+    return origin.clamp(min, max).toDouble();
+  }
+
   Offset _clampOrigin(Offset origin) {
     final size = context.size;
     if (size == null) {
@@ -105,8 +119,16 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
     final halfWidth = widget.controlWidth / 2;
     final halfHeight = widget.controlHeight / 2;
     return Offset(
-      origin.dx.clamp(halfWidth, size.width - halfWidth).toDouble(),
-      origin.dy.clamp(halfHeight, size.height - halfHeight).toDouble(),
+      _clampAxisOrigin(
+        origin: origin.dx,
+        halfExtent: halfWidth,
+        sizeExtent: size.width,
+      ),
+      _clampAxisOrigin(
+        origin: origin.dy,
+        halfExtent: halfHeight,
+        sizeExtent: size.height,
+      ),
     );
   }
 
@@ -116,6 +138,7 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
       _origin = clampedOrigin;
       _axisOffset = 0;
       _visible = true;
+      _verticalGestureIntent = null;
     });
     widget.onChanged(0);
   }
@@ -131,6 +154,25 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
     var nextValue = _isVertical
         ? (-clampedOffset / _maxTravel)
         : (clampedOffset / _maxTravel);
+
+    if (_isVertical && widget.allowPositive && widget.allowNegative) {
+      final gestureIntent = _verticalGestureIntent;
+      if (gestureIntent == null && nextValue != 0) {
+        _verticalGestureIntent = nextValue > 0
+            ? _VerticalGestureIntent.positive
+            : _VerticalGestureIntent.negative;
+      }
+
+      if (_verticalGestureIntent == _VerticalGestureIntent.positive &&
+          nextValue < 0) {
+        clampedOffset = 0;
+        nextValue = 0;
+      } else if (_verticalGestureIntent == _VerticalGestureIntent.negative &&
+          nextValue > 0) {
+        clampedOffset = 0;
+        nextValue = 0;
+      }
+    }
 
     if (!widget.allowPositive && nextValue > 0) {
       clampedOffset = 0;
@@ -157,6 +199,7 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
         _visible = false;
         _origin = null;
         _axisOffset = 0;
+        _verticalGestureIntent = null;
       });
     }
     widget.onChanged(0);
@@ -206,61 +249,59 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
   }
 
   Widget _buildControlChrome(Offset origin) {
-    if (!_hasDirectionalIntent) {
-      return const SizedBox.shrink();
-    }
-
     if (_isVertical) {
       final top = origin.dy - (widget.controlHeight / 2);
       final bottom =
           origin.dy + (widget.controlHeight / 2) - widget.controlWidth;
       final left = origin.dx - (widget.controlWidth / 2);
       final showPositive = _axisOffset < 0;
+      final showNegative = _axisOffset > 0;
 
       return IgnorePointer(
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            if (showPositive)
-              Positioned(
-                key: floatingControlBaseKey,
-                left: left,
-                top: top,
-                child: SizedBox(
-                  width: widget.controlWidth,
-                  height: widget.controlWidth,
-                  child: Transform.rotate(
-                    angle: -1.5707963267948966,
-                    child: SvgPicture.asset(
-                      key: floatingControlPositiveKey,
-                      _buttonAsset(positiveSide: true),
-                      width: widget.controlWidth,
-                      height: widget.controlWidth,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
-              )
-            else
-              Positioned(
-                key: floatingControlBaseKey,
-                left: left,
-                top: bottom,
-                child: SizedBox(
-                  width: widget.controlWidth,
-                  height: widget.controlWidth,
-                  child: Transform.rotate(
-                    angle: 1.5707963267948966,
-                    child: SvgPicture.asset(
-                      key: floatingControlNegativeKey,
-                      _buttonAsset(positiveSide: false),
-                      width: widget.controlWidth,
-                      height: widget.controlWidth,
-                      fit: BoxFit.contain,
-                    ),
+            Positioned(
+              key: floatingControlBaseKey,
+              left: left,
+              top: top,
+              child: SizedBox(
+                width: widget.controlWidth,
+                height: widget.controlWidth,
+                child: Transform.rotate(
+                  angle: -1.5707963267948966,
+                  child: SvgPicture.asset(
+                    key: floatingControlPositiveKey,
+                    showPositive
+                        ? _kClickButtonActiveSvgAsset
+                        : _kClickButtonInactiveSvgAsset,
+                    width: widget.controlWidth,
+                    height: widget.controlWidth,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
+            ),
+            Positioned(
+              left: left,
+              top: bottom,
+              child: SizedBox(
+                width: widget.controlWidth,
+                height: widget.controlWidth,
+                child: Transform.rotate(
+                  angle: 1.5707963267948966,
+                  child: SvgPicture.asset(
+                    key: floatingControlNegativeKey,
+                    showNegative
+                        ? _kClickButtonActiveSvgAsset
+                        : _kClickButtonInactiveSvgAsset,
+                    width: widget.controlWidth,
+                    height: widget.controlWidth,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       );
@@ -270,50 +311,54 @@ class _FloatingControlZoneState extends State<FloatingControlZone> {
     final right = origin.dx + (widget.controlWidth / 2) - widget.controlHeight;
     final top = origin.dy - (widget.controlHeight / 2);
     final showPositive = _axisOffset > 0;
+    final showNegative = _axisOffset < 0;
 
     return IgnorePointer(
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          if (showPositive)
-            Positioned(
-              key: floatingControlBaseKey,
-              left: right,
-              top: top,
-              child: SizedBox(
-                width: widget.controlHeight,
-                height: widget.controlHeight,
+          Positioned(
+            key: floatingControlBaseKey,
+            left: left,
+            top: top,
+            child: SizedBox(
+              width: widget.controlHeight,
+              height: widget.controlHeight,
+              child: Transform.rotate(
+                angle: -3.141592653589793,
                 child: SvgPicture.asset(
-                  key: floatingControlPositiveKey,
-                  _buttonAsset(positiveSide: true),
+                  key: floatingControlNegativeKey,
+                  showNegative
+                      ? _kClickButtonActiveSvgAsset
+                      : _kClickButtonInactiveSvgAsset,
                   width: widget.controlHeight,
                   height: widget.controlHeight,
                   fit: BoxFit.contain,
                 ),
               ),
-            )
-          else
-            Positioned(
-              key: floatingControlBaseKey,
-              left: left,
-              top: top,
-              child: SizedBox(
+            ),
+          ),
+          Positioned(
+            left: right,
+            top: top,
+            child: SizedBox(
+              width: widget.controlHeight,
+              height: widget.controlHeight,
+              child: SvgPicture.asset(
+                key: floatingControlPositiveKey,
+                showPositive
+                    ? _kClickButtonActiveSvgAsset
+                    : _kClickButtonInactiveSvgAsset,
                 width: widget.controlHeight,
                 height: widget.controlHeight,
-                child: Transform.rotate(
-                  angle: -3.141592653589793,
-                  child: SvgPicture.asset(
-                    key: floatingControlNegativeKey,
-                    _buttonAsset(positiveSide: false),
-                    width: widget.controlHeight,
-                    height: widget.controlHeight,
-                    fit: BoxFit.contain,
-                  ),
-                ),
+                fit: BoxFit.contain,
               ),
             ),
+          ),
         ],
       ),
     );
   }
 }
+
+enum _VerticalGestureIntent { positive, negative }
