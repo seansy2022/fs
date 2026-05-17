@@ -1,6 +1,6 @@
-import 'package:controller_app/src/features/control/widgets/floating_control_zone.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rc_ui/rc_ui.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

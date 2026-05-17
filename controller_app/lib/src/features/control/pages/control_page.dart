@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,16 +13,16 @@ import '../../settings/models/app_settings_state.dart';
 import '../controllers/control_controller.dart';
 import '../providers/gyro_prompt_provider.dart';
 import '../widgets/bluetooth_svg_toggle_button.dart';
-import '../widgets/floating_control_zone.dart';
 import '../widgets/gyro_svg_toggle_button.dart';
 import '../widgets/steering_indicator_row.dart';
 import '../widgets/throttle_turn_signal_buttons.dart';
 import '../widgets/trim_svg_toggle_button.dart';
 import '../widgets/warning_light_svg_toggle_button.dart';
 
-const gyroHintUpArrowKey = ValueKey<String>('gyro-hint-up-arrow');
-const gyroHintDownArrowKey = ValueKey<String>('gyro-hint-down-arrow');
-const gyroHintDotKey = ValueKey<String>('gyro-hint-dot');
+const gyroHintUpArrowKey = gyroDirectionalThrottleUpArrowKey;
+const gyroHintDownArrowKey = gyroDirectionalThrottleDownArrowKey;
+const gyroHintDotKey = gyroDirectionalThrottleDotKey;
+const gyroHintThumbKey = gyroDirectionalThrottleThumbKey;
 const gyroHintSliderProbeKey = ValueKey<String>('gyro-hint-slider-probe');
 const gyroHintStickProbeKey = ValueKey<String>('gyro-hint-stick-probe');
 
@@ -37,6 +36,7 @@ bool shouldUseGyroControlOverride({
 @visibleForTesting
 Widget buildGyroDirectionVerticalAlignmentPreviewForTest({
   required bool upArrow,
+  ValueChanged<double>? onChanged,
 }) {
   final slider = KeyedSubtree(
     key: gyroHintSliderProbeKey,
@@ -44,17 +44,11 @@ Widget buildGyroDirectionVerticalAlignmentPreviewForTest({
   );
   final stick = KeyedSubtree(
     key: gyroHintStickProbeKey,
-    child: _GyroDirectionalControlWithArrow(
-      upArrow: upArrow,
-      child: _SingleDirectionalStickViewport(
-        positiveDirection: upArrow,
-        child: Control(
-          direction: ControlSliderDirection.vertical,
-          allowPositive: upArrow,
-          allowNegative: !upArrow,
-          onChanged: _noopControlChanged,
-        ),
-      ),
+    child: GyroDirectionalThrottleControl(
+      positiveThrottle: upArrow,
+      floating: false,
+      showArrowHint: true,
+      onChanged: onChanged ?? _noopDoubleControlChanged,
     ),
   );
   return Row(
@@ -64,7 +58,7 @@ Widget buildGyroDirectionVerticalAlignmentPreviewForTest({
   );
 }
 
-void _noopControlChanged(int _) {}
+void _noopDoubleControlChanged(double _) {}
 
 class ControlPage extends ConsumerStatefulWidget {
   const ControlPage({super.key});
@@ -759,22 +753,15 @@ class _ControlArea extends StatelessWidget {
     required bool positiveThrottle,
     bool showArrowHint = false,
   }) {
-    final control = FloatingControlZone(
-      direction: FloatingControlDirection.vertical,
-      width: _floatingVerticalZoneWidth,
-      height: _floatingVerticalZoneHeight,
-      allowPositive: positiveThrottle,
-      allowNegative: !positiveThrottle,
+    return GyroDirectionalThrottleControl(
+      positiveThrottle: positiveThrottle,
+      floating: true,
+      showArrowHint: showArrowHint,
+      floatingWidth: _floatingVerticalZoneWidth,
+      floatingHeight: _floatingVerticalZoneHeight,
       onChanged: (value) {
         unawaited(controlController.setThrottle(value));
       },
-    );
-    if (!showArrowHint) {
-      return control;
-    }
-    return _GyroDirectionalControlWithArrow(
-      upArrow: positiveThrottle,
-      child: control,
     );
   }
 
@@ -782,23 +769,13 @@ class _ControlArea extends StatelessWidget {
     required bool positiveThrottle,
     bool showArrowHint = false,
   }) {
-    final control = Control(
-      direction: ControlSliderDirection.vertical,
-      allowPositive: positiveThrottle,
-      allowNegative: !positiveThrottle,
+    return GyroDirectionalThrottleControl(
+      positiveThrottle: positiveThrottle,
+      floating: false,
+      showArrowHint: showArrowHint,
       onChanged: (value) {
-        controlController.setThrottle(value / 100);
+        controlController.setThrottle(value);
       },
-    );
-    if (!showArrowHint) {
-      return control;
-    }
-    return _GyroDirectionalControlWithArrow(
-      upArrow: positiveThrottle,
-      child: _SingleDirectionalStickViewport(
-        positiveDirection: positiveThrottle,
-        child: control,
-      ),
     );
   }
 
@@ -895,103 +872,6 @@ class _ControlArea extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [leftArea, rightArea],
-      ),
-    );
-  }
-}
-
-class _GyroDirectionalControlWithArrow extends StatelessWidget {
-  const _GyroDirectionalControlWithArrow({
-    required this.upArrow,
-    required this.child,
-  });
-
-  final bool upArrow;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        child,
-        IgnorePointer(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: upArrow
-                ? const [
-                    Icon(
-                      Icons.keyboard_arrow_up_rounded,
-                      key: gyroHintUpArrowKey,
-                      size: 24,
-                      color: Color(0xFFEDF5FF),
-                    ),
-                    SizedBox(height: 2),
-                    _GyroHintDot(),
-                  ]
-                : const [
-                    _GyroHintDot(),
-                    SizedBox(height: 2),
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      key: gyroHintDownArrowKey,
-                      size: 24,
-                      color: Color(0xFFEDF5FF),
-                    ),
-                  ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SingleDirectionalStickViewport extends StatelessWidget {
-  const _SingleDirectionalStickViewport({
-    required this.positiveDirection,
-    required this.child,
-  });
-
-  static const _visibleWidth = 100.0;
-  static const _visibleHeight = 120.0;
-  static const _fullControlHeight = 206.0;
-
-  final bool positiveDirection;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: _visibleWidth,
-      height: _visibleHeight,
-      child: ClipRect(
-        child: Align(
-          alignment: positiveDirection
-              ? Alignment.topCenter
-              : Alignment.bottomCenter,
-          child: SizedBox(
-            width: _visibleWidth,
-            height: _fullControlHeight,
-            child: child,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GyroHintDot extends StatelessWidget {
-  const _GyroHintDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: gyroHintDotKey,
-      width: 8,
-      height: 8,
-      decoration: const BoxDecoration(
-        color: Color(0xFFEDF5FF),
-        shape: BoxShape.circle,
       ),
     );
   }
