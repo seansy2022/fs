@@ -204,9 +204,6 @@ class _VerticalFloatingControlZoneState
     final top = origin.dy - (widget.controlHeight / 2);
     final bottom = origin.dy + (widget.controlHeight / 2) - widget.controlWidth;
     final left = origin.dx - (widget.controlWidth / 2);
-    final trackCenterX = origin.dx;
-    final trackTop = top + (widget.controlWidth / 2);
-    final trackBottom = bottom + (widget.controlWidth / 2);
     final showPositive = _axisOffset < 0;
     final showNegative = _axisOffset > 0;
 
@@ -216,31 +213,9 @@ class _VerticalFloatingControlZoneState
         children: [
           Positioned(
             key: floatingControlBaseKey,
-            left: trackCenterX - 2,
-            top: trackTop,
-            child: Container(
-              width: 4,
-              height: trackBottom - trackTop,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x80FFFFFF),
-                    Color(0x33FFFFFF),
-                    Color(0x80FFFFFF),
-                  ],
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x55FFFFFF),
-                    blurRadius: 10,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-            ),
+            left: left,
+            top: top,
+            child: const SizedBox.shrink(),
           ),
           Positioned(
             left: left,
