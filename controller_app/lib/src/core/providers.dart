@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
 import '../features/bluetooth/controllers/device_history_controller.dart';
 import '../features/control/controllers/control_controller.dart';
+import '../features/control/providers/gyro_prompt_provider.dart';
 export '../provider/app_settings_provider.dart';
 
 class ReceiverDeviceView {
@@ -73,7 +76,24 @@ final controlControllerProvider =
     StateNotifierProvider.autoDispose<ControlController, ControlScreenState>((
       ref,
     ) {
-      return ControlController(ref, ref.watch(receiverRepositoryProvider));
+      final controller = ControlController(
+        ref,
+        ref.watch(receiverRepositoryProvider),
+      );
+      ref.listen<AsyncValue<GyroPrompt>>(gyroPromptProvider, (_, next) {
+        next.whenData((value) {
+          if (!controller.state.gyroEnabled) {
+            return;
+          }
+          unawaited(
+            controller.setGyroPrompt(
+              steering: value.steering,
+              throttle: value.throttle,
+            ),
+          );
+        });
+      });
+      return controller;
     });
 
 final scanSessionDevicesProvider = Provider<List<ReceiverDeviceView>>((ref) {

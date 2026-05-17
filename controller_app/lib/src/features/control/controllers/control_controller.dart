@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
@@ -71,6 +72,9 @@ class ControlScreenState {
 }
 
 class ControlController extends StateNotifier<ControlScreenState> {
+  static const _gyroPromptFrameInterval = Duration(milliseconds: 20);
+  static const _controlStateStep = 0.01;
+
   ControlController(this._ref, this._repository)
     : super(const ControlScreenState());
 
@@ -80,6 +84,11 @@ class ControlController extends StateNotifier<ControlScreenState> {
   double _touchThrottle = 0;
   double _gyroSteering = 0;
   double _gyroThrottle = 0;
+  Timer? _pendingGyroSyncTimer;
+  DateTime? _lastGyroSyncAt;
+  bool _gyroSyncInFlight = false;
+  bool _gyroSyncPending = false;
+  ReceiverControlValues? _lastPushedValues;
 
   Future<void> activate() async {
     await _repository.startControlLoop();
@@ -89,6 +98,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
 
   Future<void> deactivate() async {
     await _repository.stopControlLoop();
+    _cancelGyroSync();
     _touchSteering = 0;
     _touchThrottle = 0;
     _gyroSteering = 0;
@@ -103,7 +113,8 @@ class ControlController extends StateNotifier<ControlScreenState> {
   }) async {
     _gyroSteering = steering.clamp(-1, 1);
     _gyroThrottle = throttle.clamp(-1, 1);
-    await _syncPromptAndPush();
+    _gyroSyncPending = true;
+    await _scheduleGyroPromptSync();
   }
 
   Future<void> clearGyroPrompt() async {
@@ -127,10 +138,16 @@ class ControlController extends StateNotifier<ControlScreenState> {
         mode == GyroMode.throttleOnly || mode == GyroMode.all;
     final gyroSteering = gyroActive && useGyroSteering ? _gyroSteering : 0.0;
     final gyroThrottle = gyroActive && useGyroThrottle ? _gyroThrottle : 0.0;
-    final steering = (_touchSteering + gyroSteering).clamp(-1, 1).toDouble();
-    final throttle = (_touchThrottle + gyroThrottle).clamp(-1, 1).toDouble();
-    state = state.copyWith(steering: steering, throttle: throttle);
-    await _push();
+    final steering = _roundControlValue(
+      (_touchSteering + gyroSteering).clamp(-1, 1).toDouble(),
+    );
+    final throttle = _roundControlValue(
+      (_touchThrottle + gyroThrottle).clamp(-1, 1).toDouble(),
+    );
+    if (state.steering != steering || state.throttle != throttle) {
+      state = state.copyWith(steering: steering, throttle: throttle);
+    }
+    await _push(steering: steering, throttle: throttle);
   }
 
   Future<void> setSteering(double value) async {
@@ -164,6 +181,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
     }
     state = state.copyWith(gyroEnabled: enabled);
     if (!enabled) {
+      _cancelGyroSync();
       _gyroSteering = 0;
       _gyroThrottle = 0;
     }
@@ -199,11 +217,61 @@ class ControlController extends StateNotifier<ControlScreenState> {
     state = state.copyWith(sliderButtonsVisible: !state.sliderButtonsVisible);
   }
 
-  Future<void> _push() async {
-    final steeringUs = (1500 + (state.steering * 500) + (state.trim * 2))
+  Future<void> _scheduleGyroPromptSync() async {
+    if (!state.gyroEnabled) {
+      return;
+    }
+    if (_gyroSyncInFlight) {
+      return;
+    }
+    final now = DateTime.now();
+    final lastGyroSyncAt = _lastGyroSyncAt;
+    if (lastGyroSyncAt == null ||
+        now.difference(lastGyroSyncAt) >= _gyroPromptFrameInterval) {
+      await _flushGyroPromptSync();
+      return;
+    }
+    final remaining = _gyroPromptFrameInterval - now.difference(lastGyroSyncAt);
+    _pendingGyroSyncTimer ??= Timer(remaining, () {
+      _pendingGyroSyncTimer = null;
+      unawaited(_flushGyroPromptSync());
+    });
+  }
+
+  Future<void> _flushGyroPromptSync() async {
+    if (!state.gyroEnabled || !_gyroSyncPending || _gyroSyncInFlight) {
+      return;
+    }
+    _pendingGyroSyncTimer?.cancel();
+    _pendingGyroSyncTimer = null;
+    _gyroSyncInFlight = true;
+    _gyroSyncPending = false;
+    _lastGyroSyncAt = DateTime.now();
+    try {
+      await _syncPromptAndPush();
+    } finally {
+      _gyroSyncInFlight = false;
+      if (_gyroSyncPending && state.gyroEnabled) {
+        unawaited(_scheduleGyroPromptSync());
+      }
+    }
+  }
+
+  void _cancelGyroSync() {
+    _pendingGyroSyncTimer?.cancel();
+    _pendingGyroSyncTimer = null;
+    _gyroSyncPending = false;
+    _gyroSyncInFlight = false;
+    _lastGyroSyncAt = null;
+  }
+
+  Future<void> _push({double? steering, double? throttle}) async {
+    final effectiveSteering = steering ?? state.steering;
+    final effectiveThrottle = throttle ?? state.throttle;
+    final steeringUs = (1500 + (effectiveSteering * 500) + (state.trim * 2))
         .round()
         .clamp(1000, 2000);
-    final throttleUs = (1500 - (state.throttle * 500)).round().clamp(
+    final throttleUs = (1500 - (effectiveThrottle * 500)).round().clamp(
       1000,
       2000,
     );
@@ -217,17 +285,29 @@ class ControlController extends StateNotifier<ControlScreenState> {
       state.leftSignalOn ? 2000 : 1000,
       state.rightSignalOn ? 2000 : 1000,
     ];
-    await _repository.updateControlValues(
-      ReceiverControlValues(
-        throttle: throttleUs,
-        steering: steeringUs,
-        auxChannels: auxChannels,
-      ),
+    final values = ReceiverControlValues(
+      throttle: throttleUs,
+      steering: steeringUs,
+      auxChannels: auxChannels,
     );
+    final lastPushedValues = _lastPushedValues;
+    if (lastPushedValues != null &&
+        lastPushedValues.throttle == values.throttle &&
+        lastPushedValues.steering == values.steering &&
+        listEquals(lastPushedValues.auxChannels, values.auxChannels)) {
+      return;
+    }
+    _lastPushedValues = values;
+    await _repository.updateControlValues(values);
+  }
+
+  double _roundControlValue(double value) {
+    return (value / _controlStateStep).round() * _controlStateStep;
   }
 
   @override
   void dispose() {
+    _cancelGyroSync();
     unawaited(_repository.stopControlLoop());
     super.dispose();
   }

@@ -11,7 +11,6 @@ import '../../../core/providers.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
 import '../../settings/models/app_settings_state.dart';
 import '../controllers/control_controller.dart';
-import '../providers/gyro_prompt_provider.dart';
 import '../widgets/bluetooth_svg_toggle_button.dart';
 import '../widgets/gyro_svg_toggle_button.dart';
 import '../widgets/steering_indicator_row.dart';
@@ -246,30 +245,6 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     final controlState = ref.watch(controlControllerProvider);
     final controlController = ref.read(controlControllerProvider.notifier);
     final settings = ref.watch(appSettingsProvider);
-    if (kDebugMode) {
-      debugPrint('[control-page] build gyroMode=${settings.gyroMode.name}');
-    }
-    ref.listen<AsyncValue<GyroPrompt>>(gyroPromptProvider, (_, next) {
-      next.whenData((value) {
-        final latestControlState = ref.read(controlControllerProvider);
-        if (!latestControlState.gyroEnabled) {
-          return;
-        }
-        if (kDebugMode) {
-          debugPrint(
-            '[control-page] gyroPrompt=(${value.steering.toStringAsFixed(2)},${value.throttle.toStringAsFixed(2)})',
-          );
-        }
-        unawaited(
-          ref
-              .read(controlControllerProvider.notifier)
-              .setGyroPrompt(
-                steering: value.steering,
-                throttle: value.throttle,
-              ),
-        );
-      });
-    });
 
     final connected = connectionState == ReceiverConnectionState.connected;
     final connectedDevice = info == null
