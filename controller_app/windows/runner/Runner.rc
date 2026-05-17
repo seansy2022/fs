@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.rc" "\0"
-            VALUE "FileDescription", "controller_app" "\0"
+            VALUE "FileDescription", "富斯智能车控" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "controller_app" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.rc. All rights reserved." "\0"
             VALUE "OriginalFilename", "controller_app.exe" "\0"
-            VALUE "ProductName", "controller_app" "\0"
+            VALUE "ProductName", "富斯智能车控" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

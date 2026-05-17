@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Flysky Smart Car</string>
+	<string>富斯智能车控</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Flysky Smart Car</string>
+	<string>富斯智能车控</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>App uses Bluetooth to scan, connect, and control the receiver.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>

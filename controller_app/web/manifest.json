@@ -1,6 +1,6 @@
 {
-    "name": "controller_app",
-    "short_name": "controller_app",
+    "name": "富斯智能车控",
+    "short_name": "富斯智能车控",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
