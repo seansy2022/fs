@@ -91,4 +91,72 @@ void main() {
 
     expect(controller.state.handedness, Handedness.leftThrottle);
   });
+
+  test('legacy auxiliary functions map to new aux control types', () {
+    final state = AppSettingsState.fromJson(const <String, Object?>{
+      'handedness': 'rightThrottle',
+      'controlMode': 'fixedPosition',
+      'gyroMode': 'throttleOnly',
+      'channels': <Object?>[
+        <String, Object?>{
+          'channelLabel': 'CH1',
+          'title': '方向',
+          'function': 'none',
+          'lowPercent': -100,
+          'highPercent': 100,
+          'trimPercent': 0,
+          'reversed': false,
+        },
+        <String, Object?>{
+          'channelLabel': 'CH2',
+          'title': '油门',
+          'function': 'none',
+          'lowPercent': -100,
+          'highPercent': 100,
+          'trimPercent': 0,
+          'reversed': false,
+        },
+        <String, Object?>{
+          'channelLabel': 'CH3',
+          'title': '辅助通道',
+          'function': 'gearControl',
+          'lowPercent': -100,
+          'highPercent': 100,
+          'trimPercent': 33,
+          'reversed': false,
+        },
+        <String, Object?>{
+          'channelLabel': 'CH4',
+          'title': '辅助通道',
+          'function': 'gyro',
+          'lowPercent': -20,
+          'highPercent': 80,
+          'trimPercent': 25,
+          'reversed': false,
+        },
+      ],
+      'trackMixLeft': 100,
+      'trackMixRight': 100,
+      'lowVoltageEnabled': true,
+      'batteryType': 'twoCell',
+      'minimumVoltage': 6.0,
+      'fullVoltage': 8.4,
+      'batteryAlertPercent': 15,
+      'batteryVoice': true,
+      'batteryVibration': true,
+      'lowSignalEnabled': true,
+      'signalThreshold': 30,
+      'signalVoice': true,
+      'signalVibration': false,
+      'reconnectVoice': true,
+      'reconnectVibration': false,
+      'backgroundMusicMode': 'defaultTrack',
+      'backgroundMusicName': '默认背景音乐',
+    });
+
+    expect(state.channels[2].controlType, AuxControlType.multiState);
+    expect(state.channels[2].displayName, '辅助1');
+    expect(state.channels[3].controlType, AuxControlType.value);
+    expect(state.channels[3].singleValue, 25);
+  });
 }

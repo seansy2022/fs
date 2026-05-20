@@ -15,214 +15,141 @@ void main() {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
   });
 
-  testWidgets('CH3 headlight shows off and on fields', (tester) async {
-    await _pumpPage(
-      tester,
-      _stateWithChannels(
-        ch3Function: AuxiliaryFunction.headlight,
-        ch4Function: AuxiliaryFunction.none,
-      ),
-    );
+  testWidgets('CH3 and CH4 render aux card fields by default', (tester) async {
+    await _pumpPage(tester, AppSettingsState.defaults());
 
-    final row = _rowFor('大灯(CH3)');
-    expect(find.descendant(of: row, matching: find.text('关')), findsOneWidget);
-    expect(find.descendant(of: row, matching: find.text('开')), findsOneWidget);
-    expect(find.descendant(of: row, matching: find.text('空')), findsNothing);
-    expect(find.descendant(of: row, matching: find.text('调置位')), findsNothing);
-    expect(find.descendant(of: row, matching: find.text('反向')), findsNothing);
+    expect(find.text('控制类型'), findsNWidgets(2));
+    expect(find.text('名称'), findsNWidgets(2));
+    expect(find.text('辅助1'), findsOneWidget);
+    expect(find.text('辅助2'), findsOneWidget);
   });
 
-  testWidgets('CH4 warning light shows off and on fields', (tester) async {
-    await _pumpPage(
-      tester,
-      _stateWithChannels(
-        ch3Function: AuxiliaryFunction.none,
-        ch4Function: AuxiliaryFunction.warningLight,
-      ),
-    );
-
-    final row = _rowFor('警示灯(CH4)');
-    expect(find.descendant(of: row, matching: find.text('关')), findsOneWidget);
-    expect(find.descendant(of: row, matching: find.text('开')), findsOneWidget);
-    expect(find.descendant(of: row, matching: find.text('空')), findsNothing);
-    expect(find.descendant(of: row, matching: find.text('调置位')), findsNothing);
-    expect(find.descendant(of: row, matching: find.text('反向')), findsNothing);
-  });
-
-  testWidgets('CH4 gear control shows low high and neutral fields', (
+  testWidgets('control type selector includes only four new options', (
     tester,
   ) async {
-    await _pumpPage(
-      tester,
-      _stateWithChannels(
-        ch3Function: AuxiliaryFunction.none,
-        ch4Function: AuxiliaryFunction.gearControl,
-      ),
-    );
+    await _pumpPage(tester, AppSettingsState.defaults());
 
-    final row = _rowFor('挡位控制(CH4)');
-    expect(find.descendant(of: row, matching: find.text('低')), findsOneWidget);
-    expect(find.descendant(of: row, matching: find.text('高')), findsOneWidget);
-    expect(find.descendant(of: row, matching: find.text('空')), findsOneWidget);
-    expect(find.descendant(of: row, matching: find.text('调置位')), findsNothing);
-  });
-
-  testWidgets('CH3 gyro shows an editable input field', (tester) async {
-    await _pumpPage(
-      tester,
-      _stateWithChannels(
-        ch3Function: AuxiliaryFunction.gyro,
-        ch4Function: AuxiliaryFunction.none,
-      ),
-    );
-
-    final row = _rowFor('陀螺仪(CH3)');
-    expect(
-      find.descendant(of: row, matching: find.text('设置值')),
-      findsOneWidget,
-    );
-    expect(find.descendant(of: row, matching: find.text('关')), findsNothing);
-    expect(find.descendant(of: row, matching: find.text('开')), findsNothing);
-    expect(find.descendant(of: row, matching: find.text('空')), findsNothing);
-
-    await tester.tap(find.descendant(of: row, matching: find.text('0%')));
+    await tester.tap(find.text('开关').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('设置值'), findsNWidgets(2));
-    expect(find.byType(TextField), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), '25');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
-
-    expect(
-      find.descendant(of: row, matching: find.text('25%')),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('CH4 selector excludes removed light functions', (tester) async {
-    await _pumpPage(
-      tester,
-      _stateWithChannels(
-        ch3Function: AuxiliaryFunction.none,
-        ch4Function: AuxiliaryFunction.none,
-      ),
-    );
-
-    await tester.tap(find.byIcon(Icons.chevron_right).last);
-    await tester.pumpAndSettle();
-
-    expect(find.text('无'), findsOneWidget);
-    expect(find.text('大灯'), findsOneWidget);
-    expect(find.text('警示灯'), findsOneWidget);
-    expect(find.text('挡位控制'), findsOneWidget);
-    expect(find.text('陀螺仪'), findsOneWidget);
-    expect(find.text('刹车灯'), findsNothing);
-    expect(find.text('倒车灯'), findsNothing);
-    expect(find.text('左转灯'), findsNothing);
-    expect(find.text('右转灯'), findsNothing);
-  });
-
-  testWidgets('CH4 function cell opens selector dialog', (tester) async {
-    await _pumpPage(
-      tester,
-      _stateWithChannels(
-        ch3Function: AuxiliaryFunction.none,
-        ch4Function: AuxiliaryFunction.none,
-      ),
-    );
-
-    await tester.tap(find.text('无(CH4)'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('选择辅助功能'), findsOneWidget);
-    expect(find.text('挡位控制'), findsOneWidget);
-  });
-
-  testWidgets('configured CH3 function cell opens selector dialog', (
-    tester,
-  ) async {
-    await _pumpPage(
-      tester,
-      _stateWithChannels(
-        ch3Function: AuxiliaryFunction.headlight,
-        ch4Function: AuxiliaryFunction.none,
-      ),
-    );
-
-    await tester.tap(find.text('大灯(CH3)'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('选择辅助功能'), findsOneWidget);
-    expect(find.text('警示灯'), findsOneWidget);
-  });
-
-  testWidgets('none state shows function label with channel suffix', (
-    tester,
-  ) async {
-    await _pumpPage(
-      tester,
-      _stateWithChannels(
-        ch3Function: AuxiliaryFunction.none,
-        ch4Function: AuxiliaryFunction.none,
-      ),
-    );
-
-    expect(find.text('无(CH3)'), findsOneWidget);
-    expect(find.text('无(CH4)'), findsOneWidget);
-  });
-
-  testWidgets('CH3 and CH4 function options are mutually exclusive', (
-    tester,
-  ) async {
-    await _pumpPage(
-      tester,
-      _stateWithChannels(
-        ch3Function: AuxiliaryFunction.headlight,
-        ch4Function: AuxiliaryFunction.none,
-      ),
-    );
-
-    await tester.tap(find.byIcon(Icons.chevron_right).last);
-    await tester.pumpAndSettle();
-
+    expect(find.text('禁用'), findsOneWidget);
+    expect(find.text('开关'), findsWidgets);
+    expect(find.text('多状态'), findsOneWidget);
+    expect(find.text('值'), findsOneWidget);
     expect(find.text('大灯'), findsNothing);
-    expect(find.text('警示灯'), findsOneWidget);
-    expect(find.text('挡位控制'), findsOneWidget);
-    expect(find.text('陀螺仪'), findsOneWidget);
+    expect(find.text('警示灯'), findsNothing);
+    expect(find.text('挡位控制'), findsNothing);
+    expect(find.text('陀螺仪'), findsNothing);
   });
 
-  testWidgets('gyro row title stays on one line', (tester) async {
+  testWidgets('disabled type hides config area', (tester) async {
     await _pumpPage(
       tester,
-      _stateWithChannels(
-        ch3Function: AuxiliaryFunction.gyro,
-        ch4Function: AuxiliaryFunction.none,
+      _stateWithAux(
+        ch3Type: AuxControlType.disabled,
+        ch4Type: AuxControlType.switchControl,
       ),
     );
 
-    final title = tester.widget<Text>(find.text('陀螺仪(CH3)'));
-    expect(title.maxLines, 1);
-    expect(title.overflow, TextOverflow.ellipsis);
+    final card = _auxCardFor('辅助1');
+    expect(find.descendant(of: card, matching: find.text('开')), findsNothing);
+    expect(find.descendant(of: card, matching: find.text('关')), findsNothing);
+    expect(find.descendant(of: card, matching: find.text('设置值')), findsNothing);
+    expect(find.descendant(of: card, matching: find.text('新增')), findsNothing);
   });
 
-  testWidgets('gyro field label stays on one line', (tester) async {
+  testWidgets('switch type shows on and off editors', (tester) async {
     await _pumpPage(
       tester,
-      _stateWithChannels(
-        ch3Function: AuxiliaryFunction.gyro,
-        ch4Function: AuxiliaryFunction.none,
+      _stateWithAux(
+        ch3Type: AuxControlType.switchControl,
+        ch4Type: AuxControlType.disabled,
       ),
     );
 
-    final label = tester.widget<Text>(
-      find
-          .descendant(of: _rowFor('陀螺仪(CH3)'), matching: find.text('设置值'))
-          .first,
+    final card = _auxCardFor('辅助1');
+    expect(find.descendant(of: card, matching: find.text('开')), findsOneWidget);
+    expect(find.descendant(of: card, matching: find.text('关')), findsOneWidget);
+  });
+
+  testWidgets('multi state shows default values and can add one', (
+    tester,
+  ) async {
+    await _pumpPage(
+      tester,
+      _stateWithAux(
+        ch3Type: AuxControlType.multiState,
+        ch4Type: AuxControlType.disabled,
+      ),
     );
-    expect(label.maxLines, 1);
-    expect(label.overflow, TextOverflow.ellipsis);
+
+    final card = _auxCardFor('辅助1');
+    expect(
+      find.descendant(of: card, matching: find.text('状态1')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('状态2')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('状态3')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.descendant(of: card, matching: find.text('新增')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(of: card, matching: find.text('状态4')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('value type shows single value editor', (tester) async {
+    await _pumpPage(
+      tester,
+      _stateWithAux(
+        ch3Type: AuxControlType.value,
+        ch4Type: AuxControlType.disabled,
+      ),
+    );
+
+    final card = _auxCardFor('辅助1');
+    expect(
+      find.descendant(of: card, matching: find.text('设置值')),
+      findsOneWidget,
+    );
+    expect(find.descendant(of: card, matching: find.text('开')), findsNothing);
+    expect(find.descendant(of: card, matching: find.text('状态1')), findsNothing);
+  });
+
+  testWidgets('editing name persists after rebuild', (tester) async {
+    final controller = _TestSettingsController(AppSettingsState.defaults());
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appSettingsProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: ChannelSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final textField = find.byType(TextField).first;
+    await tester.enterText(textField, '机械臂');
+    await tester.pumpAndSettle();
+
+    expect(controller.state.channels[2].displayName, '机械臂');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appSettingsProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: ChannelSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('机械臂'), findsOneWidget);
   });
 }
 
@@ -239,20 +166,20 @@ Future<void> _pumpPage(WidgetTester tester, AppSettingsState state) async {
   await tester.pumpAndSettle();
 }
 
-AppSettingsState _stateWithChannels({
-  required AuxiliaryFunction ch3Function,
-  required AuxiliaryFunction ch4Function,
+AppSettingsState _stateWithAux({
+  required AuxControlType ch3Type,
+  required AuxControlType ch4Type,
 }) {
   final defaults = AppSettingsState.defaults();
   final channels = defaults.channels.toList(growable: true);
-  channels[2] = channels[2].copyWith(function: ch3Function);
-  channels[3] = channels[3].copyWith(function: ch4Function);
+  channels[2] = channels[2].copyWith(controlType: ch3Type);
+  channels[3] = channels[3].copyWith(controlType: ch4Type);
   return defaults.copyWith(channels: channels);
 }
 
-Finder _rowFor(String label) {
+Finder _auxCardFor(String name) {
   return find.ancestor(
-    of: find.text(label),
+    of: find.text(name),
     matching: find.byType(SettingsStrip),
   );
 }

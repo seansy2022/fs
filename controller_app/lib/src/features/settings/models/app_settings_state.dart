@@ -22,11 +22,18 @@ enum AuxiliaryFunction {
   rightSignal,
 }
 
+enum AuxControlType { disabled, switchControl, multiState, value }
+
 class ChannelSetting {
   const ChannelSetting({
     required this.channelLabel,
     required this.title,
     required this.function,
+    required this.displayName,
+    required this.controlType,
+    required this.switchValues,
+    required this.multiStateValues,
+    required this.singleValue,
     required this.lowPercent,
     required this.highPercent,
     required this.trimPercent,
@@ -36,6 +43,11 @@ class ChannelSetting {
   final String channelLabel;
   final String title;
   final AuxiliaryFunction function;
+  final String displayName;
+  final AuxControlType controlType;
+  final List<double> switchValues;
+  final List<double> multiStateValues;
+  final double singleValue;
   final double lowPercent;
   final double highPercent;
   final double trimPercent;
@@ -45,6 +57,11 @@ class ChannelSetting {
     String? channelLabel,
     String? title,
     AuxiliaryFunction? function,
+    String? displayName,
+    AuxControlType? controlType,
+    List<double>? switchValues,
+    List<double>? multiStateValues,
+    double? singleValue,
     double? lowPercent,
     double? highPercent,
     double? trimPercent,
@@ -54,6 +71,11 @@ class ChannelSetting {
       channelLabel: channelLabel ?? this.channelLabel,
       title: title ?? this.title,
       function: function ?? this.function,
+      displayName: displayName ?? this.displayName,
+      controlType: controlType ?? this.controlType,
+      switchValues: switchValues ?? this.switchValues,
+      multiStateValues: multiStateValues ?? this.multiStateValues,
+      singleValue: singleValue ?? this.singleValue,
       lowPercent: lowPercent ?? this.lowPercent,
       highPercent: highPercent ?? this.highPercent,
       trimPercent: trimPercent ?? this.trimPercent,
@@ -66,6 +88,11 @@ class ChannelSetting {
       'channelLabel': channelLabel,
       'title': title,
       'function': function.name,
+      'displayName': displayName,
+      'controlType': controlType.name,
+      'switchValues': switchValues,
+      'multiStateValues': multiStateValues,
+      'singleValue': singleValue,
       'lowPercent': lowPercent,
       'highPercent': highPercent,
       'trimPercent': trimPercent,
@@ -74,13 +101,44 @@ class ChannelSetting {
   }
 
   factory ChannelSetting.fromJson(Map<String, Object?> json) {
+    final function = AuxiliaryFunction.values.byName(
+      json['function']! as String,
+    );
+    final lowPercent = (json['lowPercent']! as num).toDouble();
+    final highPercent = (json['highPercent']! as num).toDouble();
+    final trimPercent = (json['trimPercent']! as num).toDouble();
+    final displayName =
+        json['displayName'] as String? ??
+        _defaultDisplayNameForChannelLabel(json['channelLabel']! as String);
+    final controlType = _auxControlTypeFromJson(
+      json['controlType'] as String?,
+      legacyFunction: function,
+    );
+    final switchValues = _doubleListFromJson(
+      json['switchValues'],
+      fallback: <double>[highPercent, lowPercent],
+      minLength: 2,
+    );
+    final multiStateValues = _doubleListFromJson(
+      json['multiStateValues'],
+      fallback: <double>[0, 0, 0],
+      minLength: 3,
+    );
+    final singleValue =
+        (json['singleValue'] as num?)?.toDouble() ?? trimPercent;
+
     return ChannelSetting(
       channelLabel: json['channelLabel']! as String,
       title: json['title']! as String,
-      function: AuxiliaryFunction.values.byName(json['function']! as String),
-      lowPercent: (json['lowPercent']! as num).toDouble(),
-      highPercent: (json['highPercent']! as num).toDouble(),
-      trimPercent: (json['trimPercent']! as num).toDouble(),
+      function: function,
+      displayName: displayName,
+      controlType: controlType,
+      switchValues: switchValues,
+      multiStateValues: multiStateValues,
+      singleValue: singleValue,
+      lowPercent: lowPercent,
+      highPercent: highPercent,
+      trimPercent: trimPercent,
       reversed: json['reversed']! as bool,
     );
   }
@@ -143,6 +201,11 @@ class AppSettingsState {
           channelLabel: 'CH1',
           title: '方向',
           function: AuxiliaryFunction.none,
+          displayName: 'CH1',
+          controlType: AuxControlType.disabled,
+          switchValues: <double>[100, -100],
+          multiStateValues: <double>[0, 0, 0],
+          singleValue: 0,
           lowPercent: -100,
           highPercent: 100,
           trimPercent: 0,
@@ -152,6 +215,11 @@ class AppSettingsState {
           channelLabel: 'CH2',
           title: '油门',
           function: AuxiliaryFunction.none,
+          displayName: 'CH2',
+          controlType: AuxControlType.disabled,
+          switchValues: <double>[100, -100],
+          multiStateValues: <double>[0, 0, 0],
+          singleValue: 0,
           lowPercent: -100,
           highPercent: 100,
           trimPercent: 0,
@@ -161,6 +229,11 @@ class AppSettingsState {
           channelLabel: 'CH3',
           title: '辅助通道',
           function: AuxiliaryFunction.headlight,
+          displayName: '辅助1',
+          controlType: AuxControlType.switchControl,
+          switchValues: <double>[100, -100],
+          multiStateValues: <double>[0, 0, 0],
+          singleValue: 0,
           lowPercent: -100,
           highPercent: 100,
           trimPercent: 0,
@@ -170,6 +243,11 @@ class AppSettingsState {
           channelLabel: 'CH4',
           title: '辅助通道',
           function: AuxiliaryFunction.warningLight,
+          displayName: '辅助2',
+          controlType: AuxControlType.switchControl,
+          switchValues: <double>[100, -100],
+          multiStateValues: <double>[0, 0, 0],
+          singleValue: 0,
           lowPercent: -100,
           highPercent: 100,
           trimPercent: 0,
@@ -307,6 +385,67 @@ class AppSettingsState {
       ),
       backgroundMusicName: json['backgroundMusicName']! as String,
     );
+  }
+}
+
+AuxControlType _auxControlTypeFromJson(
+  String? raw, {
+  required AuxiliaryFunction legacyFunction,
+}) {
+  if (raw != null) {
+    switch (raw) {
+      case 'disabled':
+      case 'switchControl':
+      case 'multiState':
+      case 'value':
+        return AuxControlType.values.byName(raw);
+    }
+  }
+
+  switch (legacyFunction) {
+    case AuxiliaryFunction.none:
+      return AuxControlType.disabled;
+    case AuxiliaryFunction.headlight:
+    case AuxiliaryFunction.warningLight:
+      return AuxControlType.switchControl;
+    case AuxiliaryFunction.gearControl:
+      return AuxControlType.multiState;
+    case AuxiliaryFunction.gyro:
+      return AuxControlType.value;
+    case AuxiliaryFunction.brakeLight:
+    case AuxiliaryFunction.reverseLight:
+    case AuxiliaryFunction.leftSignal:
+    case AuxiliaryFunction.rightSignal:
+      return AuxControlType.switchControl;
+  }
+}
+
+List<double> _doubleListFromJson(
+  Object? raw, {
+  required List<double> fallback,
+  int minLength = 0,
+}) {
+  final values = (raw as List<dynamic>?)
+      ?.whereType<num>()
+      .map((value) => value.toDouble())
+      .toList(growable: true);
+  if (values == null || values.isEmpty) {
+    return List<double>.of(fallback);
+  }
+  while (values.length < minLength) {
+    values.add(0);
+  }
+  return values;
+}
+
+String _defaultDisplayNameForChannelLabel(String channelLabel) {
+  switch (channelLabel) {
+    case 'CH3':
+      return '辅助1';
+    case 'CH4':
+      return '辅助2';
+    default:
+      return channelLabel;
   }
 }
 

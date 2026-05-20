@@ -36,9 +36,6 @@ class _ChannelSettingsContentState
   final Map<int, _ChannelValueField> _selectedFields =
       <int, _ChannelValueField>{};
 
-  bool _isSpecialAuxChannel(int channelIndex) =>
-      channelIndex == 2 || channelIndex == 3;
-
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
@@ -48,10 +45,9 @@ class _ChannelSettingsContentState
     final ch2 = _channelAt(settings.channels, 1);
     final ch3 = _channelAt(settings.channels, 2);
     final ch4 = _channelAt(settings.channels, 3);
-
-    // Dynamic auxiliary rows: all channels except CH1/CH2 with function != none
     final auxChannels = settings.channels.asMap().entries.where(
-      (e) => e.key >= 2 && e.value.function != AuxiliaryFunction.none,
+      (entry) =>
+          entry.key > 3 && entry.value.function != AuxiliaryFunction.none,
     );
 
     return SingleChildScrollView(
@@ -62,7 +58,6 @@ class _ChannelSettingsContentState
             label: '方向(CH1)',
             channel: ch1,
             controller: controller,
-            showFunction: false,
           ),
           const SizedBox(height: 8),
           _buildChannelRow(
@@ -70,83 +65,30 @@ class _ChannelSettingsContentState
             label: '油门(CH2)',
             channel: ch2,
             controller: controller,
-            showFunction: false,
           ),
           const SizedBox(height: 8),
-          if (ch3.function == AuxiliaryFunction.none)
-            _buildFunctionSelectorRow(
-              channelIndex: 2,
-              label: _channelLabel(ch3, 'CH3'),
-              channel: ch3,
-              controller: controller,
-            )
-          else
-            _buildChannelRow(
-              channelIndex: 2,
-              label: _channelLabel(ch3, 'CH3'),
-              channel: ch3,
-              controller: controller,
-              showFunction: true,
-            ),
+          _buildAuxChannelCard(
+            channelIndex: 2,
+            channel: ch3,
+            controller: controller,
+          ),
           const SizedBox(height: 8),
-          if (ch4.function == AuxiliaryFunction.none)
-            _buildFunctionSelectorRow(
-              channelIndex: 3,
-              label: _channelLabel(ch4, 'CH4'),
-              channel: ch4,
-              controller: controller,
-            )
-          else
-            _buildChannelRow(
-              channelIndex: 3,
-              label: _channelLabel(ch4, 'CH4'),
-              channel: ch4,
-              controller: controller,
-              showFunction: true,
-            ),
-          // Dynamic auxiliary channel rows
-          for (final entry in auxChannels.where((e) => e.key > 3)) ...[
+          _buildAuxChannelCard(
+            channelIndex: 3,
+            channel: ch4,
+            controller: controller,
+          ),
+          for (final entry in auxChannels) ...[
+            const SizedBox(height: 8),
             _buildChannelRow(
               channelIndex: entry.key,
               label:
                   '${entry.value.channelLabel} (${_functionLabel(entry.value.function)})',
               channel: entry.value,
               controller: controller,
-              showFunction: false,
             ),
-            const SizedBox(height: 8),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildFunctionSelectorRow({
-    required int channelIndex,
-    required String label,
-    required ChannelSetting channel,
-    required SettingsController controller,
-  }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _selectFunction(context, channelIndex, channel, controller),
-      child: SettingsStrip(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(color: AppColors.text, fontSize: 14),
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.textDim,
-              size: 22,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -156,22 +98,13 @@ class _ChannelSettingsContentState
     required String label,
     required ChannelSetting channel,
     required SettingsController controller,
-    required bool showFunction,
   }) {
-    final displaySpec = _displaySpecFor(channelIndex, channel);
-    final isSpecialAuxChannel = _isSpecialAuxChannel(channelIndex);
-    final labelFlex = _labelFlexFor(
-      showFunction: showFunction,
-      fieldCount: displaySpec.fields.length,
-      isSpecialAuxChannel: isSpecialAuxChannel,
-    );
-
-    final row = SettingsStrip(
+    return SettingsStrip(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       child: Row(
         children: [
           Expanded(
-            flex: labelFlex,
+            flex: 22,
             child: Text(
               label,
               maxLines: 1,
@@ -179,128 +112,247 @@ class _ChannelSettingsContentState
               style: const TextStyle(color: AppColors.text, fontSize: 14),
             ),
           ),
-          for (final field in displaySpec.fields) ...[
-            _FieldLabel(field.label, width: field.label.length > 1 ? 52 : 32),
+          for (final field in _ChannelDisplaySpec.defaultSpec.fields) ...[
+            _FieldLabel(field.label, width: 32),
             Expanded(
               flex: 12,
-              child: field.inputType == _ChannelFieldInputType.button
-                  ? _ChannelValueButton(
-                      value: _valueForField(channel, field.field).round(),
-                      active: _selectedFields[channelIndex] == field.field,
-                      onTap: () => _selectField(channelIndex, field.field),
-                    )
-                  : _ChannelValueInput(
-                      value: _valueForField(channel, field.field).round(),
-                      onChanged: (value) => _updateChannelField(
-                        controller,
-                        channelIndex,
-                        channel,
-                        field.field,
-                        value.toDouble(),
-                      ),
-                    ),
-            ),
-          ],
-          if (!isSpecialAuxChannel) ...[
-            const SizedBox(width: 12),
-            SelectOptionToggle(
-              selected: channel.reversed,
-              label: '反向',
-              onTap: () {
-                controller.updateChannel(
-                  channelIndex,
-                  channel.copyWith(reversed: !channel.reversed),
-                );
-              },
-            ),
-          ],
-          if (showFunction) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () =>
-                  _selectFunction(context, channelIndex, channel, controller),
-              child: const Icon(
-                Icons.chevron_right,
-                color: AppColors.textDim,
-                size: 22,
+              child: _ChannelValueButton(
+                value: _valueForField(channel, field.field).round(),
+                active: _selectedFields[channelIndex] == field.field,
+                onTap: () => _selectField(channelIndex, field.field),
               ),
             ),
+          ],
+          const SizedBox(width: 12),
+          SelectOptionToggle(
+            selected: channel.reversed,
+            label: '反向',
+            onTap: () {
+              controller.updateChannel(
+                channelIndex,
+                channel.copyWith(reversed: !channel.reversed),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuxChannelCard({
+    required int channelIndex,
+    required ChannelSetting channel,
+    required SettingsController controller,
+  }) {
+    final configSection = _buildAuxConfigSection(
+      channelIndex: channelIndex,
+      channel: channel,
+      controller: controller,
+    );
+
+    return SettingsStrip(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'CH${channelIndex + 1}(${channel.displayName})',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.text, fontSize: 14),
+                ),
+              ),
+              const SizedBox(width: 16),
+              const _AuxLabel('控制类型'),
+              const SizedBox(width: 16),
+              _AuxSelectField(
+                label: _controlTypeLabel(channel.controlType),
+                onTap: () => _selectControlType(
+                  context,
+                  channelIndex,
+                  channel,
+                  controller,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const _AuxLabel('名称'),
+              const SizedBox(width: 16),
+              SizedBox(
+                width: 120,
+                child: _AuxNameField(
+                  key: ValueKey<String>('aux-name-$channelIndex'),
+                  value: channel.displayName,
+                  onChanged: (value) {
+                    controller.updateChannel(
+                      channelIndex,
+                      channel.copyWith(
+                        displayName: value.trim().isEmpty
+                            ? '辅助${channelIndex - 1}'
+                            : value,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          if (configSection != null) ...[
+            const SizedBox(height: 14),
+            configSection,
           ],
         ],
       ),
     );
-
-    if (!showFunction || !isSpecialAuxChannel) {
-      return row;
-    }
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _selectFunction(context, channelIndex, channel, controller),
-      child: row,
-    );
   }
 
-  String _channelLabel(ChannelSetting channel, String fallback) {
-    if (channel.function == AuxiliaryFunction.none) {
-      return '无(${channel.channelLabel.isNotEmpty ? channel.channelLabel : fallback})';
-    }
-    return '${_functionLabel(channel.function)}(${channel.channelLabel})';
-  }
-
-  int _labelFlexFor({
-    required bool showFunction,
-    required int fieldCount,
-    required bool isSpecialAuxChannel,
+  Widget? _buildAuxConfigSection({
+    required int channelIndex,
+    required ChannelSetting channel,
+    required SettingsController controller,
   }) {
-    if (!isSpecialAuxChannel) {
-      return showFunction ? 28 : 22;
-    }
-    switch (fieldCount) {
-      case 1:
-        return 42;
-      case 2:
-        return 34;
-      default:
-        return 28;
+    switch (channel.controlType) {
+      case AuxControlType.disabled:
+        return null;
+      case AuxControlType.switchControl:
+        return Padding(
+          padding: const EdgeInsets.only(left: 220),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 10,
+            children: [
+              _AuxValueEditor(
+                label: '开',
+                value: channel.switchValues[0].round(),
+                onChanged: (value) => _updateSwitchValue(
+                  controller,
+                  channelIndex,
+                  channel,
+                  0,
+                  value.toDouble(),
+                ),
+              ),
+              _AuxValueEditor(
+                label: '关',
+                value: channel.switchValues[1].round(),
+                onChanged: (value) => _updateSwitchValue(
+                  controller,
+                  channelIndex,
+                  channel,
+                  1,
+                  value.toDouble(),
+                ),
+              ),
+            ],
+          ),
+        );
+      case AuxControlType.multiState:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 220),
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 12,
+                children: [
+                  for (
+                    var index = 0;
+                    index < channel.multiStateValues.length;
+                    index++
+                  )
+                    _AuxValueEditor(
+                      label: '状态${index + 1}',
+                      value: channel.multiStateValues[index].round(),
+                      onChanged: (value) => _updateMultiStateValue(
+                        controller,
+                        channelIndex,
+                        channel,
+                        index,
+                        value.toDouble(),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.only(left: 272),
+              child: SizedBox(
+                width: 64,
+                height: 30,
+                child: RCButton(
+                  onTap: () =>
+                      _addMultiStateValue(controller, channelIndex, channel),
+                  enableRepeat: false,
+                  textWidget: const Text(
+                    '新增',
+                    style: TextStyle(
+                      color: AppColors.text,
+                      fontSize: 14,
+                      fontWeight: AppFonts.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      case AuxControlType.value:
+        return Padding(
+          padding: const EdgeInsets.only(left: 220),
+          child: _AuxValueEditor(
+            label: '设置值',
+            value: channel.singleValue.round(),
+            onChanged: (value) {
+              controller.updateChannel(
+                channelIndex,
+                channel.copyWith(
+                  singleValue: value.toDouble(),
+                  trimPercent: value.toDouble(),
+                  function: _legacyFunctionForControlType(
+                    channelIndex,
+                    AuxControlType.value,
+                    currentFunction: channel.function,
+                  ),
+                ),
+              );
+            },
+          ),
+        );
     }
   }
 
-  void _selectFunction(
+  void _selectControlType(
     BuildContext context,
-    int index,
+    int channelIndex,
     ChannelSetting channel,
     SettingsController controller,
   ) {
-    final siblingChannelIndex = index == 2
-        ? 3
-        : index == 3
-        ? 2
-        : null;
-    final siblingFunction = siblingChannelIndex == null
-        ? AuxiliaryFunction.none
-        : _channelAt(
-            ref.read(appSettingsProvider).channels,
-            siblingChannelIndex,
-          ).function;
-    final options = _functionOptionsForChannel(
-      index,
-      currentFunction: channel.function,
-      excludedFunction: siblingFunction,
-    );
+    final options = AuxControlType.values
+        .map(_controlTypeLabel)
+        .toList(growable: false);
 
     AlertListDialog.show(
       context,
-      title: '选择辅助功能',
-      width: 350,
-      options: options.map(_functionLabel).toList(growable: false),
-      selectedOption: _functionLabel(channel.function),
+      title: '控制类型',
+      width: 300,
+      options: options,
+      selectedOption: _controlTypeLabel(channel.controlType),
       onOptionSelected: (selection) {
+        final selectedType = AuxControlType.values.firstWhere(
+          (value) => _controlTypeLabel(value) == selection,
+        );
         controller.updateChannel(
-          index,
+          channelIndex,
           channel.copyWith(
-            function: options.firstWhere(
-              (value) => _functionLabel(value) == selection,
+            controlType: selectedType,
+            function: _legacyFunctionForControlType(
+              channelIndex,
+              selectedType,
+              currentFunction: channel.function,
             ),
           ),
         );
@@ -308,69 +360,69 @@ class _ChannelSettingsContentState
     );
   }
 
-  List<AuxiliaryFunction> _functionOptionsForChannel(
-    int index, {
-    required AuxiliaryFunction currentFunction,
-    required AuxiliaryFunction excludedFunction,
-  }) {
-    if (index == 2 || index == 3) {
-      return <AuxiliaryFunction>[
-            AuxiliaryFunction.none,
-            AuxiliaryFunction.headlight,
-            AuxiliaryFunction.warningLight,
-            AuxiliaryFunction.gearControl,
-            AuxiliaryFunction.gyro,
-          ]
-          .where((function) {
-            if (function == AuxiliaryFunction.none) {
-              return true;
-            }
-            if (function == currentFunction) {
-              return true;
-            }
-            return function != excludedFunction;
-          })
-          .toList(growable: false);
-    }
-    return AuxiliaryFunction.values;
+  void _updateSwitchValue(
+    SettingsController controller,
+    int channelIndex,
+    ChannelSetting channel,
+    int valueIndex,
+    double value,
+  ) {
+    final next = List<double>.of(channel.switchValues);
+    next[valueIndex] = value;
+    controller.updateChannel(
+      channelIndex,
+      channel.copyWith(
+        switchValues: next,
+        highPercent: next[0],
+        lowPercent: next[1],
+        function: _legacyFunctionForControlType(
+          channelIndex,
+          AuxControlType.switchControl,
+          currentFunction: channel.function,
+        ),
+      ),
+    );
   }
 
-  _ChannelDisplaySpec _displaySpecFor(
+  void _updateMultiStateValue(
+    SettingsController controller,
+    int channelIndex,
+    ChannelSetting channel,
+    int valueIndex,
+    double value,
+  ) {
+    final next = List<double>.of(channel.multiStateValues);
+    next[valueIndex] = value;
+    controller.updateChannel(
+      channelIndex,
+      channel.copyWith(
+        multiStateValues: next,
+        function: _legacyFunctionForControlType(
+          channelIndex,
+          AuxControlType.multiState,
+          currentFunction: channel.function,
+        ),
+      ),
+    );
+  }
+
+  void _addMultiStateValue(
+    SettingsController controller,
     int channelIndex,
     ChannelSetting channel,
   ) {
-    if (channelIndex != 2 && channelIndex != 3) {
-      return _ChannelDisplaySpec.defaultSpec;
-    }
-
-    switch (channel.function) {
-      case AuxiliaryFunction.headlight:
-      case AuxiliaryFunction.warningLight:
-        return const _ChannelDisplaySpec(<_ChannelDisplayFieldSpec>[
-          _ChannelDisplayFieldSpec('关', _ChannelValueField.low),
-          _ChannelDisplayFieldSpec('开', _ChannelValueField.high),
-        ]);
-      case AuxiliaryFunction.gearControl:
-        return const _ChannelDisplaySpec(<_ChannelDisplayFieldSpec>[
-          _ChannelDisplayFieldSpec('低', _ChannelValueField.low),
-          _ChannelDisplayFieldSpec('高', _ChannelValueField.high),
-          _ChannelDisplayFieldSpec('空', _ChannelValueField.trim),
-        ]);
-      case AuxiliaryFunction.gyro:
-        return const _ChannelDisplaySpec(<_ChannelDisplayFieldSpec>[
-          _ChannelDisplayFieldSpec(
-            '设置值',
-            _ChannelValueField.trim,
-            inputType: _ChannelFieldInputType.input,
-          ),
-        ]);
-      case AuxiliaryFunction.none:
-      case AuxiliaryFunction.brakeLight:
-      case AuxiliaryFunction.reverseLight:
-      case AuxiliaryFunction.leftSignal:
-      case AuxiliaryFunction.rightSignal:
-        return _ChannelDisplaySpec.defaultSpec;
-    }
+    final next = List<double>.of(channel.multiStateValues)..add(0);
+    controller.updateChannel(
+      channelIndex,
+      channel.copyWith(
+        multiStateValues: next,
+        function: _legacyFunctionForControlType(
+          channelIndex,
+          AuxControlType.multiState,
+          currentFunction: channel.function,
+        ),
+      ),
+    );
   }
 
   double _valueForField(ChannelSetting channel, _ChannelValueField field) {
@@ -381,6 +433,42 @@ class _ChannelSettingsContentState
         return channel.highPercent;
       case _ChannelValueField.trim:
         return channel.trimPercent;
+    }
+  }
+
+  String _controlTypeLabel(AuxControlType type) {
+    switch (type) {
+      case AuxControlType.disabled:
+        return '禁用';
+      case AuxControlType.switchControl:
+        return '开关';
+      case AuxControlType.multiState:
+        return '多状态';
+      case AuxControlType.value:
+        return '值';
+    }
+  }
+
+  AuxiliaryFunction _legacyFunctionForControlType(
+    int channelIndex,
+    AuxControlType type, {
+    required AuxiliaryFunction currentFunction,
+  }) {
+    switch (type) {
+      case AuxControlType.disabled:
+        return AuxiliaryFunction.none;
+      case AuxControlType.switchControl:
+        if (currentFunction == AuxiliaryFunction.warningLight ||
+            currentFunction == AuxiliaryFunction.headlight) {
+          return currentFunction;
+        }
+        return channelIndex == 3
+            ? AuxiliaryFunction.warningLight
+            : AuxiliaryFunction.headlight;
+      case AuxControlType.multiState:
+        return AuxiliaryFunction.gearControl;
+      case AuxControlType.value:
+        return AuxiliaryFunction.gyro;
     }
   }
 
@@ -415,6 +503,15 @@ class _ChannelSettingsContentState
       channelLabel: 'CH${index + 1}',
       title: '辅助通道',
       function: AuxiliaryFunction.none,
+      displayName: index == 2
+          ? '辅助1'
+          : index == 3
+          ? '辅助2'
+          : 'CH${index + 1}',
+      controlType: AuxControlType.disabled,
+      switchValues: const <double>[100, -100],
+      multiStateValues: const <double>[0, 0, 0],
+      singleValue: 0,
       lowPercent: -100,
       highPercent: 100,
       trimPercent: 0,
@@ -423,42 +520,16 @@ class _ChannelSettingsContentState
   }
 
   void _selectField(int channelIndex, _ChannelValueField field) {
-    if (_selectedFields[channelIndex] == field) return;
+    if (_selectedFields[channelIndex] == field) {
+      return;
+    }
     setState(() {
       _selectedFields[channelIndex] = field;
     });
   }
-
-  void _updateChannelField(
-    SettingsController controller,
-    int channelIndex,
-    ChannelSetting channel,
-    _ChannelValueField field,
-    double value,
-  ) {
-    switch (field) {
-      case _ChannelValueField.low:
-        controller.updateChannel(
-          channelIndex,
-          channel.copyWith(lowPercent: value),
-        );
-      case _ChannelValueField.high:
-        controller.updateChannel(
-          channelIndex,
-          channel.copyWith(highPercent: value),
-        );
-      case _ChannelValueField.trim:
-        controller.updateChannel(
-          channelIndex,
-          channel.copyWith(trimPercent: value),
-        );
-    }
-  }
 }
 
 enum _ChannelValueField { low, high, trim }
-
-enum _ChannelFieldInputType { button, input }
 
 class _ChannelDisplaySpec {
   const _ChannelDisplaySpec(this.fields);
@@ -473,15 +544,153 @@ class _ChannelDisplaySpec {
 }
 
 class _ChannelDisplayFieldSpec {
-  const _ChannelDisplayFieldSpec(
-    this.label,
-    this.field, {
-    this.inputType = _ChannelFieldInputType.button,
-  });
+  const _ChannelDisplayFieldSpec(this.label, this.field);
 
   final String label;
   final _ChannelValueField field;
-  final _ChannelFieldInputType inputType;
+}
+
+class _AuxLabel extends StatelessWidget {
+  const _AuxLabel(this.value);
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 56,
+      child: Text(
+        value,
+        style: const TextStyle(color: AppColors.text, fontSize: 14),
+      ),
+    );
+  }
+}
+
+class _AuxSelectField extends StatelessWidget {
+  const _AuxSelectField({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        width: 74,
+        height: 30,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(0xFF23385C),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(color: AppColors.text, fontSize: 14),
+        ),
+      ),
+    );
+  }
+}
+
+class _AuxNameField extends StatefulWidget {
+  const _AuxNameField({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_AuxNameField> createState() => _AuxNameFieldState();
+}
+
+class _AuxNameFieldState extends State<_AuxNameField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value,
+  );
+
+  @override
+  void didUpdateWidget(covariant _AuxNameField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value == widget.value || _controller.text == widget.value) {
+      return;
+    }
+    _controller.text = widget.value;
+    _controller.selection = TextSelection.collapsed(
+      offset: _controller.text.length,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: const Color(0x661B2D4D),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF0072FF), width: 0.9),
+      ),
+      alignment: Alignment.center,
+      child: TextField(
+        controller: _controller,
+        onChanged: widget.onChanged,
+        style: const TextStyle(
+          color: AppColors.text,
+          fontSize: 14,
+          fontWeight: AppFonts.w600,
+        ),
+        decoration: const InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+    );
+  }
+}
+
+class _AuxValueEditor extends StatelessWidget {
+  const _AuxValueEditor({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: label.length > 2 ? 48 : 28,
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: AppColors.text, fontSize: 14),
+          ),
+        ),
+        const SizedBox(width: 8),
+        _ChannelValueInput(value: value, onChanged: onChanged),
+      ],
+    );
+  }
 }
 
 class _FieldLabel extends StatelessWidget {
@@ -555,7 +764,9 @@ class _ChannelValueInput extends StatelessWidget {
       maxLength: 4,
     );
     final parsed = int.tryParse(raw?.trim() ?? '');
-    if (parsed == null) return;
+    if (parsed == null) {
+      return;
+    }
     onChanged(parsed.clamp(-100, 100));
   }
 

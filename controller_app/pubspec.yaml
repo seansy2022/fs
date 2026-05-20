@@ -48,6 +48,8 @@ dependencies:
     path: ../packages/rc_c_ble
   permission_handler: ^12.0.1
   file_picker: ^11.0.2
+  pdfx: ^2.9.2
+  internet_file: ^1.2.0
 
 dev_dependencies:
   flutter_test:
