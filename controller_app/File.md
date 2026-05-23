@@ -60,6 +60,8 @@ lib/src/provider/
 - `features/bluetooth/view/`：设备列表、配对页。
 - `features/control/view/`：控制页。
 - `features/settings/view/`：设置主页与子页。
+- `features/settings/widgets/`：设置页复用组件（布局、切换项、数值弹窗、统一操作按钮）。
+- `features/settings/widgets/tank_mixing_panel.dart`：履带混控布局与方向输入按钮。
 - `features/help/view/`：帮助页。
 
 ### provider（统一收口）

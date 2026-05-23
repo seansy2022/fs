@@ -8,6 +8,7 @@ import '../controllers/settings_controller.dart';
 import '../models/app_settings_state.dart';
 import '../widgets/numeric_input_dialog.dart';
 import '../widgets/select_option_toggle.dart';
+import '../widgets/settings_action_button.dart';
 import '../widgets/settings_workspace.dart';
 
 class AlarmSettingsPage extends ConsumerWidget {
@@ -48,7 +49,7 @@ class AlarmSettingsContent extends ConsumerWidget {
             const SizedBox(height: 8),
             SettingsStrip(
               child: Padding(
-                padding: const EdgeInsets.only(left: 20, right: 20),
+                padding: const EdgeInsets.only(left: 20, right: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -60,23 +61,14 @@ class AlarmSettingsContent extends ConsumerWidget {
                           style: TextStyle(color: AppColors.text, fontSize: 14),
                         ),
                         const SizedBox(width: 8),
-                        RCButton(
+                        SettingsActionButton(
+                          label: _batteryTypeLabel(settings.batteryType),
+                          width: 48,
+                          height: 30,
                           onTap: () => _showBatteryTypeDialog(
                             context,
                             settings.batteryType,
                             controller,
-                          ),
-                          active: true,
-                          enableRepeat: false,
-                          width: 72,
-                          height: 32,
-                          textWidget: Text(
-                            _batteryTypeLabel(settings.batteryType),
-                            style: const TextStyle(
-                              color: AppColors.text,
-                              fontSize: 14,
-                              fontWeight: AppFonts.w600,
-                            ),
                           ),
                         ),
                       ],
@@ -92,6 +84,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                         _TapInputBox(
                           text:
                               '${_formatDisplayNumber(settings.minimumVoltage)}V',
+                          width: 60,
                           onTap: () async {
                             final raw = await NumericInputDialog.show(
                               context,
@@ -124,6 +117,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                         _TapInputBox(
                           text:
                               '${_formatDisplayNumber(settings.fullVoltage)}V',
+                          width: 60,
                           onTap: () async {
                             final raw = await NumericInputDialog.show(
                               context,
@@ -149,14 +143,14 @@ class AlarmSettingsContent extends ConsumerWidget {
             const SizedBox(height: 8),
             SettingsStrip(
               child: Padding(
-                padding: const EdgeInsets.only(left: 20, right: 40),
+                padding: const EdgeInsets.only(left: 20, right: 8),
                 child: _LabeledRow(
                   title: '报警电量',
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '${settings.minimumVoltage.toStringAsFixed(1)}伏',
+                        '${_formatDisplayNumber(_batteryAlertVoltage(settings))}V',
                         style: const TextStyle(
                           color: AppColors.text,
                           fontSize: 14,
@@ -165,6 +159,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                       const SizedBox(width: 8),
                       _TapInputBox(
                         text: '${settings.batteryAlertPercent.round()}%',
+                        width: 60,
                         onTap: () async {
                           final raw = await NumericInputDialog.show(
                             context,
@@ -177,7 +172,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                           final value = _extractNumber(raw ?? '');
                           if (value == null) return;
                           controller.updateBatterySettings(
-                            alertPercent: value.clamp(0, 99),
+                            alertPercent: value.clamp(0, 100),
                           );
                         },
                       ),
@@ -189,7 +184,7 @@ class AlarmSettingsContent extends ConsumerWidget {
             const SizedBox(height: 8),
             SettingsStrip(
               child: Padding(
-                padding: const EdgeInsets.only(left: 20, right: 40),
+                padding: const EdgeInsets.only(left: 20, right: 8),
                 child: _LabeledRow(
                   title: '报警提示',
                   trailing: Row(
@@ -246,6 +241,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                         const SizedBox(width: 8),
                         _TapInputBox(
                           text: '${settings.signalThreshold.round()}%',
+                          width: 60,
                           onTap: () async {
                             final raw = await NumericInputDialog.show(
                               context,
@@ -448,31 +444,35 @@ class _AlarmToggleSwitch extends StatelessWidget {
 }
 
 class _TapInputBox extends StatelessWidget {
-  const _TapInputBox({required this.text, required this.onTap});
+  const _TapInputBox({
+    required this.text,
+    required this.onTap,
+    this.width = 74,
+  });
 
   final String text;
   final VoidCallback onTap;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
       child: Container(
-        width: 72,
+        width: width,
         height: 28,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: const Color(0xFF0A1E3A),
+          color: const Color(0x661B2D4D),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: const Color(0xFF2C4A73), width: 0.8),
+          border: Border.all(color: const Color(0xFF0072FF), width: 0.5),
         ),
         child: Text(
           text,
           style: const TextStyle(
             color: AppColors.text,
-            fontSize: 14,
-            fontWeight: AppFonts.w600,
+            fontSize: 13,
+            fontWeight: AppFonts.w700,
           ),
         ),
       ),
@@ -494,6 +494,12 @@ double _clampMinimumVoltage(double value, AppSettingsState settings) {
 double _clampFullVoltage(double value, AppSettingsState settings) {
   final lowerBound = (settings.minimumVoltage + 1).clamp(3.5, 30.0);
   return _roundToTenth(value.clamp(lowerBound, 30.0));
+}
+
+double _batteryAlertVoltage(AppSettingsState settings) {
+  final percent = settings.batteryAlertPercent.clamp(0, 100) / 100;
+  final span = settings.fullVoltage - settings.minimumVoltage;
+  return _roundToTenth((span * percent) + settings.minimumVoltage);
 }
 
 double _roundToTenth(double value) => (value * 10).roundToDouble() / 10;

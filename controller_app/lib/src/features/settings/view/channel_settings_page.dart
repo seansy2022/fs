@@ -8,6 +8,7 @@ import '../controllers/settings_controller.dart';
 import '../models/app_settings_state.dart';
 import '../widgets/numeric_input_dialog.dart';
 import '../widgets/select_option_toggle.dart';
+import '../widgets/settings_action_button.dart';
 import '../widgets/settings_workspace.dart';
 
 class ChannelSettingsPage extends ConsumerWidget {
@@ -205,7 +206,7 @@ class _ChannelSettingsContentState
                       },
                     ),
                   ),
-            ],
+                ],
               ),
               if (configSection != null) ...[
                 const SizedBox(height: 14),
@@ -604,23 +605,7 @@ class _AuxSelectField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        width: 74,
-        height: 30,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: const Color(0xFF23385C),
-          borderRadius: BorderRadius.circular(2),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(color: AppColors.text, fontSize: 14),
-        ),
-      ),
-    );
+    return SettingsActionButton(label: label, onTap: onTap);
   }
 }
 

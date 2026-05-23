@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
-import '../controllers/settings_controller.dart';
+import '../widgets/numeric_input_dialog.dart';
 import '../widgets/settings_workspace.dart';
+import '../widgets/tank_mixing_panel.dart';
 
 class TankMixingPage extends ConsumerWidget {
   const TankMixingPage({super.key});
@@ -21,279 +20,93 @@ class TankMixingPage extends ConsumerWidget {
   }
 }
 
-class TankMixingContent extends ConsumerWidget {
+class TankMixingContent extends ConsumerStatefulWidget {
   const TankMixingContent({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TankMixingContent> createState() => _TankMixingContentState();
+}
+
+class _TankMixingContentState extends ConsumerState<TankMixingContent> {
+  _TankMixDirection? _selectedDirection;
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
     final controller = ref.read(appSettingsProvider.notifier);
-
     final left = settings.trackMixLeft.round().clamp(-100, 100);
     final right = settings.trackMixRight.round().clamp(-100, 100);
-    final forwardActive = left > 0 && right > 0;
-    final backwardActive = left < 0 && right < 0;
-    final leftActive = left < 0 && right > 0;
-    final rightActive = left > 0 && right < 0;
 
     return Column(
       children: [
-        _TankMixingPanel(
-          forwardActive: forwardActive,
-          backwardActive: backwardActive,
-          leftActive: leftActive,
-          rightActive: rightActive,
+        TankMixingPanel(
+          forwardValue: left > 0 ? left : 0,
+          leftTurnValue: left < 0 ? -left : 0,
+          rightTurnValue: right > 0 ? right : 0,
+          backwardValue: right < 0 ? -right : 0,
+          forwardSelected: _selectedDirection == _TankMixDirection.forward,
+          backwardSelected: _selectedDirection == _TankMixDirection.backward,
+          leftTurnSelected: _selectedDirection == _TankMixDirection.left,
+          rightTurnSelected: _selectedDirection == _TankMixDirection.right,
           leftTrackValue: left,
           rightTrackValue: right,
-          onLeftValueChanged: (v) =>
-              controller.updateTrackMix(left: v.toDouble()),
-          onRightValueChanged: (v) =>
-              controller.updateTrackMix(right: v.toDouble()),
-          onForwardTap: () => _toggleForward(controller, forwardActive),
-          onBackwardTap: () => _toggleBackward(controller, backwardActive),
-          onLeftTap: () => _toggleLeft(controller, leftActive),
-          onRightTap: () => _toggleRight(controller, rightActive),
-        ),
-      ],
-    );
-  }
-
-  void _toggleForward(SettingsController controller, bool active) {
-    if (active) {
-      controller.updateTrackMix(left: 0, right: 0);
-      return;
-    }
-    controller.updateTrackMix(left: 100, right: 100);
-  }
-
-  void _toggleBackward(SettingsController controller, bool active) {
-    if (active) {
-      controller.updateTrackMix(left: 0, right: 0);
-      return;
-    }
-    controller.updateTrackMix(left: -100, right: -100);
-  }
-
-  void _toggleLeft(SettingsController controller, bool active) {
-    if (active) {
-      controller.updateTrackMix(left: 0, right: 0);
-      return;
-    }
-    controller.updateTrackMix(left: -100, right: 100);
-  }
-
-  void _toggleRight(SettingsController controller, bool active) {
-    if (active) {
-      controller.updateTrackMix(left: 0, right: 0);
-      return;
-    }
-    controller.updateTrackMix(left: 100, right: -100);
-  }
-}
-
-class _TankMixingPanel extends StatelessWidget {
-  const _TankMixingPanel({
-    required this.forwardActive,
-    required this.backwardActive,
-    required this.leftActive,
-    required this.rightActive,
-    required this.leftTrackValue,
-    required this.rightTrackValue,
-    required this.onLeftValueChanged,
-    required this.onRightValueChanged,
-    required this.onForwardTap,
-    required this.onBackwardTap,
-    required this.onLeftTap,
-    required this.onRightTap,
-  });
-
-  final bool forwardActive;
-  final bool backwardActive;
-  final bool leftActive;
-  final bool rightActive;
-  final int leftTrackValue;
-  final int rightTrackValue;
-  final ValueChanged<int> onLeftValueChanged;
-  final ValueChanged<int> onRightValueChanged;
-  final VoidCallback onForwardTap;
-  final VoidCallback onBackwardTap;
-  final VoidCallback onLeftTap;
-  final VoidCallback onRightTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFF001024),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _SidePair(label: '左转', active: leftActive, onTap: onLeftTap),
-            const SizedBox(width: 12),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  height: 220,
-                  child: TankProgressTrack(value: leftTrackValue),
-                ),
-              ],
-            ),
-            const SizedBox(width: 16),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _CenterRow(
-                  leftLabel: '前进',
-                  buttonActive: forwardActive,
-                  onTap: onForwardTap,
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: 98,
-                  height: 126,
-                  child: SvgPicture.asset(AppAssets.tank, fit: BoxFit.contain),
-                ),
-                const SizedBox(height: 12),
-                _CenterRow(
-                  rightLabel: '后退',
-                  buttonActive: backwardActive,
-                  onTap: onBackwardTap,
-                ),
-              ],
-            ),
-            const SizedBox(width: 16),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  height: 220,
-                  child: TankProgressTrack(value: rightTrackValue, flipX: true),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            _SidePair(label: '右转', active: rightActive, onTap: onRightTap),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SidePair extends StatelessWidget {
-  const _SidePair({
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 90,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _MetricLabel(label: label),
-          const SizedBox(height: 12),
-          _RcToggleButton(active: active, onTap: onTap),
-        ],
-      ),
-    );
-  }
-}
-
-class _CenterRow extends StatelessWidget {
-  const _CenterRow({
-    this.leftLabel,
-    this.rightLabel,
-    this.buttonActive = false,
-    required this.onTap,
-  });
-
-  final String? leftLabel;
-  final String? rightLabel;
-  final bool buttonActive;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (rightLabel != null)
-          const Opacity(opacity: 0, child: _MetricLabel(label: '前进')),
-        if (rightLabel != null) const SizedBox(width: 16),
-        if (leftLabel != null) _MetricLabel(label: leftLabel!),
-        if (leftLabel != null) const SizedBox(width: 16),
-        SizedBox(
-          width: 74,
-          child: Center(
-            child: _RcToggleButton(active: buttonActive, onTap: onTap),
+          onForwardTap: () => _selectAndEdit(
+            context,
+            direction: _TankMixDirection.forward,
+            title: '前进',
+            initialValue: left > 0 ? left : 0,
+            onChanged: (value) =>
+                controller.updateTrackMix(left: value.toDouble()),
           ),
-        ),
-        if (leftLabel != null) const SizedBox(width: 16),
-        if (leftLabel != null)
-          const Opacity(opacity: 0, child: _MetricLabel(label: '后退')),
-        if (rightLabel != null) const SizedBox(width: 16),
-        if (rightLabel != null) _MetricLabel(label: rightLabel!),
-      ],
-    );
-  }
-}
-
-class _MetricLabel extends StatelessWidget {
-  const _MetricLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.text,
-            fontSize: 14,
-            fontWeight: AppFonts.w600,
+          onBackwardTap: () => _selectAndEdit(
+            context,
+            direction: _TankMixDirection.backward,
+            title: '后退',
+            initialValue: right < 0 ? -right : 0,
+            onChanged: (value) =>
+                controller.updateTrackMix(right: -value.toDouble()),
+          ),
+          onLeftTap: () => _selectAndEdit(
+            context,
+            direction: _TankMixDirection.left,
+            title: '左转',
+            initialValue: left < 0 ? -left : 0,
+            onChanged: (value) =>
+                controller.updateTrackMix(left: -value.toDouble()),
+          ),
+          onRightTap: () => _selectAndEdit(
+            context,
+            direction: _TankMixDirection.right,
+            title: '右转',
+            initialValue: right > 0 ? right : 0,
+            onChanged: (value) =>
+                controller.updateTrackMix(right: value.toDouble()),
           ),
         ),
       ],
     );
   }
-}
 
-class _RcToggleButton extends StatelessWidget {
-  const _RcToggleButton({required this.active, required this.onTap});
-
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return RCButton(
-      onTap: onTap,
-      active: active,
-      enableRepeat: false,
-      width: 74,
-      height: 34,
-      textWidget: Text(
-        '${active ? 100 : 0}%',
-        style: TextStyle(
-          color: active ? AppColors.text : AppColors.textDim,
-          fontSize: 11,
-          fontWeight: AppFonts.w600,
-        ),
-      ),
+  Future<void> _selectAndEdit(
+    BuildContext context, {
+    required _TankMixDirection direction,
+    required String title,
+    required int initialValue,
+    required ValueChanged<int> onChanged,
+  }) async {
+    setState(() => _selectedDirection = direction);
+    final raw = await NumericInputDialog.show(
+      context,
+      title: title,
+      initialValue: initialValue.toString(),
+      unit: '%',
+      allowDecimal: false,
+      maxLength: 3,
     );
+    final parsed = int.tryParse(raw?.trim() ?? '');
+    if (parsed == null) return;
+    onChanged(parsed.clamp(0, 100));
   }
 }
+
+enum _TankMixDirection { forward, backward, left, right }
