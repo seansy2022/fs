@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
@@ -126,6 +128,48 @@ class BluetoothDomainState {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is BluetoothDomainState &&
+        other.adapterState == adapterState &&
+        other.permissionState == permissionState &&
+        other.availability == availability &&
+        other.scanPhase == scanPhase &&
+        other.scanOwner == scanOwner &&
+        other.isScanning == isScanning &&
+        other.isWorking == isWorking &&
+        other.hasBootstrappedHome == hasBootstrappedHome &&
+        other.homeScanEndsAt == homeScanEndsAt &&
+        other.pendingBootstrapPrompt == pendingBootstrapPrompt &&
+        other.lastBootstrapPromptAt == lastBootstrapPromptAt &&
+        other.connectedDevice == connectedDevice &&
+        listEquals(other.pairedDevices, pairedDevices) &&
+        listEquals(other.discoveredDevices, discoveredDevices) &&
+        other.errorMessage == errorMessage;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    adapterState,
+    permissionState,
+    availability,
+    scanPhase,
+    scanOwner,
+    isScanning,
+    isWorking,
+    hasBootstrappedHome,
+    homeScanEndsAt,
+    pendingBootstrapPrompt,
+    lastBootstrapPromptAt,
+    connectedDevice,
+    Object.hashAll(pairedDevices),
+    Object.hashAll(discoveredDevices),
+    errorMessage,
+  );
 }
 
 class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
@@ -146,6 +190,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
     milliseconds: 120,
   );
   DateTime? _lastStopAt;
+  bool _deviceViewsRebuildScheduled = false;
 
   void _bind() {
     _adapterSub = ref
@@ -160,6 +205,20 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
 
   void rebuildDeviceViews() {
     _rebuildDeviceViews();
+  }
+
+  void scheduleDeviceViewsRebuild() {
+    if (!mounted || _deviceViewsRebuildScheduled) {
+      return;
+    }
+    _deviceViewsRebuildScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _deviceViewsRebuildScheduled = false;
+      if (!mounted) {
+        return;
+      }
+      _rebuildDeviceViews();
+    });
   }
 
   void syncConnectionState(ReceiverConnectionState connectionState) {
@@ -198,7 +257,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
           data: (devices) => devices,
           orElse: () => const <ReceiverScanDevice>[],
         )
-        .where((device) => device.name.trim().isNotEmpty)
+        .where(shouldIncludeBluetoothDevice)
         .toList(growable: false);
     final remembered = ref.read(rememberedDevicesProvider);
     final rememberedIds = remembered.map((device) => device.remoteId).toSet();
@@ -209,7 +268,10 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         .map(
           (device) => ReceiverDeviceView(
             remoteId: device.remoteId,
-            name: device.name,
+            name: _preferredDeviceName(
+              device.name,
+              fallbackRemoteId: device.remoteId,
+            ),
             isConnected: device.connected,
             isRemembered: rememberedIds.contains(device.remoteId),
             isOnline: device.rssi > -120,
@@ -800,7 +862,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   }
 
   void _setState(BluetoothDomainState next) {
-    if (!mounted) {
+    if (!mounted || next == state) {
       return;
     }
     state = next;
@@ -824,17 +886,17 @@ final bluetoothDomainControllerProvider =
       ref.listen<AsyncValue<List<ReceiverScanDevice>>>(
         receiverDevicesProvider,
         (_, __) {
-          controller.rebuildDeviceViews();
+          controller.scheduleDeviceViewsRebuild();
         },
       );
       ref.listen<List<RememberedReceiver>>(rememberedDevicesProvider, (_, __) {
-        controller.rebuildDeviceViews();
+        controller.scheduleDeviceViewsRebuild();
       });
       ref.listen<AsyncValue<ReceiverInfo?>>(receiverInfoProvider, (_, __) {
-        controller.rebuildDeviceViews();
+        controller.scheduleDeviceViewsRebuild();
       });
       ref.listen<AsyncValue<int?>>(connectedRssiProvider, (_, __) {
-        controller.rebuildDeviceViews();
+        controller.scheduleDeviceViewsRebuild();
       });
       ref.listen<AsyncValue<ReceiverConnectionState>>(
         receiverConnectionProvider,

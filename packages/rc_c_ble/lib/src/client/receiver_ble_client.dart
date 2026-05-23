@@ -8,6 +8,7 @@ import '../protocol/receiver_frame_parser.dart';
 import '../protocol/receiver_protocol_codec.dart';
 import '../transport/flutter_blue_receiver_transport.dart';
 import '../transport/receiver_link_transport.dart';
+import '../transport/receiver_logging.dart';
 
 class ReceiverBleClient {
   ReceiverBleClient({
@@ -361,6 +362,10 @@ class ReceiverBleClient {
 
   void _onBytes(List<int> bytes) {
     for (final frame in _parser.addChunk(bytes)) {
+      ReceiverLogging.link(
+        'rx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
+        scope: 'ReceiverBleClient',
+      );
       _frameCtrl.add(frame);
       final completer = _pendingResponse;
       final matcher = _pendingMatcher;
@@ -416,6 +421,10 @@ class ReceiverBleClient {
     _pendingResponse = completer;
     _pendingMatcher = matcher;
     try {
+      ReceiverLogging.link(
+        'tx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
+        scope: 'ReceiverBleClient',
+      );
       await _transport.send(frame.toBytes());
       return completer.future.timeout(
         requestTimeout,
@@ -434,9 +443,12 @@ class ReceiverBleClient {
 
   Future<void> _sendControlHeartbeat() async {
     final rfmId = _requireRfmId();
-    await _transport.send(
-      buildControlHeartbeatFrame(rfmId, _controlValues).toBytes(),
+    final frame = buildControlHeartbeatFrame(rfmId, _controlValues);
+    ReceiverLogging.link(
+      'tx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
+      scope: 'ReceiverBleClient',
     );
+    await _transport.send(frame.toBytes());
   }
 
   Uint8List _requireRfmId() {
@@ -550,5 +562,15 @@ class ReceiverBleClient {
     if (remaining > Duration.zero) {
       await Future<void>.delayed(remaining);
     }
+  }
+
+  String _describeCommand(int commandId) {
+    final command = ReceiverCommand.fromId(commandId);
+    final hex =
+        '0x${commandId.toRadixString(16).padLeft(2, '0').toUpperCase()}';
+    if (command == null) {
+      return hex;
+    }
+    return '${command.name}($hex)';
   }
 }

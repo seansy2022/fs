@@ -46,7 +46,7 @@ class DeviceHistoryController extends StateNotifier<List<RememberedReceiver>> {
     final updated = <RememberedReceiver>[
       RememberedReceiver(
         remoteId: device.remoteId,
-        name: device.name,
+        name: device.name.trim().isEmpty ? device.remoteId : device.name,
         lastUsedAt: DateTime.now(),
       ),
       for (final entry in state)

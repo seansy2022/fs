@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:rc_ui/rc_ui.dart';
 
-import '../features/bluetooth/pages/device_list_page.dart';
-import '../features/bluetooth/pages/pair_receiver_page.dart';
-import '../features/control/pages/control_page.dart';
-import '../features/help/pages/help_center_page.dart';
-import '../features/home/pages/home_page.dart';
-import '../features/settings/pages/settings_page.dart';
-import '../features/startup/pages/startup_page.dart';
+import '../features/bluetooth/view/device_list_page.dart';
+import '../features/bluetooth/view/pair_receiver_page.dart';
+import '../features/control/view/control_page.dart';
+import '../features/help/view/help_center_page.dart';
+import '../features/home/view/home_page.dart';
+import '../features/settings/view/settings_page.dart';
+import '../features/startup/view/startup_page.dart';
 import 'app_routes.dart';
 
 class ControllerApp extends StatelessWidget {

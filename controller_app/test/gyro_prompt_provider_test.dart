@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:controller_app/src/features/control/providers/gyro_prompt_provider.dart';
+import 'package:controller_app/src/provider/gyro_prompt_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

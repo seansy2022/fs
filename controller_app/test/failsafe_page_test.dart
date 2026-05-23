@@ -1,5 +1,5 @@
 import 'package:controller_app/src/core/providers.dart';
-import 'package:controller_app/src/features/settings/pages/failsafe_page.dart';
+import 'package:controller_app/src/features/settings/view/failsafe_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

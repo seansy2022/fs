@@ -14,16 +14,12 @@ class ThrottleTurnSignalButtons extends StatelessWidget {
     super.key,
     required this.leftOn,
     required this.rightOn,
-    required this.onLeftTap,
-    required this.onRightTap,
     this.size = 36,
     this.gap = 8,
   });
 
   final bool leftOn;
   final bool rightOn;
-  final VoidCallback onLeftTap;
-  final VoidCallback onRightTap;
   final double size;
   final double gap;
 
@@ -35,14 +31,12 @@ class ThrottleTurnSignalButtons extends StatelessWidget {
         _TurnButton(
           svg: _leftTurnSvg,
           active: leftOn,
-          onTap: onLeftTap,
           size: size,
         ),
         SizedBox(width: gap),
         _TurnButton(
           svg: _rightTurnSvg,
           active: rightOn,
-          onTap: onRightTap,
           size: size,
         ),
       ],
@@ -54,13 +48,11 @@ class _TurnButton extends StatelessWidget {
   const _TurnButton({
     required this.svg,
     required this.active,
-    required this.onTap,
     required this.size,
   });
 
   final String svg;
   final bool active;
-  final VoidCallback onTap;
   final double size;
 
   @override
@@ -70,14 +62,7 @@ class _TurnButton extends StatelessWidget {
       height: size,
       child: Opacity(
         opacity: active ? 1 : 0.72,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            customBorder: const CircleBorder(),
-            child: SvgPicture.string(svg, width: size, height: size),
-          ),
-        ),
+        child: SvgPicture.string(svg, width: size, height: size),
       ),
     );
   }

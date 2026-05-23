@@ -10,7 +10,6 @@ import 'floating_control_zone.dart'
 
 const _kVerticalControlWidth = 100.0;
 const _kVerticalControlHeight = 206.0;
-const _kVerticalIntentLockDistance = 12.0;
 const _kVerticalClickButtonActiveSvgAsset =
     'packages/rc_ui/lib/src/assets/assets/点击.svg';
 const _kVerticalClickButtonInactiveSvgAsset =
@@ -51,7 +50,6 @@ class _VerticalFloatingControlZoneState
   Offset? _origin;
   double _axisOffset = 0;
   bool _visible = false;
-  _VerticalGestureIntent? _gestureIntent;
 
   double get _maxTravel => (widget.controlHeight - widget.thumbSize) / 2;
 
@@ -95,7 +93,6 @@ class _VerticalFloatingControlZoneState
       _origin = clampedOrigin;
       _axisOffset = 0;
       _visible = true;
-      _gestureIntent = null;
     });
     widget.onChanged(0);
   }
@@ -109,24 +106,6 @@ class _VerticalFloatingControlZoneState
     final delta = localPosition.dy - origin.dy;
     var clampedOffset = delta.clamp(-_maxTravel, _maxTravel).toDouble();
     var nextValue = -clampedOffset / _maxTravel;
-
-    final gestureIntent = _gestureIntent;
-    if (widget.allowPositive && widget.allowNegative) {
-      if (gestureIntent == null &&
-          clampedOffset.abs() >= _kVerticalIntentLockDistance) {
-        _gestureIntent = nextValue > 0
-            ? _VerticalGestureIntent.positive
-            : _VerticalGestureIntent.negative;
-      }
-      if (_gestureIntent == _VerticalGestureIntent.positive && nextValue < 0) {
-        clampedOffset = 0;
-        nextValue = 0;
-      } else if (_gestureIntent == _VerticalGestureIntent.negative &&
-          nextValue > 0) {
-        clampedOffset = 0;
-        nextValue = 0;
-      }
-    }
 
     if (!widget.allowPositive && nextValue > 0) {
       clampedOffset = 0;
@@ -153,7 +132,6 @@ class _VerticalFloatingControlZoneState
         _origin = null;
         _axisOffset = 0;
         _visible = false;
-        _gestureIntent = null;
       });
     }
     widget.onChanged(0);
@@ -262,5 +240,3 @@ class _VerticalFloatingControlZoneState
     );
   }
 }
-
-enum _VerticalGestureIntent { positive, negative }

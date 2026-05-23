@@ -44,6 +44,8 @@ class ReceiverRepository {
     return session.readReceiverInfo();
   }
 
+  Future<ReceiverInfo> readReceiverInfo() => session.readReceiverInfo();
+
   Future<void> disconnect() => session.disconnect();
 
   Future<ReceiverFailsafeConfig> readFailsafe() => session.readFailsafe();

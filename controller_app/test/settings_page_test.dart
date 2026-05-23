@@ -1,7 +1,7 @@
 import 'package:controller_app/src/core/providers.dart';
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
 import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
-import 'package:controller_app/src/features/settings/pages/settings_page.dart';
+import 'package:controller_app/src/features/settings/view/settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

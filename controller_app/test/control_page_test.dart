@@ -1,4 +1,5 @@
-import 'package:controller_app/src/features/control/pages/control_page.dart';
+import 'package:controller_app/src/features/control/view/control_page.dart';
+import 'package:controller_app/src/provider/control_presentation_provider.dart';
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
 import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
 import 'package:flutter/material.dart';
@@ -49,6 +50,15 @@ void main() {
       shouldUseGyroControlOverride(gyroEnabled: true, gyroMode: GyroMode.all),
       isFalse,
     );
+  });
+
+  test('turn status follows animation state instead of button state', () {
+    expect(isLeftTurnState(ControlAnimationState.forwardLeft), isTrue);
+    expect(isLeftTurnState(ControlAnimationState.reverseLeft), isTrue);
+    expect(isLeftTurnState(ControlAnimationState.forwardRight), isFalse);
+    expect(isRightTurnState(ControlAnimationState.forwardRight), isTrue);
+    expect(isRightTurnState(ControlAnimationState.reverseRight), isTrue);
+    expect(isRightTurnState(ControlAnimationState.forwardLeft), isFalse);
   });
 
   testWidgets('gyro direction hint keeps the dot above the up arrow', (

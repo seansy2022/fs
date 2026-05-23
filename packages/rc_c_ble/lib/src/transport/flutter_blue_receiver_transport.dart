@@ -134,6 +134,10 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     if (characteristic == null) {
       throw StateError('bluetooth write characteristic is not ready');
     }
+    ReceiverLogging.link(
+      'tx bytes(${bytes.length}) ${ReceiverLogging.hexBytes(bytes)}',
+      scope: 'FlutterBlueReceiverTransport',
+    );
     final mtu = _activeDevice?.mtuNow ?? 23;
     final chunkSize = (mtu - 3).clamp(1, bytes.length);
     final withoutResponse =
@@ -205,6 +209,10 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     await _notifySub?.cancel();
     _notifySub = notifyTarget.onValueReceived.listen((value) {
       if (value.isNotEmpty) {
+        ReceiverLogging.link(
+          'rx bytes(${value.length}) ${ReceiverLogging.hexBytes(value)}',
+          scope: 'FlutterBlueReceiverTransport',
+        );
         _incomingCtrl.add(value);
       }
     });

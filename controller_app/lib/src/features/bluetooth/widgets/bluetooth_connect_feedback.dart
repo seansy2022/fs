@@ -13,10 +13,12 @@ Future<BluetoothConnectFeedbackResult> showBluetoothConnectFeedback(
     _BluetoothConnectStage.connecting,
   );
   final startedAt = DateTime.now();
+  final navigator = Navigator.of(context, rootNavigator: true);
 
   unawaited(
     showGeneralDialog<void>(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
       barrierLabel: 'bluetooth_connect_feedback',
       barrierColor: const Color(0x99000000),
@@ -61,8 +63,8 @@ Future<BluetoothConnectFeedbackResult> showBluetoothConnectFeedback(
     return BluetoothConnectFeedbackResult.failure;
   } finally {
     notifier.dispose();
-    if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).maybePop();
+    if (navigator.mounted && navigator.canPop()) {
+      navigator.pop();
     }
   }
 }

@@ -11,4 +11,10 @@ class ReceiverLogging {
     // ignore: avoid_print
     print('[$scope] $message');
   }
+
+  static String hexBytes(Iterable<int> bytes) {
+    return bytes
+        .map((value) => value.toRadixString(16).padLeft(2, '0').toUpperCase())
+        .join(' ');
+  }
 }

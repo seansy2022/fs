@@ -1,11 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
 import '../features/bluetooth/controllers/device_history_controller.dart';
-import '../features/control/controllers/control_controller.dart';
-import '../features/control/providers/gyro_prompt_provider.dart';
 export '../provider/app_settings_provider.dart';
 
 class ReceiverDeviceView {
@@ -26,6 +22,43 @@ class ReceiverDeviceView {
   final bool isOnline;
   final int? rssi;
   final ReceiverScanDevice? scanDevice;
+
+  bool get hasExplicitName {
+    final advertisedName = scanDevice?.name.trim() ?? '';
+    if (advertisedName.isNotEmpty) {
+      return true;
+    }
+    return name.trim().isNotEmpty && name.trim() != remoteId;
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is ReceiverDeviceView &&
+        other.remoteId == remoteId &&
+        other.name == name &&
+        other.isConnected == isConnected &&
+        other.isRemembered == isRemembered &&
+        other.isOnline == isOnline &&
+        other.rssi == rssi &&
+        _sameScanDevice(other.scanDevice, scanDevice);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    remoteId,
+    name,
+    isConnected,
+    isRemembered,
+    isOnline,
+    rssi,
+    scanDevice?.remoteId,
+    scanDevice?.name,
+    scanDevice?.rssi,
+    scanDevice?.connected,
+  );
 }
 
 final receiverRepositoryProvider = Provider<ReceiverRepository>((ref) {
@@ -72,30 +105,6 @@ final rememberedDevicesProvider =
       return DeviceHistoryController();
     });
 
-final controlControllerProvider =
-    StateNotifierProvider.autoDispose<ControlController, ControlScreenState>((
-      ref,
-    ) {
-      final controller = ControlController(
-        ref,
-        ref.watch(receiverRepositoryProvider),
-      );
-      ref.listen<AsyncValue<GyroPrompt>>(gyroPromptProvider, (_, next) {
-        next.whenData((value) {
-          if (!controller.state.gyroEnabled) {
-            return;
-          }
-          unawaited(
-            controller.setGyroPrompt(
-              steering: value.steering,
-              throttle: value.throttle,
-            ),
-          );
-        });
-      });
-      return controller;
-    });
-
 final scanSessionDevicesProvider = Provider<List<ReceiverDeviceView>>((ref) {
   final scanned = ref
       .watch(receiverDevicesProvider)
@@ -103,7 +112,7 @@ final scanSessionDevicesProvider = Provider<List<ReceiverDeviceView>>((ref) {
         data: (devices) => devices,
         orElse: () => const <ReceiverScanDevice>[],
       )
-      .where((device) => device.name.trim().isNotEmpty)
+      .where(shouldIncludeBluetoothDevice)
       .toList(growable: false);
   final rememberedIds = ref
       .watch(rememberedDevicesProvider)
@@ -114,7 +123,10 @@ final scanSessionDevicesProvider = Provider<List<ReceiverDeviceView>>((ref) {
       .map(
         (device) => ReceiverDeviceView(
           remoteId: device.remoteId,
-          name: device.name,
+          name: preferredBluetoothDeviceName(
+            device.name,
+            fallbackRemoteId: device.remoteId,
+          ),
           isConnected: device.connected,
           isRemembered: rememberedIds.contains(device.remoteId),
           isOnline: device.rssi > -120,
@@ -154,7 +166,11 @@ final pairedReceiverDevicesProvider = Provider<List<ReceiverDeviceView>>((ref) {
             scan?.connected == true || connectedId == entry.remoteId;
         return ReceiverDeviceView(
           remoteId: entry.remoteId,
-          name: entry.name,
+          name: preferredBluetoothDeviceName(
+            scan?.name,
+            rememberedName: entry.name,
+            fallbackRemoteId: entry.remoteId,
+          ),
           isConnected: isConnected,
           isRemembered: true,
           isOnline: (scan?.rssi ?? -127) > -120,
@@ -181,7 +197,10 @@ final mergedReceiverDevicesProvider = Provider<List<ReceiverScanDevice>>((ref) {
       device.remoteId,
       () => ReceiverScanDevice(
         remoteId: device.remoteId,
-        name: device.name,
+        name: preferredBluetoothDeviceName(
+          device.name,
+          fallbackRemoteId: device.remoteId,
+        ),
         rssi: -127,
       ),
     );
@@ -215,4 +234,40 @@ int _deviceScore(ReceiverScanDevice device) {
     return 1;
   }
   return 2;
+}
+
+bool shouldIncludeBluetoothDevice(ReceiverScanDevice device) {
+  return true;
+}
+
+String preferredBluetoothDeviceName(
+  String? currentName, {
+  String? rememberedName,
+  required String fallbackRemoteId,
+}) {
+  final scanName = currentName?.trim() ?? '';
+  if (scanName.isNotEmpty && scanName != fallbackRemoteId) {
+    return scanName;
+  }
+  final historyName = rememberedName?.trim() ?? '';
+  if (historyName.isNotEmpty) {
+    return historyName;
+  }
+  if (scanName.isNotEmpty) {
+    return scanName;
+  }
+  return fallbackRemoteId;
+}
+
+bool _sameScanDevice(ReceiverScanDevice? left, ReceiverScanDevice? right) {
+  if (identical(left, right)) {
+    return true;
+  }
+  if (left == null || right == null) {
+    return false;
+  }
+  return left.remoteId == right.remoteId &&
+      left.name == right.name &&
+      left.rssi == right.rssi &&
+      left.connected == right.connected;
 }

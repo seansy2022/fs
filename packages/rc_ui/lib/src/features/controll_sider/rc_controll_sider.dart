@@ -13,6 +13,7 @@ class RCControllSider extends StatefulWidget {
     this.initialValue = 0,
     this.step = 0.1,
     this.showButtons = true,
+    this.lockSignUntilRelease = false,
     this.onChanged,
   });
 
@@ -25,6 +26,7 @@ class RCControllSider extends StatefulWidget {
   final double step;
 
   final bool showButtons;
+  final bool lockSignUntilRelease;
 
   final ValueChanged<double>? onChanged;
 
@@ -39,6 +41,7 @@ class _RCControllSiderState extends State<RCControllSider> {
   static const _trackCross = 10.0;
 
   late double _value;
+  int? _dragSignLock;
 
   bool get _isHorizontal =>
       widget.direction == RCControllSiderDirection.horizontal;
@@ -68,15 +71,49 @@ class _RCControllSiderState extends State<RCControllSider> {
 
   double _clamp(double input) => input.clamp(-1.0, 1.0);
 
-  void _minus() => _setValue(_value - widget.step);
-  void _plus() => _setValue(_value + widget.step);
+  void _minus() => _stepToward(_value - widget.step);
+  void _plus() => _stepToward(_value + widget.step);
+
+  void _stepToward(double next) {
+    var candidate = next;
+    if (widget.lockSignUntilRelease) {
+      final currentSign = _signOf(_value);
+      final nextSign = _signOf(candidate);
+      if (currentSign != 0 && nextSign != 0 && currentSign != nextSign) {
+        candidate = 0;
+      }
+    }
+    _setValue(candidate);
+  }
+
+  int _signOf(double value) {
+    if (value > 0.0001) return 1;
+    if (value < -0.0001) return -1;
+    return 0;
+  }
+
+  void _startDrag(Offset localPos) {
+    _dragSignLock = widget.lockSignUntilRelease ? _signOf(_value) : null;
+    _onDrag(localPos);
+  }
 
   void _onDrag(Offset localPos) {
     final drag = _isHorizontal ? localPos.dx : localPos.dy;
     final usable = _trackMain - _thumbSize;
     final raw = ((drag - (_thumbSize / 2)) / usable).clamp(0.0, 1.0);
     // Map [0,1] -> [-1,1], vertical keeps top as +1 and bottom as -1.
-    final next = _isHorizontal ? (raw * 2 - 1) : (1 - raw) * 2 - 1;
+    var next = _isHorizontal ? (raw * 2 - 1) : (1 - raw) * 2 - 1;
+    if (widget.lockSignUntilRelease) {
+      final signLock = _dragSignLock ?? 0;
+      if (signLock == 0) {
+        final nextSign = _signOf(next);
+        if (nextSign != 0) {
+          _dragSignLock = nextSign;
+        }
+      } else if (signLock > 0 && next < 0 || signLock < 0 && next > 0) {
+        next = 0;
+      }
+    }
     _setValue(next);
   }
 
@@ -162,8 +199,10 @@ class _RCControllSiderState extends State<RCControllSider> {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPanDown: (d) => _onDrag(d.localPosition),
+      onPanStart: (d) => _startDrag(d.localPosition),
       onPanUpdate: (d) => _onDrag(d.localPosition),
+      onPanEnd: (_) => _dragSignLock = null,
+      onPanCancel: () => _dragSignLock = null,
       child: SizedBox(
         width: _isHorizontal ? _trackMain : _thumbSize,
         height: _isHorizontal ? _thumbSize : _trackMain,

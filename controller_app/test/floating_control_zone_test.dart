@@ -129,7 +129,7 @@ void main() {
   });
 
   testWidgets(
-    'vertical floating control keeps first gesture intent within one touch',
+    'vertical floating control can reverse direction within one touch',
     (tester) async {
       final values = <double>[];
 
@@ -155,45 +155,11 @@ void main() {
 
       await gesture.moveBy(const Offset(0, 200));
       await tester.pump();
-      expect(values.last, 0);
+      expect(values.last, lessThan(0));
 
       await gesture.up();
       await tester.pump();
       expect(values.last, 0);
-    },
-  );
-
-  testWidgets(
-    'vertical floating control does not lock downward from tiny initial jitter',
-    (tester) async {
-      final values = <double>[];
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Center(
-              child: VerticalFloatingControlZone(
-                onChanged: values.add,
-              ),
-            ),
-          ),
-        ),
-      );
-
-      final zone = find.byType(VerticalFloatingControlZone);
-      final gesture = await tester.startGesture(tester.getCenter(zone));
-      await tester.pump();
-
-      await gesture.moveBy(const Offset(0, 4));
-      await tester.pump();
-
-      await gesture.moveBy(const Offset(0, -40));
-      await tester.pump();
-
-      expect(values.last, greaterThan(0));
-
-      await gesture.up();
-      await tester.pump();
     },
   );
 

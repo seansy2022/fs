@@ -15,8 +15,6 @@ class ControlScreenState {
     this.headlightsOn = false,
     this.warningLightsOn = false,
     this.gyroEnabled = false,
-    this.backgroundMusicOn = true,
-    this.soundEffectsOn = true,
     this.highGear = false,
     this.leftSignalOn = false,
     this.rightSignalOn = false,
@@ -30,8 +28,6 @@ class ControlScreenState {
   final bool headlightsOn;
   final bool warningLightsOn;
   final bool gyroEnabled;
-  final bool backgroundMusicOn;
-  final bool soundEffectsOn;
   final bool highGear;
   final bool leftSignalOn;
   final bool rightSignalOn;
@@ -45,8 +41,6 @@ class ControlScreenState {
     bool? headlightsOn,
     bool? warningLightsOn,
     bool? gyroEnabled,
-    bool? backgroundMusicOn,
-    bool? soundEffectsOn,
     bool? highGear,
     bool? leftSignalOn,
     bool? rightSignalOn,
@@ -60,8 +54,6 @@ class ControlScreenState {
       headlightsOn: headlightsOn ?? this.headlightsOn,
       warningLightsOn: warningLightsOn ?? this.warningLightsOn,
       gyroEnabled: gyroEnabled ?? this.gyroEnabled,
-      backgroundMusicOn: backgroundMusicOn ?? this.backgroundMusicOn,
-      soundEffectsOn: soundEffectsOn ?? this.soundEffectsOn,
       highGear: highGear ?? this.highGear,
       leftSignalOn: leftSignalOn ?? this.leftSignalOn,
       rightSignalOn: rightSignalOn ?? this.rightSignalOn,
@@ -89,6 +81,8 @@ class ControlController extends StateNotifier<ControlScreenState> {
   bool _gyroSyncInFlight = false;
   bool _gyroSyncPending = false;
   ReceiverControlValues? _lastPushedValues;
+
+  bool get gyroEnabled => state.gyroEnabled;
 
   Future<void> activate() async {
     await _repository.startControlLoop();
@@ -190,14 +184,6 @@ class ControlController extends StateNotifier<ControlScreenState> {
 
   Future<void> toggleGyro() async {
     await setGyroEnabled(!state.gyroEnabled);
-  }
-
-  void toggleBackgroundMusic() {
-    state = state.copyWith(backgroundMusicOn: !state.backgroundMusicOn);
-  }
-
-  void toggleSoundEffects() {
-    state = state.copyWith(soundEffectsOn: !state.soundEffectsOn);
   }
 
   Future<void> toggleGear(bool highGear) async {
