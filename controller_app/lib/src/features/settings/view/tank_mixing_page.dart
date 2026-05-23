@@ -125,65 +125,59 @@ class _TankMixingPanel extends StatelessWidget {
     return Container(
       color: const Color(0xFF001024),
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _SidePair(label: '左转', active: leftActive, onTap: onLeftTap),
-          const SizedBox(width: 12),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 220,
-                child: TankProgressTrack(value: leftTrackValue),
-              ),
-            ],
-          ),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _CenterRow(
-                    leftLabel: '前进',
-                    leftActive: forwardActive,
-                    rightIsButton: true,
-                    rightActive: forwardActive,
-                    onTap: onForwardTap,
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: 88,
-                    height: 116,
-                    child: SvgPicture.asset(
-                      AppAssets.tank,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _CenterRow(
-                    leftIsButton: true,
-                    leftActive: backwardActive,
-                    rightLabel: '后退',
-                    rightActive: backwardActive,
-                    onTap: onBackwardTap,
-                  ),
-                ],
-              ),
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _SidePair(label: '左转', active: leftActive, onTap: onLeftTap),
+            const SizedBox(width: 12),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 220,
+                  child: TankProgressTrack(value: leftTrackValue),
+                ),
+              ],
             ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 220,
-                child: TankProgressTrack(value: rightTrackValue, flipX: true),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          _SidePair(label: '右转', active: rightActive, onTap: onRightTap),
-        ],
+            const SizedBox(width: 16),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _CenterRow(
+                  leftLabel: '前进',
+                  buttonActive: forwardActive,
+                  onTap: onForwardTap,
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: 98,
+                  height: 126,
+                  child: SvgPicture.asset(AppAssets.tank, fit: BoxFit.contain),
+                ),
+                const SizedBox(height: 12),
+                _CenterRow(
+                  rightLabel: '后退',
+                  buttonActive: backwardActive,
+                  onTap: onBackwardTap,
+                ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 220,
+                  child: TankProgressTrack(value: rightTrackValue, flipX: true),
+                ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            _SidePair(label: '右转', active: rightActive, onTap: onRightTap),
+          ],
+        ),
       ),
     );
   }
@@ -219,20 +213,14 @@ class _SidePair extends StatelessWidget {
 class _CenterRow extends StatelessWidget {
   const _CenterRow({
     this.leftLabel,
-    this.leftActive = false,
-    this.leftIsButton = false,
     this.rightLabel,
-    this.rightActive = false,
-    this.rightIsButton = false,
+    this.buttonActive = false,
     required this.onTap,
   });
 
   final String? leftLabel;
-  final bool leftActive;
-  final bool leftIsButton;
   final String? rightLabel;
-  final bool rightActive;
-  final bool rightIsButton;
+  final bool buttonActive;
   final VoidCallback onTap;
 
   @override
@@ -240,25 +228,22 @@ class _CenterRow extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (rightLabel != null)
+          const Opacity(opacity: 0, child: _MetricLabel(label: '前进')),
+        if (rightLabel != null) const SizedBox(width: 16),
+        if (leftLabel != null) _MetricLabel(label: leftLabel!),
+        if (leftLabel != null) const SizedBox(width: 16),
         SizedBox(
-          width: 92,
-          child: leftIsButton
-              ? Align(
-                  alignment: Alignment.centerRight,
-                  child: _RcToggleButton(active: leftActive, onTap: onTap),
-                )
-              : _MetricLabel(label: leftLabel!),
+          width: 74,
+          child: Center(
+            child: _RcToggleButton(active: buttonActive, onTap: onTap),
+          ),
         ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 92,
-          child: rightIsButton
-              ? Align(
-                  alignment: Alignment.centerLeft,
-                  child: _RcToggleButton(active: rightActive, onTap: onTap),
-                )
-              : _MetricLabel(label: rightLabel!),
-        ),
+        if (leftLabel != null) const SizedBox(width: 16),
+        if (leftLabel != null)
+          const Opacity(opacity: 0, child: _MetricLabel(label: '后退')),
+        if (rightLabel != null) const SizedBox(width: 16),
+        if (rightLabel != null) _MetricLabel(label: rightLabel!),
       ],
     );
   }
