@@ -10,6 +10,7 @@ import '../../../core/providers.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
 import '../../../provider/control_presentation_provider.dart';
 import '../../../provider/control_provider.dart';
+import '../../../provider/race_sound_player.dart';
 import '../../settings/models/app_settings_state.dart';
 import '../controllers/control_controller.dart';
 import '../widgets/bluetooth_svg_toggle_button.dart';
@@ -17,7 +18,6 @@ import '../widgets/gyro_svg_toggle_button.dart';
 import '../widgets/steering_indicator_row.dart';
 import '../widgets/throttle_turn_signal_buttons.dart';
 import '../widgets/trim_svg_toggle_button.dart';
-import '../widgets/warning_light_svg_toggle_button.dart';
 
 const gyroHintUpArrowKey = gyroDirectionalThrottleUpArrowKey;
 const gyroHintDownArrowKey = gyroDirectionalThrottleDownArrowKey;
@@ -86,7 +86,6 @@ class _ControlPageState extends ConsumerState<ControlPage> {
   VideoPlayerController? _backgroundVideoController;
   bool _backgroundVideoReady = false;
   ControlController? _controlController;
-  ControlPresentationController? _presentationController;
   ProviderSubscription<ControlScreenState>?
   _presentationControlStateSubscription;
 
@@ -107,7 +106,6 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     final presentationController = ref.read(
       controlPresentationProvider.notifier,
     );
-    _presentationController = presentationController;
     _presentationControlStateSubscription = ref
         .listenManual<ControlScreenState>(controlControllerProvider, (_, next) {
           unawaited(presentationController.bindControlState(next));
@@ -170,7 +168,6 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     final backgroundVideoController = _backgroundVideoController;
     _backgroundVideoController = null;
     _controlController = null;
-    _presentationController = null;
     _presentationControlStateSubscription?.close();
     _presentationControlStateSubscription = null;
     unawaited(backgroundVideoController?.dispose());
@@ -254,8 +251,10 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     );
     _controlController = controlController;
     final settings = ref.watch(appSettingsProvider);
-    final leftTurnActive = isLeftTurnState(presentationState.animationState);
-    final rightTurnActive = isRightTurnState(presentationState.animationState);
+    final leftTurnActive =
+        presentationState.effectCue == SoundCue.leftTurnSignal;
+    final rightTurnActive =
+        presentationState.effectCue == SoundCue.rightTurnSignal;
 
     final connected = connectionState == ReceiverConnectionState.connected;
     final connectedDevice = info == null
@@ -268,12 +267,6 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     final rssi = connected ? (connectedRssi ?? connectedDevice?.rssi) : null;
 
     final channelFunctions = settings.channels.map((c) => c.function).toSet();
-    final showHeadlight = channelFunctions.contains(
-      AuxiliaryFunction.headlight,
-    );
-    final showWarningLight = channelFunctions.contains(
-      AuxiliaryFunction.warningLight,
-    );
     final showThrottleTurnSignals =
         channelFunctions.contains(AuxiliaryFunction.leftSignal) &&
         channelFunctions.contains(AuxiliaryFunction.rightSignal);
@@ -311,20 +304,6 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                     ),
                   ),
                 ),
-                Positioned(
-                  top: driveModeTop,
-                  left: 40,
-                  child: _TopLowerBar(
-                    musicOn: presentationState.backgroundSoundEnabled,
-                    soundOn: presentationState.effectSoundEnabled,
-                    onMusic: () {
-                      unawaited(presentationController.toggleBackgroundSound());
-                    },
-                    onSound: () {
-                      unawaited(presentationController.toggleEffectSound());
-                    },
-                  ),
-                ),
                 if (gyroControlEnabled)
                   Positioned(
                     top: driveModeTop,
@@ -348,13 +327,23 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                   top: driveModeTop,
                   right: 40,
                   child: RcDriveModeSwitch(
-                    mode: controlState.highGear
+                    mode: controlState.parkLocked
+                        ? RcDriveMode.park
+                        : controlState.highGear
                         ? RcDriveMode.high
                         : RcDriveMode.low,
                     lowLabel: '低速',
                     highLabel: '高速',
-                    onChanged: (mode) {
-                      controlController.toggleGear(mode == RcDriveMode.high);
+                    onChanged: (mode) => switch (mode) {
+                      RcDriveMode.park => unawaited(
+                        controlController.setParkLocked(true),
+                      ),
+                      RcDriveMode.high => unawaited(
+                        controlController.toggleGear(true),
+                      ),
+                      RcDriveMode.low => unawaited(
+                        controlController.toggleGear(false),
+                      ),
                     },
                   ),
                 ),
@@ -364,12 +353,16 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                     _TopBar(
                       battery: batteryLevel,
                       rssi: rssi,
-                      showHeadlight: showHeadlight,
-                      headlightOn: controlState.headlightsOn,
-                      onHeadlight: controlController.toggleHeadlights,
-                      showWarningLight: showWarningLight,
-                      warningLightOn: controlState.warningLightsOn,
-                      onWarningLight: controlController.toggleWarningLights,
+                      musicOn: presentationState.backgroundSoundEnabled,
+                      onMusic: () {
+                        unawaited(
+                          presentationController.toggleBackgroundSound(),
+                        );
+                      },
+                      soundOn: presentationState.effectSoundEnabled,
+                      onSound: () {
+                        unawaited(presentationController.toggleEffectSound());
+                      },
                       onDirection: controlController.toggleSliderButtons,
                       directionOn: controlState.sliderButtonsVisible,
                       onNetwork: () {
@@ -407,6 +400,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                         gyroMode: settings.gyroMode,
                         controlState: controlState,
                         controlController: controlController,
+                        inputLocked: controlState.parkLocked,
                       ),
                     ),
                   ],
@@ -424,12 +418,10 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.battery,
     required this.rssi,
-    required this.showHeadlight,
-    required this.headlightOn,
-    required this.onHeadlight,
-    required this.showWarningLight,
-    required this.warningLightOn,
-    required this.onWarningLight,
+    required this.musicOn,
+    required this.onMusic,
+    required this.soundOn,
+    required this.onSound,
     required this.onDirection,
     required this.directionOn,
     required this.onNetwork,
@@ -441,12 +433,10 @@ class _TopBar extends StatelessWidget {
 
   final int battery;
   final int? rssi;
-  final bool showHeadlight;
-  final bool headlightOn;
-  final VoidCallback onHeadlight;
-  final bool showWarningLight;
-  final bool warningLightOn;
-  final VoidCallback onWarningLight;
+  final bool musicOn;
+  final VoidCallback onMusic;
+  final bool soundOn;
+  final VoidCallback onSound;
   final VoidCallback onDirection;
   final bool directionOn;
   final VoidCallback onNetwork;
@@ -479,7 +469,7 @@ class _TopBar extends StatelessWidget {
             const Spacer(),
             Row(
               children: [
-                if (showThrottleTurnSignals) ...[
+                if (leftTurnOn || rightTurnOn) ...[
                   ThrottleTurnSignalButtons(
                     leftOn: leftTurnOn,
                     rightOn: rightTurnOn,
@@ -487,22 +477,10 @@ class _TopBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 16),
                 ],
-                if (showHeadlight) ...[
-                  _CircleIconBtn.svg(
-                    assetPath: 'assets/icons/wifi_signal.svg',
-                    active: headlightOn,
-                    onTap: onHeadlight,
-                  ),
-                  const SizedBox(width: 16),
-                ],
-                if (showWarningLight) ...[
-                  WarningLightSvgToggleButton(
-                    value: warningLightOn,
-                    onTap: onWarningLight,
-                    size: 36,
-                  ),
-                  const SizedBox(width: 16),
-                ],
+                BluetoothSvgToggleButton(value: musicOn, onTap: onMusic),
+                const SizedBox(width: 16),
+                SoundSvgToggleButton(value: soundOn, onTap: onSound),
+                const SizedBox(width: 16),
                 _CircleIconBtn.svg(
                   assetPath: 'assets/icons/sync_arrows.svg',
                   active: directionOn,
@@ -530,36 +508,6 @@ int _rssiToPercent(int? rssi) {
   if (rssi >= -80) return 50;
   if (rssi >= -95) return 25;
   return 0;
-}
-
-class _TopLowerBar extends StatelessWidget {
-  const _TopLowerBar({
-    required this.musicOn,
-    required this.soundOn,
-    required this.onMusic,
-    required this.onSound,
-  });
-
-  final bool musicOn;
-  final bool soundOn;
-  final VoidCallback onMusic;
-  final VoidCallback onSound;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          BluetoothSvgToggleButton(value: musicOn, onTap: onMusic),
-          const SizedBox(width: 16),
-          SoundSvgToggleButton(value: soundOn, onTap: onSound),
-        ],
-      ),
-    );
-  }
 }
 
 class _CircleIconBtn extends StatelessWidget {
@@ -627,6 +575,7 @@ class _ControlArea extends StatelessWidget {
     required this.gyroMode,
     required this.controlState,
     required this.controlController,
+    required this.inputLocked,
   });
 
   final bool leftPadIsThrottle;
@@ -634,6 +583,7 @@ class _ControlArea extends StatelessWidget {
   final GyroMode gyroMode;
   final ControlScreenState controlState;
   final ControlController controlController;
+  final bool inputLocked;
 
   bool get _useFloatingStickStyle => controlMode == ControlMode.floating;
 
@@ -830,16 +780,19 @@ class _ControlArea extends StatelessWidget {
             controlOverride: rightControlOverride,
           );
 
-    return Padding(
-      padding: const EdgeInsets.only(
-        left: _verticalControlLeft,
-        right: 16,
-        bottom: _horizontalControlBottom,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [leftArea, rightArea],
+    return AbsorbPointer(
+      absorbing: inputLocked,
+      child: Padding(
+        padding: const EdgeInsets.only(
+          left: _verticalControlLeft,
+          right: 16,
+          bottom: _horizontalControlBottom,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [leftArea, rightArea],
+        ),
       ),
     );
   }

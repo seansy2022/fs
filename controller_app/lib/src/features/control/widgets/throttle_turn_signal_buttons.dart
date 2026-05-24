@@ -25,22 +25,13 @@ class ThrottleTurnSignalButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _TurnButton(
-          svg: _leftTurnSvg,
-          active: leftOn,
-          size: size,
-        ),
-        SizedBox(width: gap),
-        _TurnButton(
-          svg: _rightTurnSvg,
-          active: rightOn,
-          size: size,
-        ),
-      ],
-    );
+    if (leftOn) {
+      return _TurnButton(svg: _leftTurnSvg, active: true, size: size);
+    }
+    if (rightOn) {
+      return _TurnButton(svg: _rightTurnSvg, active: true, size: size);
+    }
+    return const SizedBox.shrink();
   }
 }
 

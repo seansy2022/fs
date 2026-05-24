@@ -18,6 +18,7 @@ class ControlScreenState {
     this.highGear = false,
     this.leftSignalOn = false,
     this.rightSignalOn = false,
+    this.parkLocked = false,
     this.sliderButtonsVisible = false,
     this.loopActive = false,
   });
@@ -31,6 +32,7 @@ class ControlScreenState {
   final bool highGear;
   final bool leftSignalOn;
   final bool rightSignalOn;
+  final bool parkLocked;
   final bool sliderButtonsVisible;
   final bool loopActive;
 
@@ -44,6 +46,7 @@ class ControlScreenState {
     bool? highGear,
     bool? leftSignalOn,
     bool? rightSignalOn,
+    bool? parkLocked,
     bool? sliderButtonsVisible,
     bool? loopActive,
   }) {
@@ -57,6 +60,7 @@ class ControlScreenState {
       highGear: highGear ?? this.highGear,
       leftSignalOn: leftSignalOn ?? this.leftSignalOn,
       rightSignalOn: rightSignalOn ?? this.rightSignalOn,
+      parkLocked: parkLocked ?? this.parkLocked,
       sliderButtonsVisible: sliderButtonsVisible ?? this.sliderButtonsVisible,
       loopActive: loopActive ?? this.loopActive,
     );
@@ -130,6 +134,13 @@ class ControlController extends StateNotifier<ControlScreenState> {
         mode == GyroMode.directionOnly || mode == GyroMode.all;
     final useGyroThrottle =
         mode == GyroMode.throttleOnly || mode == GyroMode.all;
+    if (state.parkLocked) {
+      if (state.steering != 0 || state.throttle != 0) {
+        state = state.copyWith(steering: 0, throttle: 0);
+      }
+      await _push(steering: 0, throttle: 0);
+      return;
+    }
     final gyroSteering = gyroActive && useGyroSteering ? _gyroSteering : 0.0;
     final gyroThrottle = gyroActive && useGyroThrottle ? _gyroThrottle : 0.0;
     final steering = _roundControlValue(
@@ -145,11 +156,17 @@ class ControlController extends StateNotifier<ControlScreenState> {
   }
 
   Future<void> setSteering(double value) async {
+    if (state.parkLocked) {
+      return;
+    }
     _touchSteering = value.clamp(-1, 1);
     await _syncPromptAndPush();
   }
 
   Future<void> setThrottle(double value) async {
+    if (state.parkLocked) {
+      return;
+    }
     _touchThrottle = value.clamp(-1, 1);
     await _syncPromptAndPush();
   }
@@ -187,8 +204,20 @@ class ControlController extends StateNotifier<ControlScreenState> {
   }
 
   Future<void> toggleGear(bool highGear) async {
-    state = state.copyWith(highGear: highGear);
+    state = state.copyWith(highGear: highGear, parkLocked: false);
     await _push();
+  }
+
+  Future<void> setParkLocked(bool locked) async {
+    if (state.parkLocked == locked) {
+      return;
+    }
+    _touchSteering = 0;
+    _touchThrottle = 0;
+    _gyroSteering = 0;
+    _gyroThrottle = 0;
+    state = state.copyWith(parkLocked: locked);
+    await _syncPromptAndPush();
   }
 
   Future<void> setTurnSignal({

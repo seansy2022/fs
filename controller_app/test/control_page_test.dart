@@ -10,6 +10,7 @@ import 'package:rc_ui/rc_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:controller_app/src/core/providers.dart';
+import 'package:controller_app/src/provider/control_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -159,77 +160,122 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('floating gyro vertical control hides arrow hint while touching', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: GyroDirectionalThrottleControl(
-              positiveThrottle: true,
-              floating: true,
-              showArrowHint: true,
-              onChanged: (_) {},
+  testWidgets(
+    'floating gyro vertical control hides arrow hint while touching',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: GyroDirectionalThrottleControl(
+                positiveThrottle: true,
+                floating: true,
+                showArrowHint: true,
+                onChanged: (_) {},
+              ),
             ),
           ),
         ),
-      ),
-    );
-
-    expect(find.byKey(gyroHintUpArrowKey), findsOneWidget);
-
-    final control = find.byType(GyroDirectionalThrottleControl);
-    final gesture = await tester.startGesture(tester.getCenter(control));
-    await tester.pump();
-
-    expect(find.byKey(gyroHintUpArrowKey), findsNothing);
-    expect(find.byKey(floatingControlThumbKey), findsOneWidget);
-
-    await gesture.up();
-    await tester.pump();
-
-    expect(find.byKey(gyroHintUpArrowKey), findsOneWidget);
-  });
-
-  testWidgets('floating vertical throttle on control page responds to upward drag', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues(const <String, Object>{});
-    final repository = _FakeReceiverRepository();
-    final settings = _TestSettingsController()
-      ..state = AppSettingsState.defaults().copyWith(
-        controlMode: ControlMode.floating,
-        handedness: Handedness.rightThrottle,
-        gyroMode: GyroMode.all,
       );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          receiverRepositoryProvider.overrideWith((ref) => repository),
-          appSettingsProvider.overrideWith((ref) => settings),
-        ],
-        child: const MaterialApp(home: ControlPage()),
-      ),
+      expect(find.byKey(gyroHintUpArrowKey), findsOneWidget);
+
+      final control = find.byType(GyroDirectionalThrottleControl);
+      final gesture = await tester.startGesture(tester.getCenter(control));
+      await tester.pump();
+
+      expect(find.byKey(gyroHintUpArrowKey), findsNothing);
+      expect(find.byKey(floatingControlThumbKey), findsOneWidget);
+
+      await gesture.up();
+      await tester.pump();
+
+      expect(find.byKey(gyroHintUpArrowKey), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'floating vertical throttle on control page responds to upward drag',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final repository = _FakeReceiverRepository();
+      final settings = _TestSettingsController()
+        ..state = AppSettingsState.defaults().copyWith(
+          controlMode: ControlMode.floating,
+          handedness: Handedness.rightThrottle,
+          gyroMode: GyroMode.all,
+        );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            receiverRepositoryProvider.overrideWith((ref) => repository),
+            appSettingsProvider.overrideWith((ref) => settings),
+          ],
+          child: const MaterialApp(home: ControlPage()),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(VerticalFloatingControlZone), findsOneWidget);
+      expect(find.byType(FloatingControlZone), findsOneWidget);
+
+      final verticalFinder = find.byType(VerticalFloatingControlZone);
+      final gesture = await tester.startGesture(
+        tester.getCenter(verticalFinder),
+      );
+      await tester.pump();
+
+      await gesture.moveBy(const Offset(0, -81));
+      await tester.pump();
+
+      expect(repository.lastControlValues, isNotNull);
+      expect(repository.lastControlValues!.throttle, lessThan(1500));
+
+      await gesture.up();
+      await tester.pump();
+    },
+  );
+
+  test('park lock zeros steering throttle and blocks control input', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController();
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+      ],
     );
-    await tester.pump();
+    addTearDown(container.dispose);
+    final controller = container.read(controlControllerProvider.notifier);
 
-    expect(find.byType(VerticalFloatingControlZone), findsOneWidget);
-    expect(find.byType(FloatingControlZone), findsOneWidget);
+    await controller.setSteering(0.4);
+    await controller.setThrottle(-0.5);
+    expect(container.read(controlControllerProvider).steering, 0.4);
+    expect(container.read(controlControllerProvider).throttle, -0.5);
 
-    final verticalFinder = find.byType(VerticalFloatingControlZone);
-    final gesture = await tester.startGesture(tester.getCenter(verticalFinder));
-    await tester.pump();
+    await controller.setParkLocked(true);
 
-    await gesture.moveBy(const Offset(0, -81));
-    await tester.pump();
+    final lockedState = container.read(controlControllerProvider);
+    expect(lockedState.parkLocked, isTrue);
+    expect(lockedState.steering, 0);
+    expect(lockedState.throttle, 0);
+    expect(repository.lastControlValues?.steering, 1500);
+    expect(repository.lastControlValues?.throttle, 1500);
 
-    expect(repository.lastControlValues, isNotNull);
-    expect(repository.lastControlValues!.throttle, lessThan(1500));
+    await controller.setSteering(-0.8);
+    await controller.setThrottle(0.9);
 
-    await gesture.up();
-    await tester.pump();
+    final unchangedLockedState = container.read(controlControllerProvider);
+    expect(unchangedLockedState.steering, 0);
+    expect(unchangedLockedState.throttle, 0);
+
+    await controller.toggleGear(true);
+
+    final unlockedState = container.read(controlControllerProvider);
+    expect(unlockedState.parkLocked, isFalse);
+    expect(unlockedState.highGear, isTrue);
   });
 }
 
@@ -242,11 +288,14 @@ class _FakeReceiverRepository implements ReceiverRepository {
   ReceiverInfo? get receiverInfo => null;
 
   @override
-  Stream<ReceiverInfo?> get receiverInfoStream => Stream<ReceiverInfo?>.value(null);
+  Stream<ReceiverInfo?> get receiverInfoStream =>
+      Stream<ReceiverInfo?>.value(null);
 
   @override
   Stream<ReceiverConnectionState> get connectionStateStream =>
-      Stream<ReceiverConnectionState>.value(ReceiverConnectionState.disconnected);
+      Stream<ReceiverConnectionState>.value(
+        ReceiverConnectionState.disconnected,
+      );
 
   @override
   Stream<int?> get connectedRssiStream => Stream<int?>.value(null);

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 enum RcDriveMode { low, high, park }
@@ -99,9 +98,10 @@ class _DriveModeCenterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = isSelected
+    final textColor = isSelected
         ? const Color(0xFFFF3700)
         : const Color(0xFF7DA2CE);
+    final backgroundColor = const Color(0xFF1B2D4D);
 
     return GestureDetector(
       onTap: onTap,
@@ -116,16 +116,18 @@ class _DriveModeCenterButton extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(1),
           child: Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF1B2D4D),
+              color: backgroundColor,
             ),
             child: Center(
-              child: SvgPicture.asset(
-                'assets/icons/p_w.svg',
-                width: 24,
-                height: 24,
-                colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+              child: Text(
+                'P',
+                style: TextStyle(
+                  fontSize: AppFonts.s20,
+                  fontWeight: AppFonts.w700,
+                  color: textColor,
+                ),
               ),
             ),
           ),
