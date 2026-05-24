@@ -7,6 +7,85 @@ import 'package:rc_c_ble/rc_c_ble.dart';
 import '../../../provider/app_settings_provider.dart';
 import '../../settings/models/app_settings_state.dart';
 
+class AuxChannelRuntimeState {
+  const AuxChannelRuntimeState({
+    this.controlType = AuxControlType.disabled,
+    this.selectedIndex = 0,
+    this.switchOn = false,
+  });
+
+  final AuxControlType controlType;
+  final int selectedIndex;
+  final bool switchOn;
+
+  AuxChannelRuntimeState copyWith({
+    AuxControlType? controlType,
+    int? selectedIndex,
+    bool? switchOn,
+  }) {
+    return AuxChannelRuntimeState(
+      controlType: controlType ?? this.controlType,
+      selectedIndex: selectedIndex ?? this.selectedIndex,
+      switchOn: switchOn ?? this.switchOn,
+    );
+  }
+}
+
+AuxChannelRuntimeState resolveAuxChannelRuntime(
+  ChannelSetting setting,
+  AuxChannelRuntimeState runtime,
+) {
+  if (runtime.controlType != setting.controlType) {
+    return AuxChannelRuntimeState(controlType: setting.controlType);
+  }
+  if (setting.controlType != AuxControlType.multiState) {
+    return runtime;
+  }
+  final values = setting.multiStateValues.isEmpty
+      ? const <double>[0]
+      : setting.multiStateValues;
+  final safeIndex = runtime.selectedIndex.clamp(0, values.length - 1);
+  return safeIndex == runtime.selectedIndex
+      ? runtime
+      : runtime.copyWith(selectedIndex: safeIndex);
+}
+
+String auxChannelControlLabel(
+  ChannelSetting setting,
+  AuxChannelRuntimeState runtime,
+) {
+  final resolved = resolveAuxChannelRuntime(setting, runtime);
+  return switch (setting.controlType) {
+    AuxControlType.disabled => setting.displayName,
+    AuxControlType.switchControl =>
+      '${setting.displayName} ${resolved.switchOn ? '开' : '关'}',
+    AuxControlType.multiState =>
+      '${setting.displayName} 状态${resolved.selectedIndex + 1}',
+    AuxControlType.value =>
+      '${setting.displayName} ${setting.singleValue.round()}%',
+  };
+}
+
+List<String> auxChannelControlLabels(
+  ChannelSetting setting,
+  AuxChannelRuntimeState runtime,
+) {
+  final resolved = resolveAuxChannelRuntime(setting, runtime);
+  return switch (setting.controlType) {
+    AuxControlType.disabled => const <String>[],
+    AuxControlType.switchControl => <String>[
+      '${setting.displayName} ${resolved.switchOn ? '开' : '关'}',
+    ],
+    AuxControlType.multiState => List<String>.generate(
+      setting.multiStateValues.isEmpty ? 1 : setting.multiStateValues.length,
+      (index) => '${setting.displayName} 状态${index + 1}',
+    ),
+    AuxControlType.value => <String>[
+      '${setting.displayName} ${setting.singleValue.round()}%',
+    ],
+  };
+}
+
 class ControlScreenState {
   const ControlScreenState({
     this.steering = 0,
@@ -18,6 +97,8 @@ class ControlScreenState {
     this.highGear = false,
     this.leftSignalOn = false,
     this.rightSignalOn = false,
+    this.ch3Runtime = const AuxChannelRuntimeState(),
+    this.ch4Runtime = const AuxChannelRuntimeState(),
     this.parkLocked = false,
     this.sliderButtonsVisible = false,
     this.loopActive = false,
@@ -32,6 +113,8 @@ class ControlScreenState {
   final bool highGear;
   final bool leftSignalOn;
   final bool rightSignalOn;
+  final AuxChannelRuntimeState ch3Runtime;
+  final AuxChannelRuntimeState ch4Runtime;
   final bool parkLocked;
   final bool sliderButtonsVisible;
   final bool loopActive;
@@ -46,6 +129,8 @@ class ControlScreenState {
     bool? highGear,
     bool? leftSignalOn,
     bool? rightSignalOn,
+    AuxChannelRuntimeState? ch3Runtime,
+    AuxChannelRuntimeState? ch4Runtime,
     bool? parkLocked,
     bool? sliderButtonsVisible,
     bool? loopActive,
@@ -60,6 +145,8 @@ class ControlScreenState {
       highGear: highGear ?? this.highGear,
       leftSignalOn: leftSignalOn ?? this.leftSignalOn,
       rightSignalOn: rightSignalOn ?? this.rightSignalOn,
+      ch3Runtime: ch3Runtime ?? this.ch3Runtime,
+      ch4Runtime: ch4Runtime ?? this.ch4Runtime,
       parkLocked: parkLocked ?? this.parkLocked,
       sliderButtonsVisible: sliderButtonsVisible ?? this.sliderButtonsVisible,
       loopActive: loopActive ?? this.loopActive,
@@ -220,6 +307,30 @@ class ControlController extends StateNotifier<ControlScreenState> {
     await _syncPromptAndPush();
   }
 
+  Future<void> pressAuxChannel(int channelIndex, {int? selectedIndex}) async {
+    final settings = _ref.read(appSettingsProvider);
+    final setting = _channelSettingAt(settings.channels, channelIndex);
+    if (setting.controlType == AuxControlType.disabled) {
+      return;
+    }
+    final runtime = _alignedRuntime(channelIndex, setting);
+    final nextRuntime = switch (setting.controlType) {
+      AuxControlType.switchControl => runtime.copyWith(
+        switchOn: !runtime.switchOn,
+      ),
+      AuxControlType.multiState => runtime.copyWith(
+        selectedIndex:
+            selectedIndex ??
+            (runtime.selectedIndex + 1) %
+                _normalizedMultiStateValues(setting).length,
+      ),
+      AuxControlType.value => runtime,
+      AuxControlType.disabled => runtime,
+    };
+    _setRuntime(channelIndex, nextRuntime);
+    await _push();
+  }
+
   Future<void> setTurnSignal({
     required bool leftOn,
     required bool rightOn,
@@ -283,6 +394,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
   Future<void> _push({double? steering, double? throttle}) async {
     final effectiveSteering = steering ?? state.steering;
     final effectiveThrottle = throttle ?? state.throttle;
+    final settings = _ref.read(appSettingsProvider);
     final steeringUs = (1500 + (effectiveSteering * 500) + (state.trim * 2))
         .round()
         .clamp(1000, 2000);
@@ -291,12 +403,12 @@ class ControlController extends StateNotifier<ControlScreenState> {
       2000,
     );
     final auxChannels = <int>[
-      state.headlightsOn ? 2000 : 1000,
-      state.warningLightsOn ? 2000 : 1000,
+      _auxOutputForChannel(settings, 2),
+      _auxOutputForChannel(settings, 3),
       state.highGear ? 2000 : 1000,
       state.gyroEnabled ? 2000 : 1000,
-      state.throttle < -0.15 ? 2000 : 1000,
-      state.throttle > 0.15 ? 2000 : 1000,
+      effectiveThrottle < -0.15 ? 2000 : 1000,
+      effectiveThrottle > 0.15 ? 2000 : 1000,
       state.leftSignalOn ? 2000 : 1000,
       state.rightSignalOn ? 2000 : 1000,
     ];
@@ -318,6 +430,75 @@ class ControlController extends StateNotifier<ControlScreenState> {
 
   double _roundControlValue(double value) {
     return (value / _controlStateStep).round() * _controlStateStep;
+  }
+
+  int _auxOutputForChannel(AppSettingsState settings, int channelIndex) {
+    final setting = _channelSettingAt(settings.channels, channelIndex);
+    final runtime = _alignedRuntime(channelIndex, setting);
+    final percent = switch (setting.controlType) {
+      AuxControlType.disabled => 0.0,
+      AuxControlType.switchControl =>
+        runtime.switchOn ? setting.switchValues[0] : setting.switchValues[1],
+      AuxControlType.multiState => _normalizedMultiStateValues(
+        setting,
+      )[runtime.selectedIndex],
+      AuxControlType.value => setting.singleValue,
+    };
+    return (1500 + (percent * 5)).round().clamp(1000, 2000);
+  }
+
+  AuxChannelRuntimeState _alignedRuntime(
+    int channelIndex,
+    ChannelSetting setting,
+  ) {
+    final runtime = _runtimeFor(channelIndex);
+    if (runtime.controlType != setting.controlType) {
+      return AuxChannelRuntimeState(controlType: setting.controlType);
+    }
+    if (setting.controlType == AuxControlType.multiState) {
+      final values = _normalizedMultiStateValues(setting);
+      final safeIndex = runtime.selectedIndex.clamp(0, values.length - 1);
+      if (safeIndex != runtime.selectedIndex) {
+        return runtime.copyWith(selectedIndex: safeIndex);
+      }
+    }
+    return runtime;
+  }
+
+  AuxChannelRuntimeState _runtimeFor(int channelIndex) {
+    return channelIndex == 2 ? state.ch3Runtime : state.ch4Runtime;
+  }
+
+  void _setRuntime(int channelIndex, AuxChannelRuntimeState runtime) {
+    state = channelIndex == 2
+        ? state.copyWith(ch3Runtime: runtime)
+        : state.copyWith(ch4Runtime: runtime);
+  }
+
+  List<double> _normalizedMultiStateValues(ChannelSetting setting) {
+    return setting.multiStateValues.isEmpty
+        ? const <double>[0]
+        : setting.multiStateValues;
+  }
+
+  ChannelSetting _channelSettingAt(List<ChannelSetting> channels, int index) {
+    if (index < channels.length) {
+      return channels[index];
+    }
+    return ChannelSetting(
+      channelLabel: 'CH${index + 1}',
+      title: '辅助通道',
+      function: AuxiliaryFunction.none,
+      displayName: '辅助${index - 1}',
+      controlType: AuxControlType.disabled,
+      switchValues: const <double>[100, -100],
+      multiStateValues: const <double>[0, 0, 0],
+      singleValue: 0,
+      lowPercent: -100,
+      highPercent: 100,
+      trimPercent: 0,
+      reversed: false,
+    );
   }
 
   @override

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:controller_app/src/core/providers.dart';
 import 'package:controller_app/src/provider/control_provider.dart';
+import 'package:controller_app/src/provider/gyro_prompt_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -211,6 +212,9 @@ void main() {
           overrides: [
             receiverRepositoryProvider.overrideWith((ref) => repository),
             appSettingsProvider.overrideWith((ref) => settings),
+            gyroPromptProvider.overrideWith(
+              (ref) => Stream.value(const GyroPrompt.zero()),
+            ),
           ],
           child: const MaterialApp(home: ControlPage()),
         ),
@@ -245,6 +249,9 @@ void main() {
       overrides: [
         receiverRepositoryProvider.overrideWith((ref) => repository),
         appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -276,6 +283,194 @@ void main() {
     final unlockedState = container.read(controlControllerProvider);
     expect(unlockedState.parkLocked, isFalse);
     expect(unlockedState.highGear, isTrue);
+  });
+
+  test('pressAuxChannel toggles CH3 switch output', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        channels: [
+          ...AppSettingsState.defaults().channels.take(2),
+          AppSettingsState.defaults().channels[2].copyWith(
+            displayName: '辅助1',
+            controlType: AuxControlType.switchControl,
+            switchValues: const <double>[100, -100],
+          ),
+          AppSettingsState.defaults().channels[3].copyWith(
+            controlType: AuxControlType.disabled,
+          ),
+        ],
+      );
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(controlControllerProvider.notifier);
+
+    await controller.pressAuxChannel(2);
+    expect(
+      container.read(controlControllerProvider).ch3Runtime.switchOn,
+      isTrue,
+    );
+    expect(repository.lastControlValues?.auxChannels[0], 2000);
+
+    await controller.pressAuxChannel(2);
+    expect(
+      container.read(controlControllerProvider).ch3Runtime.switchOn,
+      isFalse,
+    );
+    expect(repository.lastControlValues?.auxChannels[0], 1000);
+  });
+
+  test('pressAuxChannel cycles CH3 multi-state output', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        channels: [
+          ...AppSettingsState.defaults().channels.take(2),
+          AppSettingsState.defaults().channels[2].copyWith(
+            displayName: '辅助',
+            controlType: AuxControlType.multiState,
+            multiStateValues: const <double>[10, 40],
+          ),
+          AppSettingsState.defaults().channels[3].copyWith(
+            controlType: AuxControlType.disabled,
+          ),
+        ],
+      );
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(controlControllerProvider.notifier);
+
+    await controller.pressAuxChannel(2);
+    expect(
+      container.read(controlControllerProvider).ch3Runtime.selectedIndex,
+      1,
+    );
+    expect(repository.lastControlValues?.auxChannels[0], 1700);
+
+    await controller.pressAuxChannel(2);
+    expect(
+      container.read(controlControllerProvider).ch3Runtime.selectedIndex,
+      0,
+    );
+    expect(repository.lastControlValues?.auxChannels[0], 1550);
+  });
+
+  test('pressAuxChannel sends fixed CH4 value output', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        channels: [
+          ...AppSettingsState.defaults().channels.take(2),
+          AppSettingsState.defaults().channels[2].copyWith(
+            controlType: AuxControlType.disabled,
+          ),
+          AppSettingsState.defaults().channels[3].copyWith(
+            displayName: '辅助二',
+            controlType: AuxControlType.value,
+            singleValue: 25,
+          ),
+        ],
+      );
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(controlControllerProvider.notifier);
+
+    await controller.pressAuxChannel(3);
+
+    expect(
+      container.read(controlControllerProvider).ch4Runtime.selectedIndex,
+      0,
+    );
+    expect(repository.lastControlValues?.auxChannels[1], 1625);
+  });
+
+  testWidgets('control page shows expanded CH3 states in one row on the left', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        channels: [
+          ...AppSettingsState.defaults().channels.take(2),
+          AppSettingsState.defaults().channels[2].copyWith(
+            displayName: '辅助',
+            controlType: AuxControlType.multiState,
+            multiStateValues: const <double>[10, 40],
+          ),
+          AppSettingsState.defaults().channels[3].copyWith(
+            displayName: '辅助二',
+            controlType: AuxControlType.value,
+            singleValue: 0,
+          ),
+        ],
+      );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          appSettingsProvider.overrideWith((ref) => settings),
+          gyroPromptProvider.overrideWith(
+            (ref) => Stream.value(const GyroPrompt.zero()),
+          ),
+        ],
+        child: const MaterialApp(home: ControlPage()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('辅助 状态1'), findsOneWidget);
+    expect(find.text('辅助 状态2'), findsOneWidget);
+    expect(find.text('辅助二 0%'), findsOneWidget);
+    final ch3Top = tester.getTopLeft(
+      find.byKey(const ValueKey<String>('control-top-action-ch2-state-0')),
+    );
+    final ch3State2Top = tester.getTopLeft(
+      find.byKey(const ValueKey<String>('control-top-action-ch2-state-1')),
+    );
+    final ch4Top = tester.getTopLeft(
+      find.byKey(const ValueKey<String>('control-top-action-ch3')),
+    );
+    final driveSwitchTop = tester.getTopLeft(find.byType(RcDriveModeSwitch));
+    final ch3Center = tester.getCenter(
+      find.byKey(const ValueKey<String>('control-top-action-ch2-state-0')),
+    );
+    final driveSwitchCenter = tester.getCenter(find.byType(RcDriveModeSwitch));
+
+    expect(ch3Top.dy, ch3State2Top.dy);
+    expect(ch3Top.dy, ch4Top.dy);
+    expect((ch3Center.dy - driveSwitchCenter.dy).abs(), lessThanOrEqualTo(10));
+    expect(ch3Top.dx, lessThan(driveSwitchTop.dx));
+    expect(ch3State2Top.dx, greaterThan(ch3Top.dx));
+    expect(ch4Top.dx, lessThan(driveSwitchTop.dx));
   });
 }
 

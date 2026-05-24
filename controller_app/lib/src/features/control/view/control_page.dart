@@ -14,6 +14,7 @@ import '../../../provider/race_sound_player.dart';
 import '../../settings/models/app_settings_state.dart';
 import '../controllers/control_controller.dart';
 import '../widgets/bluetooth_svg_toggle_button.dart';
+import '../widgets/control_aux_action_panel.dart';
 import '../widgets/gyro_svg_toggle_button.dart';
 import '../widgets/steering_indicator_row.dart';
 import '../widgets/throttle_turn_signal_buttons.dart';
@@ -69,6 +70,66 @@ Widget buildGyroDirectionVerticalAlignmentPreviewForTest({
 }
 
 void _noopDoubleControlChanged(double _) {}
+
+ChannelSetting channelSettingAt(List<ChannelSetting> channels, int index) {
+  if (index < channels.length) {
+    return channels[index];
+  }
+  return ChannelSetting(
+    channelLabel: 'CH${index + 1}',
+    title: '辅助通道',
+    function: AuxiliaryFunction.none,
+    displayName: '辅助${index - 1}',
+    controlType: AuxControlType.disabled,
+    switchValues: const <double>[100, -100],
+    multiStateValues: const <double>[0, 0, 0],
+    singleValue: 0,
+    lowPercent: -100,
+    highPercent: 100,
+    trimPercent: 0,
+    reversed: false,
+  );
+}
+
+List<AuxControlButtonViewData> buildAuxButtons({
+  required int channelIndex,
+  required ChannelSetting setting,
+  required AuxChannelRuntimeState runtime,
+  required ControlController controller,
+}) {
+  if (setting.controlType == AuxControlType.disabled) {
+    return const <AuxControlButtonViewData>[];
+  }
+  final labels = auxChannelControlLabels(setting, runtime);
+  if (setting.controlType == AuxControlType.multiState) {
+    return List<AuxControlButtonViewData>.generate(labels.length, (index) {
+      return AuxControlButtonViewData(
+        key: ValueKey<String>(
+          'control-top-action-ch$channelIndex-state-$index',
+        ),
+        label: labels[index],
+        active: runtime.selectedIndex == index,
+        onTap: () {
+          unawaited(
+            controller.pressAuxChannel(channelIndex, selectedIndex: index),
+          );
+        },
+      );
+    });
+  }
+  return <AuxControlButtonViewData>[
+    AuxControlButtonViewData(
+      key: ValueKey<String>('control-top-action-ch$channelIndex'),
+      label: labels.first,
+      active: setting.controlType == AuxControlType.switchControl
+          ? runtime.switchOn
+          : false,
+      onTap: () {
+        unawaited(controller.pressAuxChannel(channelIndex));
+      },
+    ),
+  ];
+}
 
 class ControlPage extends ConsumerStatefulWidget {
   const ControlPage({super.key});
@@ -251,6 +312,8 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     );
     _controlController = controlController;
     final settings = ref.watch(appSettingsProvider);
+    final ch3Setting = channelSettingAt(settings.channels, 2);
+    final ch4Setting = channelSettingAt(settings.channels, 3);
     final leftTurnActive =
         presentationState.effectCue == SoundCue.leftTurnSignal;
     final rightTurnActive =
@@ -323,6 +386,26 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                       ),
                     ),
                   ),
+                Positioned(
+                  top: driveModeTop,
+                  left: 40,
+                  child: ControlAuxActionPanel(
+                    auxButtons: [
+                      ...buildAuxButtons(
+                        channelIndex: 2,
+                        setting: ch3Setting,
+                        runtime: controlState.ch3Runtime,
+                        controller: controlController,
+                      ),
+                      ...buildAuxButtons(
+                        channelIndex: 3,
+                        setting: ch4Setting,
+                        runtime: controlState.ch4Runtime,
+                        controller: controlController,
+                      ),
+                    ],
+                  ),
+                ),
                 Positioned(
                   top: driveModeTop,
                   right: 40,
@@ -469,7 +552,7 @@ class _TopBar extends StatelessWidget {
             const Spacer(),
             Row(
               children: [
-                if (leftTurnOn || rightTurnOn) ...[
+                if (showThrottleTurnSignals && (leftTurnOn || rightTurnOn)) ...[
                   ThrottleTurnSignalButtons(
                     leftOn: leftTurnOn,
                     rightOn: rightTurnOn,
