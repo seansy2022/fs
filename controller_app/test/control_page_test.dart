@@ -411,7 +411,125 @@ void main() {
     expect(repository.lastControlValues?.auxChannels[1], 1625);
   });
 
-  testWidgets('control page shows expanded CH3 states in one row on the left', (
+  testWidgets('value aux button flashes active for a single frame after tap', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        channels: [
+          ...AppSettingsState.defaults().channels.take(2),
+          AppSettingsState.defaults().channels[2].copyWith(
+            controlType: AuxControlType.disabled,
+          ),
+          AppSettingsState.defaults().channels[3].copyWith(
+            displayName: '辅助二',
+            controlType: AuxControlType.value,
+            singleValue: 25,
+          ),
+        ],
+      );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          appSettingsProvider.overrideWith((ref) => settings),
+          gyroPromptProvider.overrideWith(
+            (ref) => Stream.value(const GyroPrompt.zero()),
+          ),
+        ],
+        child: const MaterialApp(home: ControlPage()),
+      ),
+    );
+    await tester.pump();
+
+    final buttonFinder = find.byKey(
+      const ValueKey<String>('control-top-action-ch3'),
+    );
+    final labelFinder = find.text('辅助二 25%');
+    expect(
+      tester.widget<Text>(labelFinder).style?.color,
+      const Color(0xFF7DA2CE),
+    );
+
+    await tester.tap(buttonFinder);
+    await tester.pump();
+
+    expect(tester.widget<Text>(labelFinder).style?.color, AppColors.onPrimary);
+    expect(repository.lastControlValues?.auxChannels[1], 1625);
+
+    await tester.pump();
+
+    expect(
+      tester.widget<Text>(labelFinder).style?.color,
+      const Color(0xFF7DA2CE),
+    );
+  });
+
+  testWidgets(
+    'multi-state aux button flashes for a single frame without staying selected',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final repository = _FakeReceiverRepository();
+      final settings = _TestSettingsController()
+        ..state = AppSettingsState.defaults().copyWith(
+          channels: [
+            ...AppSettingsState.defaults().channels.take(2),
+            AppSettingsState.defaults().channels[2].copyWith(
+              displayName: '辅助',
+              controlType: AuxControlType.multiState,
+              multiStateValues: const <double>[10, 40],
+            ),
+            AppSettingsState.defaults().channels[3].copyWith(
+              controlType: AuxControlType.disabled,
+            ),
+          ],
+        );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            receiverRepositoryProvider.overrideWith((ref) => repository),
+            appSettingsProvider.overrideWith((ref) => settings),
+            gyroPromptProvider.overrideWith(
+              (ref) => Stream.value(const GyroPrompt.zero()),
+            ),
+          ],
+          child: const MaterialApp(home: ControlPage()),
+        ),
+      );
+      await tester.pump();
+
+      final buttonFinder = find.byKey(
+        const ValueKey<String>('control-top-action-ch2-state-1'),
+      );
+      final labelFinder = find.text('辅助 状态2');
+      expect(
+        tester.widget<Text>(labelFinder).style?.color,
+        const Color(0xFF7DA2CE),
+      );
+
+      await tester.tap(buttonFinder);
+      await tester.pump();
+
+      expect(
+        tester.widget<Text>(labelFinder).style?.color,
+        AppColors.onPrimary,
+      );
+      expect(repository.lastControlValues?.auxChannels[0], 1700);
+
+      await tester.pump();
+
+      expect(
+        tester.widget<Text>(labelFinder).style?.color,
+        const Color(0xFF7DA2CE),
+      );
+    },
+  );
+
+  testWidgets('control page keeps CH3 and CH4 aux buttons on one row at left', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
@@ -466,7 +584,7 @@ void main() {
     final driveSwitchCenter = tester.getCenter(find.byType(RcDriveModeSwitch));
 
     expect(ch3Top.dy, ch3State2Top.dy);
-    expect(ch3Top.dy, ch4Top.dy);
+    expect(ch4Top.dy, ch3Top.dy);
     expect((ch3Center.dy - driveSwitchCenter.dy).abs(), lessThanOrEqualTo(10));
     expect(ch3Top.dx, lessThan(driveSwitchTop.dx));
     expect(ch3State2Top.dx, greaterThan(ch3Top.dx));

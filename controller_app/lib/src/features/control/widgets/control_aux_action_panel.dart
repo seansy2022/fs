@@ -7,98 +7,118 @@ class AuxControlButtonViewData {
     required this.onTap,
     required this.key,
     required this.active,
+    this.flashOnTap = false,
   });
 
   final String label;
   final VoidCallback onTap;
   final Key key;
   final bool active;
+  final bool flashOnTap;
 }
 
 class ControlAuxActionPanel extends StatelessWidget {
   const ControlAuxActionPanel({super.key, required this.auxButtons});
 
-  static const buttonWidth = 92.0;
+  static const buttonWidth = 62.0;
   static const buttonHeight = 32.0;
   static const itemGap = 8.0;
-  static const rowGap = 10.0;
-  static const itemsPerRow = 3;
+  static const visibleButtonWidthFactor = 3.5;
 
   final List<AuxControlButtonViewData> auxButtons;
 
   @override
   Widget build(BuildContext context) {
-    final rows = <List<AuxControlButtonViewData>>[];
-    for (var index = 0; index < auxButtons.length; index += itemsPerRow) {
-      rows.add(
-        auxButtons.sublist(
-          index,
-          index + itemsPerRow > auxButtons.length
-              ? auxButtons.length
-              : index + itemsPerRow,
-        ),
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (
-                var itemIndex = 0;
-                itemIndex < rows[rowIndex].length;
-                itemIndex++
-              ) ...[
-                if (itemIndex > 0) const SizedBox(width: itemGap),
-                _AuxActionButton(
-                  key: rows[rowIndex][itemIndex].key,
-                  label: rows[rowIndex][itemIndex].label,
-                  onTap: rows[rowIndex][itemIndex].onTap,
-                  active: rows[rowIndex][itemIndex].active,
-                ),
-              ],
+    final visibleWidth = buttonWidth * visibleButtonWidthFactor;
+    final visibleGaps = itemGap * (visibleButtonWidthFactor - 1);
+    final viewportWidth = auxButtons.isEmpty ? 0.0 : visibleWidth + visibleGaps;
+    return SizedBox(
+      width: viewportWidth,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (
+              var itemIndex = 0;
+              itemIndex < auxButtons.length;
+              itemIndex++
+            ) ...[
+              if (itemIndex > 0) const SizedBox(width: itemGap),
+              _AuxActionButton(
+                key: auxButtons[itemIndex].key,
+                label: auxButtons[itemIndex].label,
+                onTap: auxButtons[itemIndex].onTap,
+                active: auxButtons[itemIndex].active,
+                flashOnTap: auxButtons[itemIndex].flashOnTap,
+              ),
             ],
-          ),
-          if (rowIndex < rows.length - 1) const SizedBox(height: rowGap),
-        ],
-      ],
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _AuxActionButton extends StatelessWidget {
+class _AuxActionButton extends StatefulWidget {
   const _AuxActionButton({
     super.key,
     required this.label,
     required this.onTap,
     required this.active,
+    required this.flashOnTap,
   });
 
   final String label;
   final VoidCallback onTap;
   final bool active;
+  final bool flashOnTap;
+
+  @override
+  State<_AuxActionButton> createState() => _AuxActionButtonState();
+}
+
+class _AuxActionButtonState extends State<_AuxActionButton> {
+  bool _flashActive = false;
+
+  Future<void> _handleTap() async {
+    widget.onTap();
+    if (!widget.flashOnTap || widget.active) {
+      return;
+    }
+    setState(() {
+      _flashActive = true;
+    });
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _flashActive = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return RCButton(
-      onTap: onTap,
-      active: active,
+      onTap: _handleTap,
+      active: widget.active || _flashActive,
       enableRepeat: false,
       width: ControlAuxActionPanel.buttonWidth,
       height: ControlAuxActionPanel.buttonHeight,
       padding: EdgeInsets.zero,
       borderRadius: AppDimens.squareButtonRadius,
       textWidget: Text(
-        label,
+        widget.label,
         maxLines: 1,
         overflow: TextOverflow.visible,
         softWrap: false,
         style: TextStyle(
           fontSize: 11,
           fontWeight: AppFonts.w600,
-          color: active ? AppColors.onPrimary : const Color(0xFF7DA2CE),
+          color: widget.active || _flashActive
+              ? AppColors.onPrimary
+              : const Color(0xFF7DA2CE),
         ),
         textAlign: TextAlign.center,
       ),

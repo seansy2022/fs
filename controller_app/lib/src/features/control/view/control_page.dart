@@ -108,7 +108,8 @@ List<AuxControlButtonViewData> buildAuxButtons({
           'control-top-action-ch$channelIndex-state-$index',
         ),
         label: labels[index],
-        active: runtime.selectedIndex == index,
+        active: false,
+        flashOnTap: true,
         onTap: () {
           unawaited(
             controller.pressAuxChannel(channelIndex, selectedIndex: index),
@@ -124,6 +125,7 @@ List<AuxControlButtonViewData> buildAuxButtons({
       active: setting.controlType == AuxControlType.switchControl
           ? runtime.switchOn
           : false,
+      flashOnTap: setting.controlType == AuxControlType.value,
       onTap: () {
         unawaited(controller.pressAuxChannel(channelIndex));
       },
@@ -329,10 +331,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     final batteryLevel = connected ? (info?.batteryLevel ?? 0) : 0;
     final rssi = connected ? (connectedRssi ?? connectedDevice?.rssi) : null;
 
-    final channelFunctions = settings.channels.map((c) => c.function).toSet();
-    final showThrottleTurnSignals =
-        channelFunctions.contains(AuxiliaryFunction.leftSignal) &&
-        channelFunctions.contains(AuxiliaryFunction.rightSignal);
+    final showThrottleTurnSignals = leftTurnActive || rightTurnActive;
     final gyroControlEnabled = controlState.gyroEnabled;
     final leftPadIsThrottle = settings.handedness == Handedness.leftThrottle;
     const topControlAnchorTop = 65.0;
