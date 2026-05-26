@@ -6,6 +6,7 @@ import 'package:controller_app/src/features/settings/widgets/settings_workspace.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rc_ui/rc_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -106,6 +107,48 @@ void main() {
     );
   });
 
+  testWidgets('multi state delete button appears beside add above three items', (
+    tester,
+  ) async {
+    await _pumpPage(
+      tester,
+      _stateWithAux(
+        ch3Type: AuxControlType.multiState,
+        ch4Type: AuxControlType.disabled,
+      ),
+    );
+
+    final card = _auxCardFor('辅助1');
+    expect(
+      find.descendant(
+        of: card,
+        matching: find.byKey(const ValueKey<String>('multi-state-delete-icon')),
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(find.descendant(of: card, matching: find.text('新增')));
+    await tester.pumpAndSettle();
+
+    final deleteFinder = find.descendant(
+      of: card,
+      matching: find.byKey(const ValueKey<String>('multi-state-delete-icon')),
+    );
+    expect(deleteFinder, findsOneWidget);
+
+    await tester.tap(deleteFinder);
+    await tester.pumpAndSettle();
+
+    expect(find.descendant(of: card, matching: find.text('状态4')), findsNothing);
+    expect(
+      find.descendant(
+        of: card,
+        matching: find.byKey(const ValueKey<String>('multi-state-delete-icon')),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('value type shows single value editor', (tester) async {
     await _pumpPage(
       tester,
@@ -150,6 +193,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('机械臂'), findsOneWidget);
+  });
+
+  testWidgets('CH1 and CH2 value buttons use 60 width', (tester) async {
+    await _pumpPage(tester, AppSettingsState.defaults());
+
+    final buttons = tester.widgetList<RCButton>(find.byType(RCButton)).toList();
+
+    expect(buttons.length, greaterThanOrEqualTo(6));
+    for (final button in buttons.take(6)) {
+      expect(button.width, 60);
+    }
   });
 }
 

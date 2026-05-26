@@ -119,6 +119,7 @@ class _ChannelSettingsContentState
               Expanded(
                 flex: 12,
                 child: _ChannelValueButton(
+                  width: _channelValueButtonWidth(channelIndex),
                   value: _valueForField(channel, field.field).round(),
                   active: _selectedFields[channelIndex] == field.field,
                   onTap: () => _selectField(channelIndex, field.field),
@@ -186,11 +187,10 @@ class _ChannelSettingsContentState
                       controller,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  SizedBox(width: _auxTypeNameSpacing()),
                   const _AuxLabel('名称'),
                   const SizedBox(width: 16),
-                  SizedBox(
-                    width: 80,
+                  Expanded(
                     child: _AuxNameField(
                       key: ValueKey<String>('aux-name-$channelIndex'),
                       value: channel.displayName,
@@ -209,6 +209,17 @@ class _ChannelSettingsContentState
                 ],
               ),
               if (configSection != null) ...[
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: _leadingLabelWidth(context, constraints.maxWidth),
+                    top: 8,
+                    bottom: 8,
+                  ),
+                  child: Container(
+                    height: 1,
+                    color: const Color(0xFF233854),
+                  ),
+                ),
                 const SizedBox(height: 14),
                 configSection,
               ],
@@ -237,6 +248,14 @@ class _ChannelSettingsContentState
           double.infinity,
         );
     return flexibleWidth * 22 / 58;
+  }
+
+  double _channelValueButtonWidth(int channelIndex) {
+    return channelIndex < 2 ? 60 : 80;
+  }
+
+  double _auxTypeNameSpacing() {
+    return 40;
   }
 
   Widget? _buildAuxConfigSection({
@@ -283,53 +302,39 @@ class _ChannelSettingsContentState
           ),
         );
       case AuxControlType.multiState:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(left: inset),
-              child: Wrap(
-                spacing: 16,
-                runSpacing: 12,
-                children: [
-                  for (
-                    var index = 0;
-                    index < channel.multiStateValues.length;
-                    index++
-                  )
-                    _AuxValueEditor(
-                      width: itemWidth,
-                      inputWidth: (itemWidth - 48).clamp(0.0, double.infinity),
-                      label: '状态${index + 1}',
-                      value: channel.multiStateValues[index].round(),
-                      onChanged: (value) => _updateMultiStateValue(
-                        controller,
-                        channelIndex,
-                        channel,
-                        index,
-                        value.toDouble(),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: EdgeInsets.only(left: inset),
-              child: SizedBox(
-                width: 64,
-                height: 30,
-                child: PrimaryButton(
-                  text: '新增',
-                  type: PrimaryButtonType.primary,
-                  enabled: true,
-                  padding: EdgeInsets.zero,
-                  onTap: () =>
-                      _addMultiStateValue(controller, channelIndex, channel),
+        return Padding(
+          padding: EdgeInsets.only(left: inset),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 12,
+            children: [
+              for (
+                var index = 0;
+                index < channel.multiStateValues.length;
+                index++
+              )
+                _AuxValueEditor(
+                  width: itemWidth,
+                  inputWidth: (itemWidth - 48).clamp(0.0, double.infinity),
+                  label: '状态${index + 1}',
+                  value: channel.multiStateValues[index].round(),
+                  onChanged: (value) => _updateMultiStateValue(
+                    controller,
+                    channelIndex,
+                    channel,
+                    index,
+                    value.toDouble(),
+                  ),
                 ),
+              _MultiStateActionButtons(
+                width: itemWidth,
+                showDelete: channel.multiStateValues.length > 3,
+                onDelete: () =>
+                    _removeMultiStateValue(controller, channelIndex, channel),
+                onTap: () => _addMultiStateValue(controller, channelIndex, channel),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       case AuxControlType.value:
         return Padding(
@@ -337,6 +342,7 @@ class _ChannelSettingsContentState
           child: _AuxValueEditor(
             label: '设置值',
             labelWidth: null,
+            spacing: 16,
             value: channel.singleValue.round(),
             onChanged: (value) {
               controller.updateChannel(
@@ -444,6 +450,28 @@ class _ChannelSettingsContentState
     ChannelSetting channel,
   ) {
     final next = List<double>.of(channel.multiStateValues)..add(0);
+    controller.updateChannel(
+      channelIndex,
+      channel.copyWith(
+        multiStateValues: next,
+        function: _legacyFunctionForControlType(
+          channelIndex,
+          AuxControlType.multiState,
+          currentFunction: channel.function,
+        ),
+      ),
+    );
+  }
+
+  void _removeMultiStateValue(
+    SettingsController controller,
+    int channelIndex,
+    ChannelSetting channel,
+  ) {
+    if (channel.multiStateValues.length <= 3) {
+      return;
+    }
+    final next = List<double>.of(channel.multiStateValues)..removeLast();
     controller.updateChannel(
       channelIndex,
       channel.copyWith(
@@ -683,6 +711,7 @@ class _AuxValueEditor extends StatelessWidget {
     this.width,
     this.inputWidth,
     this.labelWidth = 28,
+    this.spacing = 0,
   });
 
   final String label;
@@ -691,6 +720,7 @@ class _AuxValueEditor extends StatelessWidget {
   final double? width;
   final double? inputWidth;
   final double? labelWidth;
+  final double spacing;
 
   @override
   Widget build(BuildContext context) {
@@ -715,7 +745,7 @@ class _AuxValueEditor extends StatelessWidget {
                 style: const TextStyle(color: AppColors.text, fontSize: 14),
               ),
             ),
-          const SizedBox(width: 0),
+          SizedBox(width: spacing),
           _ChannelValueInput(
             width: inputWidth ?? 60,
             value: value,
@@ -727,6 +757,98 @@ class _AuxValueEditor extends StatelessWidget {
   }
 }
 
+class _MultiStateActionButtons extends StatelessWidget {
+  const _MultiStateActionButtons({
+    required this.width,
+    required this.showDelete,
+    required this.onDelete,
+    required this.onTap,
+  });
+
+  final double width;
+  final bool showDelete;
+  final VoidCallback onDelete;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final actionWidth = (width - 48).clamp(0.0, double.infinity);
+    return SizedBox(
+      width: width,
+      child: Row(
+        children: [
+          if (showDelete)
+            SizedBox(
+              width: 48,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _MultiStateDeleteIconButton(onTap: onDelete),
+              ),
+            )
+          else
+            const SizedBox(width: 48),
+          SizedBox(
+            width: actionWidth,
+            height: 30,
+            child: PrimaryButton(
+              text: '新增',
+              type: PrimaryButtonType.primary,
+              enabled: true,
+              padding: EdgeInsets.zero,
+              onTap: onTap,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MultiStateDeleteIconButton extends StatelessWidget {
+  const _MultiStateDeleteIconButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: const ValueKey<String>('multi-state-delete-icon'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: const SizedBox(
+        width: 20,
+        height: 20,
+        child: CustomPaint(painter: _MultiStateDeleteIconPainter()),
+      ),
+    );
+  }
+}
+
+class _MultiStateDeleteIconPainter extends CustomPainter {
+  const _MultiStateDeleteIconPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFFF3700)
+      ..strokeWidth = 1.67
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(size.width * 0.22, size.height * 0.78),
+      Offset(size.width * 0.78, size.height * 0.22),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.78, size.height * 0.78),
+      Offset(size.width * 0.22, size.height * 0.22),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
 class _FieldLabel extends StatelessWidget {
   const _FieldLabel(this.value, {required this.width});
 
@@ -735,26 +857,25 @@ class _FieldLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Text(
+    return Text(
         value,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
         style: const TextStyle(color: AppColors.text, fontSize: 14),
-      ),
-    );
+      ) ;
   }
 }
 
 class _ChannelValueButton extends StatelessWidget {
   const _ChannelValueButton({
+    required this.width,
     required this.value,
     required this.active,
     required this.onTap,
   });
 
+  final double width;
   final int value;
   final bool active;
   final VoidCallback onTap;
@@ -766,7 +887,7 @@ class _ChannelValueButton extends StatelessWidget {
         onTap: onTap,
         active: active,
         enableRepeat: false,
-        width: 80,
+        width: width,
         height: 28,
         padding: EdgeInsets.zero,
         textWidget: Text(
@@ -811,24 +932,18 @@ class _ChannelValueInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return RCButton(
       onTap: () => _openEditor(context),
-      child: Container(
-        width: width,
-        height: 28,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: const Color(0x661B2D4D),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: const Color(0xFF0072FF), width: 0.5),
-        ),
-        child: Text(
-          '$value%',
-          style: const TextStyle(
-            color: AppColors.text,
-            fontSize: 13,
-            fontWeight: AppFonts.w700,
-          ),
+      active: false,
+      enableRepeat: false,
+      width: width,
+      height: 28,
+      padding: EdgeInsets.zero,
+      textWidget: Text(
+        '$value%',
+        style: const TextStyle(
+          color: AppColors.textDim,
+          fontSize: 14,
         ),
       ),
     );
