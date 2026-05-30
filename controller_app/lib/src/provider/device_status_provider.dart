@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/providers.dart';
+import 'effective_bluetooth_provider.dart';
+import 'simulated_bluetooth_provider.dart';
 
 class DeviceStatusState {
   const DeviceStatusState({
@@ -23,11 +24,12 @@ class DeviceStatusState {
 }
 
 final deviceStatusProvider = Provider<DeviceStatusState>((ref) {
-  final info = ref.watch(receiverInfoProvider).valueOrNull;
-  final rssi = ref.watch(connectedRssiProvider).valueOrNull;
+  final info = ref.watch(effectiveReceiverInfoProvider);
+  final rssi = ref.watch(effectiveConnectedRssiProvider);
+  final simulated = ref.watch(simulatedBluetoothTelemetryProvider);
   return DeviceStatusState(
     batteryPercent: info?.batteryLevel,
-    voltage: null,
+    voltage: simulated?.voltage,
     signalRssi: rssi,
     speed: null,
   );

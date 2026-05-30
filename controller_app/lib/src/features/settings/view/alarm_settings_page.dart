@@ -190,12 +190,11 @@ class AlarmSettingsContent extends ConsumerWidget {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SelectOptionToggle(
-                        selected: settings.batteryVoice,
-                        label: '语音',
-                        onTap: () => controller.updateBatterySettings(
-                          voice: true,
-                          vibration: false,
+                        SelectOptionToggle(
+                          selected: settings.batteryVoice,
+                          label: '语音',
+                          onTap: () => controller.updateBatterySettings(
+                          voice: !settings.batteryVoice,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -203,8 +202,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                         selected: settings.batteryVibration,
                         label: '震动',
                         onTap: () => controller.updateBatterySettings(
-                          voice: false,
-                          vibration: true,
+                          vibration: !settings.batteryVibration,
                         ),
                       ),
                     ],
@@ -271,8 +269,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                           selected: settings.signalVoice,
                           label: '语音',
                           onTap: () => controller.updateSignalSettings(
-                            voice: true,
-                            vibration: false,
+                            voice: !settings.signalVoice,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -280,8 +277,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                           selected: settings.signalVibration,
                           label: '震动',
                           onTap: () => controller.updateSignalSettings(
-                            voice: false,
-                            vibration: true,
+                            vibration: !settings.signalVibration,
                           ),
                         ),
                       ],
@@ -302,17 +298,15 @@ class AlarmSettingsContent extends ConsumerWidget {
                     selected: settings.reconnectVoice,
                     label: '语音',
                     onTap: () => controller.updateReconnectAlerts(
-                      voice: true,
-                      vibration: false,
+                      voice: !settings.reconnectVoice,
                     ),
                   ),
                   const SizedBox(width: 12),
                   SelectOptionToggle(
                     selected: settings.reconnectVibration,
-                    label: '滚动',
+                    label: '震动',
                     onTap: () => controller.updateReconnectAlerts(
-                      voice: false,
-                      vibration: true,
+                      vibration: !settings.reconnectVibration,
                     ),
                   ),
                 ],

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_ui/rc_ui.dart';
 
+import '../provider/battery_alert_provider.dart';
+import '../provider/reconnect_alert_provider.dart';
+import '../provider/signal_alert_provider.dart';
 import '../features/bluetooth/view/device_list_page.dart';
 import '../features/bluetooth/view/pair_receiver_page.dart';
 import '../features/control/view/control_page.dart';
@@ -10,11 +14,14 @@ import '../features/settings/view/settings_page.dart';
 import '../features/startup/view/startup_page.dart';
 import 'app_routes.dart';
 
-class ControllerApp extends StatelessWidget {
+class ControllerApp extends ConsumerWidget {
   const ControllerApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(batteryAlertMonitorProvider);
+    ref.watch(signalAlertMonitorProvider);
+    ref.watch(reconnectAlertMonitorProvider);
     return MaterialApp(
       title: 'Flysky Smart Car',
       debugShowCheckedModeBanner: false,

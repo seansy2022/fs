@@ -7,3 +7,8 @@ final appSettingsProvider =
     StateNotifierProvider<SettingsController, AppSettingsState>((ref) {
       return SettingsController();
     });
+
+final appSettingsLoadedProvider = Provider<bool>((ref) {
+  ref.watch(appSettingsProvider);
+  return ref.watch(appSettingsProvider.notifier).isLoaded;
+});

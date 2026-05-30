@@ -7,14 +7,17 @@ import 'package:rc_ui/rc_ui.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/providers.dart';
+import '../../../provider/alert_message_provider.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
 import '../../../provider/control_presentation_provider.dart';
 import '../../../provider/control_provider.dart';
+import '../../../provider/effective_bluetooth_provider.dart';
 import '../../../provider/race_sound_player.dart';
 import '../../settings/models/app_settings_state.dart';
 import '../controllers/control_controller.dart';
 import '../widgets/bluetooth_svg_toggle_button.dart';
 import '../widgets/control_aux_action_panel.dart';
+import '../widgets/control_status_warning_text.dart';
 import '../widgets/gyro_svg_toggle_button.dart';
 import '../widgets/steering_indicator_row.dart';
 import '../widgets/throttle_turn_signal_buttons.dart';
@@ -300,12 +303,9 @@ class _ControlPageState extends ConsumerState<ControlPage> {
 
   @override
   Widget build(BuildContext context) {
-    final info = ref.watch(receiverInfoProvider).valueOrNull;
-    final devices = ref.watch(mergedReceiverDevicesProvider);
-    final connectionState =
-        ref.watch(receiverConnectionProvider).valueOrNull ??
-        ReceiverConnectionState.disconnected;
-    final connectedRssi = ref.watch(connectedRssiProvider).valueOrNull;
+    final info = ref.watch(effectiveReceiverInfoProvider);
+    final connectionState = ref.watch(effectiveReceiverConnectionProvider);
+    final connectedRssi = ref.watch(effectiveConnectedRssiProvider);
     final controlState = ref.watch(controlControllerProvider);
     final controlController = ref.read(controlControllerProvider.notifier);
     final presentationState = ref.watch(controlPresentationProvider);
@@ -320,16 +320,11 @@ class _ControlPageState extends ConsumerState<ControlPage> {
         presentationState.effectCue == SoundCue.leftTurnSignal;
     final rightTurnActive =
         presentationState.effectCue == SoundCue.rightTurnSignal;
+    final alertMessage = ref.watch(controlPageAlertMessageProvider);
 
     final connected = connectionState == ReceiverConnectionState.connected;
-    final connectedDevice = info == null
-        ? null
-        : devices
-              .where((device) => device.remoteId == info.remoteId)
-              .cast<ReceiverScanDevice?>()
-              .firstOrNull;
     final batteryLevel = connected ? (info?.batteryLevel ?? 0) : 0;
-    final rssi = connected ? (connectedRssi ?? connectedDevice?.rssi) : null;
+    final rssi = connected ? connectedRssi : null;
 
     final showThrottleTurnSignals = leftTurnActive || rightTurnActive;
     final gyroControlEnabled = controlState.gyroEnabled;
@@ -433,6 +428,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                 Column(
                   children: [
                     _TopBar(
+                      alertMessage: alertMessage,
                       battery: batteryLevel,
                       rssi: rssi,
                       musicOn: presentationState.backgroundSoundEnabled,
@@ -498,6 +494,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
 
 class _TopBar extends StatelessWidget {
   const _TopBar({
+    required this.alertMessage,
     required this.battery,
     required this.rssi,
     required this.musicOn,
@@ -513,6 +510,7 @@ class _TopBar extends StatelessWidget {
     required this.rightTurnOn,
   });
 
+  final String? alertMessage;
   final int battery;
   final int? rssi;
   final bool musicOn;
@@ -548,7 +546,19 @@ class _TopBar extends StatelessWidget {
                 BatteryWidget(value: battery.toDouble(), width: 29, height: 16),
               ],
             ),
-            const Spacer(),
+            Expanded(
+              child: IgnorePointer(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: alertMessage == null
+                        ? const SizedBox.shrink()
+                        : ControlStatusWarningText(message: alertMessage!),
+                  ),
+                ),
+              ),
+            ),
             Row(
               children: [
                 if (showThrottleTurnSignals && (leftTurnOn || rightTurnOn)) ...[

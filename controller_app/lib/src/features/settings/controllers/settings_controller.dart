@@ -11,6 +11,9 @@ class SettingsController extends StateNotifier<AppSettingsState> {
   }
 
   static const _storageKey = 'controller_app.settings.v1';
+  bool _isLoaded = false;
+
+  bool get isLoaded => _isLoaded;
 
   void setHandedness(Handedness value) {
     state = state.copyWith(handedness: value);
@@ -103,6 +106,7 @@ class SettingsController extends StateNotifier<AppSettingsState> {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_storageKey);
     if (raw == null || raw.isEmpty) {
+      _finishLoad();
       return;
     }
     try {
@@ -110,6 +114,7 @@ class SettingsController extends StateNotifier<AppSettingsState> {
     } catch (_) {
       state = AppSettingsState.defaults();
     }
+    _finishLoad();
   }
 
   Future<void> _persist() async {
@@ -136,5 +141,10 @@ class SettingsController extends StateNotifier<AppSettingsState> {
       case BatteryType.other:
         return current.copyWith(minimumVoltage: 6.0, fullVoltage: 8.4);
     }
+  }
+
+  void _finishLoad() {
+    _isLoaded = true;
+    state = state.copyWith();
   }
 }

@@ -36,6 +36,68 @@ void main() {
     expect(find.text('6.4V'), findsOneWidget);
     expect(find.text('15%'), findsOneWidget);
   });
+
+  testWidgets('battery alert voice and vibration can both stay enabled', (
+    tester,
+  ) async {
+    final controller = _TestSettingsController(
+      AppSettingsState.defaults().copyWith(
+        batteryVoice: false,
+        batteryVibration: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appSettingsProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: AlarmSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('语音').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('震动').first);
+    await tester.pumpAndSettle();
+
+    expect(controller.state.batteryVoice, isTrue);
+    expect(controller.state.batteryVibration, isTrue);
+  });
+
+  testWidgets('signal and reconnect alerts can keep voice and vibration', (
+    tester,
+  ) async {
+    final controller = _TestSettingsController(
+      AppSettingsState.defaults().copyWith(
+        signalVoice: false,
+        signalVibration: false,
+        reconnectVoice: false,
+        reconnectVibration: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appSettingsProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: AlarmSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('语音').at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('震动').at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('语音').at(2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('震动').at(2));
+    await tester.pumpAndSettle();
+
+    expect(controller.state.signalVoice, isTrue);
+    expect(controller.state.signalVibration, isTrue);
+    expect(controller.state.reconnectVoice, isTrue);
+    expect(controller.state.reconnectVibration, isTrue);
+  });
 }
 
 class _TestSettingsController extends SettingsController {

@@ -60,19 +60,31 @@ lib/src/provider/
 - `features/bluetooth/view/`：设备列表、配对页。
 - `features/control/view/`：控制页。
 - `features/control/widgets/`：控制页复用组件（转向按钮、顶部辅助按钮组等）。
+- `features/control/widgets/control_status_warning_text.dart`：控制页顶部居中报警提示文案。
 - `features/settings/view/`：设置主页与子页。
 - `features/settings/widgets/`：设置页复用组件（布局、切换项、数值弹窗、统一操作按钮）。
 - `features/settings/widgets/tank_mixing_panel.dart`：履带混控布局与方向输入按钮。
 - `features/help/view/`：帮助页。
 
 ### provider（统一收口）
+- `alert_audio_player.dart`：报警语音播放能力。
+- `alert_message_provider.dart`：控制页报警文案显示状态。
 - `app_settings_provider.dart`：设置状态。
+- `battery_alert_provider.dart`：低模型电压报警监听与触发。
 - `bluetooth_domain_provider.dart`：蓝牙扫描、连接、设备聚合状态。
 - `control_provider.dart`：控制状态流转入口。
 - `control_presentation_provider.dart`：控制页音效与动画展示状态。
+- `effective_bluetooth_provider.dart`：统一真实蓝牙与模拟蓝牙的有效状态入口。
 - `gyro_prompt_provider.dart`：陀螺仪输入映射状态。
 - `race_sound_player.dart`：音效播放器能力。
+- `reconnect_alert_provider.dart`：断开/连上提示监听与触发。
+- `signal_alert_provider.dart`：低模型信号报警监听与触发。
+- `signal_strength_utils.dart`：RSSI 转信号百分比工具。
+- `simulated_bluetooth_provider.dart`：未连接蓝牙时的模拟遥测数据。
 - `voice.dart`：语音相关导出。
+
+### core
+- `app_vibration.dart`：统一震动工具。
 
 ## 5. 变更同步规则（执行清单）
 1. 改目录前先改本文件中的目标结构与规则。
