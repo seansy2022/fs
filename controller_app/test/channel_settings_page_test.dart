@@ -107,47 +107,55 @@ void main() {
     );
   });
 
-  testWidgets('multi state delete button appears beside add above three items', (
-    tester,
-  ) async {
-    await _pumpPage(
-      tester,
-      _stateWithAux(
-        ch3Type: AuxControlType.multiState,
-        ch4Type: AuxControlType.disabled,
-      ),
-    );
+  testWidgets(
+    'multi state delete button appears beside add above three items',
+    (tester) async {
+      await _pumpPage(
+        tester,
+        _stateWithAux(
+          ch3Type: AuxControlType.multiState,
+          ch4Type: AuxControlType.disabled,
+        ),
+      );
 
-    final card = _auxCardFor('辅助1');
-    expect(
-      find.descendant(
+      final card = _auxCardFor('辅助1');
+      expect(
+        find.descendant(
+          of: card,
+          matching: find.byKey(
+            const ValueKey<String>('multi-state-delete-icon'),
+          ),
+        ),
+        findsNothing,
+      );
+
+      await tester.tap(find.descendant(of: card, matching: find.text('新增')));
+      await tester.pumpAndSettle();
+
+      final deleteFinder = find.descendant(
         of: card,
         matching: find.byKey(const ValueKey<String>('multi-state-delete-icon')),
-      ),
-      findsNothing,
-    );
+      );
+      expect(deleteFinder, findsOneWidget);
 
-    await tester.tap(find.descendant(of: card, matching: find.text('新增')));
-    await tester.pumpAndSettle();
+      await tester.tap(deleteFinder);
+      await tester.pumpAndSettle();
 
-    final deleteFinder = find.descendant(
-      of: card,
-      matching: find.byKey(const ValueKey<String>('multi-state-delete-icon')),
-    );
-    expect(deleteFinder, findsOneWidget);
-
-    await tester.tap(deleteFinder);
-    await tester.pumpAndSettle();
-
-    expect(find.descendant(of: card, matching: find.text('状态4')), findsNothing);
-    expect(
-      find.descendant(
-        of: card,
-        matching: find.byKey(const ValueKey<String>('multi-state-delete-icon')),
-      ),
-      findsNothing,
-    );
-  });
+      expect(
+        find.descendant(of: card, matching: find.text('状态4')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: card,
+          matching: find.byKey(
+            const ValueKey<String>('multi-state-delete-icon'),
+          ),
+        ),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('value type shows single value editor', (tester) async {
     await _pumpPage(
@@ -204,6 +212,29 @@ void main() {
     for (final button in buttons.take(6)) {
       expect(button.width, 60);
     }
+  });
+
+  testWidgets('CH1 low button opens editor and updates value', (tester) async {
+    final controller = _TestSettingsController(AppSettingsState.defaults());
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appSettingsProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: ChannelSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('-100%').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置CH1低'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, '-80');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(controller.state.channels.first.lowPercent, -80);
+    expect(find.text('-80%'), findsOneWidget);
   });
 }
 

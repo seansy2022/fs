@@ -667,6 +667,7 @@ class _HomeActionButton extends StatelessWidget {
     required this.text,
     required this.onTap,
     required this.icon,
+    this.enabled = true,
     this.width = 174,
     this.height = 44,
     this.backgroundColor,
@@ -675,8 +676,9 @@ class _HomeActionButton extends StatelessWidget {
   });
 
   final String text;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Widget icon;
+  final bool enabled;
   final double width;
   final double height;
   final Color? backgroundColor;
@@ -685,6 +687,13 @@ class _HomeActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resolvedTextColor = enabled
+        ? textColor
+        : textColor.withValues(alpha: 0.45);
+    final resolvedBackgroundColor = enabled
+        ? backgroundColor
+        : const Color(0x661B2D4D);
+    final resolvedGradient = enabled ? gradient : null;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -692,19 +701,22 @@ class _HomeActionButton extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: backgroundColor,
-          gradient: gradient,
+          color: resolvedBackgroundColor,
+          gradient: resolvedGradient,
           borderRadius: BorderRadius.circular(4),
+          border: enabled
+              ? null
+              : Border.all(color: const Color(0x667DA2CE), width: 1),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            icon,
+            Opacity(opacity: enabled ? 1 : 0.45, child: icon),
             const SizedBox(width: 8),
             Text(
               text,
               style: TextStyle(
-                color: textColor,
+                color: resolvedTextColor,
                 fontSize: AppFonts.s16,
                 fontWeight: AppFonts.w700,
               ),

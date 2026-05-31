@@ -40,6 +40,7 @@ class RCControllSider extends StatefulWidget {
 
 class _RCControllSiderState extends State<RCControllSider> {
   static const _buttonSize = 24.0;
+  static const _buttonGap = 8.0;
   static const _thumbSize = 20.0;
   static const _trackCross = 10.0;
 
@@ -99,20 +100,20 @@ class _RCControllSiderState extends State<RCControllSider> {
     return 0;
   }
 
-  void _startDrag(Offset localPos) {
+  void _startDrag(Offset localPos, double trackMain) {
     if (!widget.enabled) {
       return;
     }
     _dragSignLock = widget.lockSignUntilRelease ? _signOf(_value) : null;
-    _onDrag(localPos);
+    _onDrag(localPos, trackMain);
   }
 
-  void _onDrag(Offset localPos) {
+  void _onDrag(Offset localPos, double trackMain) {
     if (!widget.enabled) {
       return;
     }
     final drag = _isHorizontal ? localPos.dx : localPos.dy;
-    final usable = _trackMain - _thumbSize;
+    final usable = trackMain - _thumbSize;
     final raw = ((drag - (_thumbSize / 2)) / usable).clamp(0.0, 1.0);
     // Map [0,1] -> [-1,1], vertical keeps top as +1 and bottom as -1.
     var next = _isHorizontal ? (raw * 2 - 1) : (1 - raw) * 2 - 1;
@@ -130,39 +131,53 @@ class _RCControllSiderState extends State<RCControllSider> {
     _setValue(next);
   }
 
-  double get _thumbOffset {
+  double _thumbOffset(double trackMain) {
     final t = (_value + 1) / 2; // [-1, 1] -> [0, 1]
     if (_isHorizontal) {
-      return t * (_trackMain - _thumbSize);
+      return t * (trackMain - _thumbSize);
     }
-    return (1 - t) * (_trackMain - _thumbSize);
+    return (1 - t) * (trackMain - _thumbSize);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isHorizontal) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildButtonSlot(child: _buildButton(plus: false, onTap: _minus)),
-          const SizedBox(width: 8),
-          _buildTrack(),
-          const SizedBox(width: 8),
-          _buildButtonSlot(child: _buildButton(plus: true, onTap: _plus)),
-        ],
-      );
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildButtonSlot(child: _buildButton(plus: true, onTap: _plus)),
-        const SizedBox(height: 8),
-        _buildTrack(),
-        const SizedBox(height: 8),
-        _buildButtonSlot(child: _buildButton(plus: false, onTap: _minus)),
-      ],
+    final gap = _buttonGap;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final trackMain = _resolveTrackMain(constraints);
+        if (_isHorizontal) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildButtonSlot(child: _buildButton(plus: false, onTap: _minus)),
+              SizedBox(width: gap),
+              _buildTrack(trackMain),
+              SizedBox(width: gap),
+              _buildButtonSlot(child: _buildButton(plus: true, onTap: _plus)),
+            ],
+          );
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildButtonSlot(child: _buildButton(plus: true, onTap: _plus)),
+            SizedBox(height: gap),
+            _buildTrack(trackMain),
+            SizedBox(height: gap),
+            _buildButtonSlot(child: _buildButton(plus: false, onTap: _minus)),
+          ],
+        );
+      },
     );
+  }
+
+  double _resolveTrackMain(BoxConstraints constraints) {
+    final available = _isHorizontal ? constraints.maxWidth : constraints.maxHeight;
+    if (!available.isFinite) {
+      return _trackMain;
+    }
+    final reserved = (_buttonSize * 2) + (_buttonGap * 2);
+    return (available - reserved).clamp(_thumbSize, _trackMain).toDouble();
   }
 
   Widget _buildButtonSlot({required Widget child}) {
@@ -185,14 +200,14 @@ class _RCControllSiderState extends State<RCControllSider> {
     );
   }
 
-  Widget _buildTrack() {
-    final thumbCenter = _thumbOffset + (_thumbSize / 2);
-    final center = _trackMain / 2;
+  Widget _buildTrack(double trackMain) {
+    final thumbCenter = _thumbOffset(trackMain) + (_thumbSize / 2);
+    final center = trackMain / 2;
     final fillLength = (thumbCenter - center).abs();
 
     final track = Container(
-      width: _isHorizontal ? _trackMain : _trackCross,
-      height: _isHorizontal ? _trackCross : _trackMain,
+      width: _isHorizontal ? trackMain : _trackCross,
+      height: _isHorizontal ? _trackCross : trackMain,
       decoration: BoxDecoration(
         color: const Color.fromRGBO(27, 45, 77, 0.4),
         border: Border.all(
@@ -212,13 +227,17 @@ class _RCControllSiderState extends State<RCControllSider> {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPanStart: widget.enabled ? (d) => _startDrag(d.localPosition) : null,
-      onPanUpdate: widget.enabled ? (d) => _onDrag(d.localPosition) : null,
+      onPanStart: widget.enabled
+          ? (d) => _startDrag(d.localPosition, trackMain)
+          : null,
+      onPanUpdate: widget.enabled
+          ? (d) => _onDrag(d.localPosition, trackMain)
+          : null,
       onPanEnd: widget.enabled ? (_) => _dragSignLock = null : null,
       onPanCancel: widget.enabled ? () => _dragSignLock = null : null,
       child: SizedBox(
-        width: _isHorizontal ? _trackMain : _thumbSize,
-        height: _isHorizontal ? _thumbSize : _trackMain,
+        width: _isHorizontal ? trackMain : _thumbSize,
+        height: _isHorizontal ? _thumbSize : trackMain,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -240,8 +259,8 @@ class _RCControllSiderState extends State<RCControllSider> {
               ),
             ),
             Positioned(
-              left: _isHorizontal ? _thumbOffset : 0,
-              top: _isHorizontal ? 0 : _thumbOffset,
+              left: _isHorizontal ? _thumbOffset(trackMain) : 0,
+              top: _isHorizontal ? 0 : _thumbOffset(trackMain),
               child: thumb,
             ),
           ],
@@ -316,24 +335,6 @@ class _RCControllSiderState extends State<RCControllSider> {
       );
     }
 
-    return Positioned(
-      left: (_trackCross - tickLength) / 2,
-      top: (_trackMain - (tickStroke * 2)) / 2,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: tickLength,
-            height: tickStroke,
-            color: tickMainColor,
-          ),
-          Container(
-            width: tickLength,
-            height: tickStroke,
-            color: tickShadowColor,
-          ),
-        ],
-      ),
-    );
+    return const SizedBox.shrink();
   }
 }

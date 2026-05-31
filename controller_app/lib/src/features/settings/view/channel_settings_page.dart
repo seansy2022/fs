@@ -122,7 +122,13 @@ class _ChannelSettingsContentState
                   width: _channelValueButtonWidth(channelIndex),
                   value: _valueForField(channel, field.field).round(),
                   active: _selectedFields[channelIndex] == field.field,
-                  onTap: () => _selectField(channelIndex, field.field),
+                  onTap: () => _editChannelValue(
+                    context: context,
+                    channelIndex: channelIndex,
+                    channel: channel,
+                    field: field.field,
+                    controller: controller,
+                  ),
                 ),
               ),
             ],
@@ -215,10 +221,7 @@ class _ChannelSettingsContentState
                     top: 8,
                     bottom: 8,
                   ),
-                  child: Container(
-                    height: 1,
-                    color: const Color(0xFF233854),
-                  ),
+                  child: Container(height: 1, color: const Color(0xFF233854)),
                 ),
                 const SizedBox(height: 14),
                 configSection,
@@ -331,7 +334,8 @@ class _ChannelSettingsContentState
                 showDelete: channel.multiStateValues.length > 3,
                 onDelete: () =>
                     _removeMultiStateValue(controller, channelIndex, channel),
-                onTap: () => _addMultiStateValue(controller, channelIndex, channel),
+                onTap: () =>
+                    _addMultiStateValue(controller, channelIndex, channel),
               ),
             ],
           ),
@@ -586,6 +590,59 @@ class _ChannelSettingsContentState
     setState(() {
       _selectedFields[channelIndex] = field;
     });
+  }
+
+  Future<void> _editChannelValue({
+    required BuildContext context,
+    required int channelIndex,
+    required ChannelSetting channel,
+    required _ChannelValueField field,
+    required SettingsController controller,
+  }) async {
+    _selectField(channelIndex, field);
+    final raw = await NumericInputDialog.show(
+      context,
+      title: '设置${channel.channelLabel}${_fieldLabel(field)}',
+      initialValue: _valueForField(channel, field).round().toString(),
+      unit: '%',
+      allowSigned: true,
+      allowDecimal: false,
+      maxLength: 4,
+    );
+    final value = int.tryParse(raw?.trim() ?? '');
+    if (value == null) {
+      return;
+    }
+    controller.updateChannel(
+      channelIndex,
+      _updateChannelField(channel, field, value.clamp(-100, 100).toDouble()),
+    );
+  }
+
+  ChannelSetting _updateChannelField(
+    ChannelSetting channel,
+    _ChannelValueField field,
+    double value,
+  ) {
+    switch (field) {
+      case _ChannelValueField.low:
+        return channel.copyWith(lowPercent: value);
+      case _ChannelValueField.high:
+        return channel.copyWith(highPercent: value);
+      case _ChannelValueField.trim:
+        return channel.copyWith(trimPercent: value);
+    }
+  }
+
+  String _fieldLabel(_ChannelValueField field) {
+    switch (field) {
+      case _ChannelValueField.low:
+        return '低';
+      case _ChannelValueField.high:
+        return '高';
+      case _ChannelValueField.trim:
+        return '中';
+    }
   }
 }
 
@@ -858,12 +915,12 @@ class _FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-        value,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: AppColors.text, fontSize: 14),
-      ) ;
+      value,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.center,
+      style: const TextStyle(color: AppColors.text, fontSize: 14),
+    );
   }
 }
 
@@ -941,10 +998,7 @@ class _ChannelValueInput extends StatelessWidget {
       padding: EdgeInsets.zero,
       textWidget: Text(
         '$value%',
-        style: const TextStyle(
-          color: AppColors.textDim,
-          fontSize: 14,
-        ),
+        style: const TextStyle(color: AppColors.textDim, fontSize: 14),
       ),
     );
   }

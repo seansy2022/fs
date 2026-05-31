@@ -638,7 +638,7 @@ class _CircleIconBtn extends StatelessWidget {
         ),
         child: assetPath != null
             ? Padding(
-                padding: const EdgeInsets.all(9),
+                padding: const EdgeInsets.all(7),
                 child: SvgPicture.asset(assetPath!, fit: BoxFit.contain),
               )
             : Icon(
@@ -722,18 +722,15 @@ class _ControlArea extends StatelessWidget {
     required bool sliderOnOuterSide,
     Widget? controlOverride,
   }) {
-    final slider = Transform.translate(
-      offset: const Offset(0, -10),
-      child: RCControllSider(
-        direction: RCControllSiderDirection.vertical,
-        trackMain: 120,
-        enabled: controlState.sliderButtonsVisible,
-        showButtons: controlState.sliderButtonsVisible,
-        lockSignUntilRelease: true,
-        onChanged: (value) {
-          controlController.setThrottle(value);
-        },
-      ),
+    final slider = RCControllSider(
+      direction: RCControllSiderDirection.vertical,
+      trackMain: 160,
+      enabled: controlState.sliderButtonsVisible,
+      showButtons: controlState.sliderButtonsVisible,
+      lockSignUntilRelease: true,
+      onChanged: (value) {
+        controlController.setThrottle(value);
+      },
     );
 
     final stick = controlOverride ?? _buildVerticalStick();

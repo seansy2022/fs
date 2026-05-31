@@ -36,7 +36,7 @@ lib/src/provider/
 4. 控制器类型：`XxxController` 或 `XxxNotifier`。
 5. 文档文件统一小写英文命名，避免 `1.MD`、`需求.MD` 这类混合风格。
 
-## 4. 当前项目结构（2026-05-23）
+## 4. 当前项目结构（2026-05-31）
 
 ### 根目录
 - `pubspec.yaml`：依赖与资源声明。
@@ -59,6 +59,8 @@ lib/src/provider/
 - `features/home/view/`：首页。
 - `features/bluetooth/view/`：设备列表、配对页。
 - `features/control/view/`：控制页。
+- `features/control/controllers/`：控制页状态编排与通道输出映射。
+- `features/control/controllers/channel_output_mapper.dart`：CH1/CH2 百分比到 us 的分段映射工具。
 - `features/control/widgets/`：控制页复用组件（转向按钮、顶部辅助按钮组等）。
 - `features/control/widgets/control_status_warning_text.dart`：控制页顶部居中报警提示文案。
 - `features/settings/view/`：设置主页与子页。

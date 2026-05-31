@@ -303,7 +303,9 @@ void main() {
       expect(verticalSliders, findsNothing);
       expect(
         tester.getCenter(horizontalControls).dx,
-        lessThan(tester.view.physicalSize.width / tester.view.devicePixelRatio / 2),
+        lessThan(
+          tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
+        ),
       );
     },
   );
@@ -370,10 +372,10 @@ void main() {
 
     await controller.activate();
 
-    expect(
-      repository.callOrder,
-      <String>['updateControlValues', 'startControlLoop'],
-    );
+    expect(repository.callOrder, <String>[
+      'updateControlValues',
+      'startControlLoop',
+    ]);
     expect(repository.lastControlValues?.auxChannels, <int>[
       1000,
       1000,
@@ -386,30 +388,33 @@ void main() {
     ]);
   });
 
-  test('low gear halves forward throttle output while high gear keeps full', () async {
-    SharedPreferences.setMockInitialValues(const <String, Object>{});
-    final repository = _FakeReceiverRepository();
-    final settings = _TestSettingsController();
-    final container = ProviderContainer(
-      overrides: [
-        receiverRepositoryProvider.overrideWith((ref) => repository),
-        appSettingsProvider.overrideWith((ref) => settings),
-        gyroPromptProvider.overrideWith(
-          (ref) => Stream.value(const GyroPrompt.zero()),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    final controller = container.read(controlControllerProvider.notifier);
+  test(
+    'low gear halves forward throttle output while high gear keeps full',
+    () async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final repository = _FakeReceiverRepository();
+      final settings = _TestSettingsController();
+      final container = ProviderContainer(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          appSettingsProvider.overrideWith((ref) => settings),
+          gyroPromptProvider.overrideWith(
+            (ref) => Stream.value(const GyroPrompt.zero()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(controlControllerProvider.notifier);
 
-    await controller.setThrottle(1);
-    expect(container.read(controlControllerProvider).throttle, 0.5);
-    expect(repository.lastControlValues?.throttle, 1250);
+      await controller.setThrottle(1);
+      expect(container.read(controlControllerProvider).throttle, 0.5);
+      expect(repository.lastControlValues?.throttle, 1250);
 
-    await controller.toggleGear(true);
-    expect(container.read(controlControllerProvider).throttle, 1);
-    expect(repository.lastControlValues?.throttle, 1000);
-  });
+      await controller.toggleGear(true);
+      expect(container.read(controlControllerProvider).throttle, 1);
+      expect(repository.lastControlValues?.throttle, 1000);
+    },
+  );
 
   test('low gear does not affect reverse throttle output', () async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
@@ -431,6 +436,117 @@ void main() {
 
     expect(container.read(controlControllerProvider).throttle, -1);
     expect(repository.lastControlValues?.throttle, 2000);
+  });
+
+  test('CH1 uses configured low high center mapping', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final defaults = AppSettingsState.defaults();
+    final settings = _TestSettingsController()
+      ..state = defaults.copyWith(
+        channels: [
+          defaults.channels.first.copyWith(
+            lowPercent: -50,
+            highPercent: 50,
+            trimPercent: 1,
+          ),
+          ...defaults.channels.skip(1),
+        ],
+      );
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(controlControllerProvider.notifier);
+
+    await controller.setSteering(-1);
+    expect(repository.lastControlValues?.steering, 1250);
+
+    await controller.setSteering(0);
+    expect(repository.lastControlValues?.steering, 1505);
+
+    await controller.setSteering(0.5);
+    expect(repository.lastControlValues?.steering, 1628);
+  });
+
+  test(
+    'CH2 uses configured mapping while preserving forward reverse direction',
+    () async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final repository = _FakeReceiverRepository();
+      final defaults = AppSettingsState.defaults();
+      final settings = _TestSettingsController()
+        ..state = defaults.copyWith(
+          channels: [
+            defaults.channels.first,
+            defaults.channels[1].copyWith(
+              lowPercent: -50,
+              highPercent: 80,
+              trimPercent: -1,
+            ),
+            ...defaults.channels.skip(2),
+          ],
+        );
+      final container = ProviderContainer(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          appSettingsProvider.overrideWith((ref) => settings),
+          gyroPromptProvider.overrideWith(
+            (ref) => Stream.value(const GyroPrompt.zero()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(controlControllerProvider.notifier);
+
+      await controller.setThrottle(1);
+      expect(repository.lastControlValues?.throttle, 1373);
+
+      await controller.toggleGear(true);
+      expect(repository.lastControlValues?.throttle, 1250);
+
+      await controller.setThrottle(0);
+      expect(repository.lastControlValues?.throttle, 1495);
+
+      await controller.setThrottle(-1);
+      expect(repository.lastControlValues?.throttle, 1900);
+    },
+  );
+
+  test('CH1 trim applies after configured channel center mapping', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final defaults = AppSettingsState.defaults();
+    final settings = _TestSettingsController()
+      ..state = defaults.copyWith(
+        channels: [
+          defaults.channels.first.copyWith(trimPercent: 10),
+          ...defaults.channels.skip(1),
+        ],
+      );
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(controlControllerProvider.notifier);
+
+    await controller.setSteering(0);
+    expect(repository.lastControlValues?.steering, 1550);
+
+    await controller.adjustTrim(2);
+    expect(repository.lastControlValues?.steering, 1554);
   });
 
   test('pressAuxChannel toggles CH3 switch output', () async {

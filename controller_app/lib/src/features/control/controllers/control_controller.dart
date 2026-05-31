@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
 import '../../../provider/app_settings_provider.dart';
+import 'channel_output_mapper.dart';
 import '../../settings/models/app_settings_state.dart';
 
 class AuxChannelRuntimeState {
@@ -235,7 +236,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
     );
     final throttle = _applyGearToThrottle(
       _roundControlValue(
-      (_touchThrottle + gyroThrottle).clamp(-1, 1).toDouble(),
+        (_touchThrottle + gyroThrottle).clamp(-1, 1).toDouble(),
       ),
     );
     if (state.steering != steering || state.throttle != throttle) {
@@ -398,12 +399,20 @@ class ControlController extends StateNotifier<ControlScreenState> {
     final effectiveSteering = steering ?? state.steering;
     final effectiveThrottle = throttle ?? state.throttle;
     final settings = _ref.read(appSettingsProvider);
-    final steeringUs = (1500 + (effectiveSteering * 500) + (state.trim * 2))
-        .round()
-        .clamp(1000, 2000);
-    final throttleUs = (1500 - (effectiveThrottle * 500)).round().clamp(
-      1000,
-      2000,
+    final steeringSetting = _channelSettingAt(settings.channels, 0);
+    final throttleSetting = _channelSettingAt(settings.channels, 1);
+    final steeringUs = mapSteeringInputToUs(
+      steering: effectiveSteering,
+      lowPercent: steeringSetting.lowPercent,
+      centerPercent: steeringSetting.trimPercent,
+      highPercent: steeringSetting.highPercent,
+      trimStep: state.trim,
+    );
+    final throttleUs = mapThrottleInputToUs(
+      throttle: effectiveThrottle,
+      lowPercent: throttleSetting.lowPercent,
+      centerPercent: throttleSetting.trimPercent,
+      highPercent: throttleSetting.highPercent,
     );
     final auxChannels = <int>[
       _auxOutputForChannel(settings, 2),
@@ -464,7 +473,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
       )[runtime.selectedIndex],
       AuxControlType.value => setting.singleValue,
     };
-    return (1500 + (percent * 5)).round().clamp(1000, 2000);
+    return channelPercentToUs(percent);
   }
 
   bool _usesPulseOnlyAuxOutput(int channelIndex) {
