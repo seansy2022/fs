@@ -12,6 +12,7 @@ class RCControllSider extends StatefulWidget {
     this.direction = RCControllSiderDirection.horizontal,
     this.initialValue = 0,
     this.step = 0.1,
+    this.trackMain = 140,
     this.enabled = true,
     this.showButtons = true,
     this.lockSignUntilRelease = false,
@@ -25,6 +26,7 @@ class RCControllSider extends StatefulWidget {
 
   /// Button increment/decrement step.
   final double step;
+  final double trackMain;
 
   final bool enabled;
   final bool showButtons;
@@ -39,7 +41,6 @@ class RCControllSider extends StatefulWidget {
 class _RCControllSiderState extends State<RCControllSider> {
   static const _buttonSize = 24.0;
   static const _thumbSize = 20.0;
-  static const _trackMain = 140.0;
   static const _trackCross = 10.0;
 
   late double _value;
@@ -47,6 +48,7 @@ class _RCControllSiderState extends State<RCControllSider> {
 
   bool get _isHorizontal =>
       widget.direction == RCControllSiderDirection.horizontal;
+  double get _trackMain => widget.trackMain;
 
   @override
   void initState() {

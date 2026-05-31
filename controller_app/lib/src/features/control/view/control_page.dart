@@ -726,6 +726,7 @@ class _ControlArea extends StatelessWidget {
       offset: const Offset(0, -10),
       child: RCControllSider(
         direction: RCControllSiderDirection.vertical,
+        trackMain: 120,
         enabled: controlState.sliderButtonsVisible,
         showButtons: controlState.sliderButtonsVisible,
         lockSignUntilRelease: true,
