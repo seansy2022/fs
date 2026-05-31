@@ -90,7 +90,7 @@ class ReceiverControlValues {
     final normalized = List<int>.generate(
       8,
       (index) =>
-          _clampChannel(index < auxChannels.length ? auxChannels[index] : 1500),
+          _clampAuxChannel(index < auxChannels.length ? auxChannels[index] : 0),
       growable: false,
     );
     return ReceiverControlValues(
@@ -113,6 +113,13 @@ class ReceiverControlValues {
   }
 
   static int _clampChannel(int value) => value.clamp(1000, 2000);
+
+  static int _clampAuxChannel(int value) {
+    if (value == 0) {
+      return 0;
+    }
+    return _clampChannel(value);
+  }
 }
 
 class ReceiverFailsafeConfig {

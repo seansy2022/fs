@@ -220,7 +220,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
 
   Future<void> _activate() async {
     final repository = ref.read(receiverRepositoryProvider);
-    if (repository.receiverInfo != null) {
+    if (repository.connectionState == ReceiverConnectionState.connected) {
       await _getControlController().activate();
     }
   }
@@ -659,7 +659,7 @@ class _ControlArea extends StatelessWidget {
   static const _floatingVerticalZoneWidth = 160.0;
   static const _floatingVerticalZoneHeight = 260.0;
   static const _floatingHorizontalZoneWidth = 260.0;
-  static const _floatingHorizontalZoneHeight = 160.0;
+  static const _floatingHorizontalZoneHeight = 100.0;
 
   const _ControlArea({
     required this.leftPadIsThrottle,
@@ -722,13 +722,17 @@ class _ControlArea extends StatelessWidget {
     required bool sliderOnOuterSide,
     Widget? controlOverride,
   }) {
-    final slider = RCControllSider(
-      direction: RCControllSiderDirection.vertical,
-      showButtons: controlState.sliderButtonsVisible,
-      lockSignUntilRelease: true,
-      onChanged: (value) {
-        controlController.setThrottle(value);
-      },
+    final slider = Transform.translate(
+      offset: const Offset(0, -10),
+      child: RCControllSider(
+        direction: RCControllSiderDirection.vertical,
+        enabled: controlState.sliderButtonsVisible,
+        showButtons: controlState.sliderButtonsVisible,
+        lockSignUntilRelease: true,
+        onChanged: (value) {
+          controlController.setThrottle(value);
+        },
+      ),
     );
 
     final stick = controlOverride ?? _buildVerticalStick();
@@ -750,6 +754,7 @@ class _ControlArea extends StatelessWidget {
         const SizedBox(height: _controlGap),
         RCControllSider(
           direction: RCControllSiderDirection.horizontal,
+          enabled: controlState.sliderButtonsVisible,
           showButtons: controlState.sliderButtonsVisible,
           onChanged: (value) {
             controlController.setSteering(value);
@@ -789,32 +794,6 @@ class _ControlArea extends StatelessWidget {
     );
   }
 
-  Widget _buildFloatingDirectionalSteeringStick({
-    required bool positiveSteering,
-  }) {
-    return FloatingControlZone(
-      direction: FloatingControlDirection.horizontal,
-      width: _floatingHorizontalZoneWidth,
-      height: _floatingHorizontalZoneHeight,
-      allowPositive: positiveSteering,
-      allowNegative: !positiveSteering,
-      onChanged: (value) {
-        unawaited(controlController.setSteering(value));
-      },
-    );
-  }
-
-  Widget _buildFixedDirectionalSteeringStick({required bool positiveSteering}) {
-    return Control(
-      direction: ControlSliderDirection.horizontal,
-      allowPositive: positiveSteering,
-      allowNegative: !positiveSteering,
-      onChanged: (value) {
-        controlController.setSteering(value / 100);
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final useFloatingOverride = controlMode == ControlMode.floating;
@@ -822,6 +801,8 @@ class _ControlArea extends StatelessWidget {
       gyroEnabled: controlState.gyroEnabled,
       gyroMode: gyroMode,
     );
+    final keepSingleHorizontalArea =
+        useGyroOverride && gyroMode == GyroMode.throttleOnly;
     final showGyroDirectionHint =
         useGyroOverride && gyroMode == GyroMode.directionOnly;
     final leftControlOverride = !useGyroOverride
@@ -836,10 +817,6 @@ class _ControlArea extends StatelessWidget {
                   positiveThrottle: false,
                   showArrowHint: showGyroDirectionHint,
                 )
-        : gyroMode == GyroMode.throttleOnly
-        ? useFloatingOverride
-              ? _buildFloatingDirectionalSteeringStick(positiveSteering: false)
-              : _buildFixedDirectionalSteeringStick(positiveSteering: false)
         : null;
     final rightControlOverride = !useGyroOverride
         ? null
@@ -853,11 +830,26 @@ class _ControlArea extends StatelessWidget {
                   positiveThrottle: true,
                   showArrowHint: showGyroDirectionHint,
                 )
-        : gyroMode == GyroMode.throttleOnly
-        ? useFloatingOverride
-              ? _buildFloatingDirectionalSteeringStick(positiveSteering: true)
-              : _buildFixedDirectionalSteeringStick(positiveSteering: true)
         : null;
+    final horizontalArea = _buildHorizontalArea();
+    if (keepSingleHorizontalArea) {
+      return AbsorbPointer(
+        absorbing: inputLocked,
+        child: Padding(
+          padding: const EdgeInsets.only(
+            left: _verticalControlLeft,
+            right: 16,
+            bottom: _horizontalControlBottom,
+          ),
+          child: Align(
+            alignment: leftPadIsThrottle
+                ? Alignment.bottomRight
+                : Alignment.bottomLeft,
+            child: horizontalArea,
+          ),
+        ),
+      );
+    }
 
     final leftArea = leftPadIsThrottle
         ? _buildVerticalArea(

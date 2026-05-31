@@ -137,24 +137,24 @@ class _GyroArrowHintOverlay extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: upArrow
                   ? const [
-                      _GyroHintDot(),
-                      SizedBox(height: 2),
-                      Icon(
-                        Icons.keyboard_arrow_up_rounded,
-                        key: gyroDirectionalThrottleUpArrowKey,
-                        size: 24,
-                        color: Color(0xFFEDF5FF),
-                      ),
+                      // _GyroHintDot(),
+                      // SizedBox(height: 2),
+                      // Icon(
+                      //   Icons.keyboard_arrow_up_rounded,
+                      //   key: gyroDirectionalThrottleUpArrowKey,
+                      //   size: 24,
+                      //   color: Color(0xFFEDF5FF),
+                      // ),
                     ]
                   : const [
-                      _GyroHintDot(),
-                      SizedBox(height: 2),
-                      Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        key: gyroDirectionalThrottleDownArrowKey,
-                        size: 24,
-                        color: Color(0xFFEDF5FF),
-                      ),
+                      // _GyroHintDot(),
+                      // SizedBox(height: 2),
+                      // Icon(
+                      //   Icons.keyboard_arrow_down_rounded,
+                      //   key: gyroDirectionalThrottleDownArrowKey,
+                      //   size: 24,
+                      //   color: Color(0xFFEDF5FF),
+                      // ),
                     ],
             ),
           ),

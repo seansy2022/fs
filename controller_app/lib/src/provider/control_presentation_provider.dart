@@ -121,7 +121,6 @@ class ControlPresentationController
   static const launchHighThreshold = 0.5;
   static const brakePreviousThreshold = 0.55;
   static const minimumTriggerGap = Duration(milliseconds: 350);
-  static const _logPrefix = '[control-presentation]';
 
   final RaceSoundPlayer _soundPlayer;
 
@@ -194,12 +193,6 @@ class ControlPresentationController
       nextState: controlState,
     );
     final version = ++_decisionVersion;
-    _logDecision(
-      stage: 'bind',
-      previousState: previousState,
-      nextState: controlState,
-      decision: decision,
-    );
     await _enqueueDecision(decision, force: false, version: version);
   }
 
@@ -244,28 +237,14 @@ class ControlPresentationController
     required int version,
   }) async {
     if (_isStale(version, force: force)) {
-      debugPrint(
-        '$_logPrefix skip stale drive=${decision.driveState.name} '
-        'cue=${decision.effectCue.name} version=$version',
-      );
       return;
     }
-    final previousPresentation = state;
     state = state.copyWith(
       driveState: decision.driveState,
       animationState: decision.animationState,
       musicCue: _desiredMusicCue(state.backgroundSoundEnabled),
       effectCue: decision.effectCue,
     );
-    if (previousPresentation.driveState != state.driveState ||
-        previousPresentation.animationState != state.animationState ||
-        previousPresentation.effectCue != state.effectCue) {
-      debugPrint(
-        '$_logPrefix state drive=${state.driveState.name} '
-        'animation=${state.animationState.name} '
-        'effect=${state.effectCue.name} force=$force',
-      );
-    }
 
     if (!state.isPageActive) {
       return;
@@ -293,25 +272,14 @@ class ControlPresentationController
         decision.effectLoop &&
         _activeEffectCue == decision.effectCue &&
         _activeEffectLoop == decision.effectLoop) {
-      debugPrint(
-        '$_logPrefix keep cue=${decision.effectCue.name} '
-        'loop=${decision.effectLoop}',
-      );
       return;
     }
 
     if (!decision.effectLoop && !_canTriggerOneShot(force: force)) {
-      debugPrint(
-        '$_logPrefix skip one-shot cue=${decision.effectCue.name} gap',
-      );
       return;
     }
 
     if (_isStale(version, force: force)) {
-      debugPrint(
-        '$_logPrefix skip stale before play cue=${decision.effectCue.name} '
-        'version=$version',
-      );
       return;
     }
 
@@ -324,10 +292,6 @@ class ControlPresentationController
     final didStart = await _soundPlayer.playEffect(
       decision.effectCue,
       loop: decision.effectLoop,
-    );
-    debugPrint(
-      '$_logPrefix play cue=${decision.effectCue.name} '
-      'loop=${decision.effectLoop} started=$didStart',
     );
     if (!didStart && !decision.effectLoop) {
       _activeEffectCue = SoundCue.none;
@@ -374,24 +338,6 @@ class ControlPresentationController
     unawaited(_effectCompleteSubscription?.cancel());
     unawaited(_soundPlayer.dispose());
     super.dispose();
-  }
-
-  void _logDecision({
-    required String stage,
-    required ControlScreenState previousState,
-    required ControlScreenState nextState,
-    required ControlPresentationDecision decision,
-  }) {
-    debugPrint(
-      '$_logPrefix $stage '
-      'prev(t=${previousState.throttle.toStringAsFixed(2)},'
-      's=${previousState.steering.toStringAsFixed(2)}) '
-      'next(t=${nextState.throttle.toStringAsFixed(2)},'
-      's=${nextState.steering.toStringAsFixed(2)}) '
-      '=> drive=${decision.driveState.name} '
-      'animation=${decision.animationState.name} '
-      'cue=${decision.effectCue.name} loop=${decision.effectLoop}',
-    );
   }
 
   bool _isStale(int version, {required bool force}) {

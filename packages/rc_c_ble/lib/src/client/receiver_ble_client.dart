@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'receiver_control_buffer.dart';
 import '../models/receiver_models.dart';
 import '../protocol/receiver_command.dart';
 import '../protocol/receiver_frame.dart';
@@ -11,6 +12,8 @@ import '../transport/receiver_link_transport.dart';
 import '../transport/receiver_logging.dart';
 
 class ReceiverBleClient {
+  static final Uint8List _zeroRfmId = Uint8List(4);
+
   ReceiverBleClient({
     LinkTransport? transport,
     this.requestTimeout = const Duration(milliseconds: 900),
@@ -60,7 +63,7 @@ class ReceiverBleClient {
   ReceiverInfo? _receiverInfo;
   int? _connectedRssi;
   ReceiverFirmwareInfo? _firmwareInfo;
-  ReceiverControlValues _controlValues = const ReceiverControlValues();
+  final ReceiverControlBuffer _controlBuffer = ReceiverControlBuffer();
   String? _connectedRemoteId;
   AdapterState _adapterState = AdapterState.unknown;
   Future<void> _scanQueue = Future<void>.value();
@@ -161,6 +164,7 @@ class ReceiverBleClient {
   Future<void> connect(String remoteId) async {
     _setConnectionState(ReceiverConnectionState.connecting);
     await _transport.connect(remoteId);
+    _controlBuffer.clear();
     _connectedRemoteId = remoteId;
     _scanResults = _scanResults
         .map(
@@ -177,6 +181,7 @@ class ReceiverBleClient {
     _controlLoop?.cancel();
     _controlLoop = null;
     _stopConnectedRssiPolling();
+    _controlBuffer.clear();
     final remoteId = _connectedRemoteId;
     _connectedRemoteId = null;
     _receiverInfo = null;
@@ -213,18 +218,34 @@ class ReceiverBleClient {
       matcher: (response) =>
           response.command == ReceiverCommand.readFailsafe.id,
     );
-    return parseFailsafeResponse(frame);
+    final config = parseFailsafeResponse(frame);
+    ReceiverLogging.link(
+      '[failsafe-rx] cmd=0x07 ${_describeFailsafeConfig(config)}',
+      scope: 'ReceiverBleClient',
+    );
+    return config;
   }
 
   Future<ReceiverFailsafeConfig> writeFailsafe(
     ReceiverFailsafeConfig config,
   ) async {
+    final rfmId = _requireRfmId();
+    final request = buildWriteFailsafeRequest(rfmId, config);
+    ReceiverLogging.link(
+      '[failsafe-tx] cmd=0x08 ${_describeFailsafeConfig(config)}',
+      scope: 'ReceiverBleClient',
+    );
     final frame = await _sendRequest(
-      buildWriteFailsafeRequest(_requireRfmId(), config),
+      request,
       matcher: (response) =>
           response.command == ReceiverCommand.writeFailsafe.id,
     );
-    return parseFailsafeResponse(frame);
+    final saved = parseFailsafeResponse(frame);
+    ReceiverLogging.link(
+      '[failsafe-rx] cmd=0x08 ${_describeFailsafeConfig(saved)}',
+      scope: 'ReceiverBleClient',
+    );
+    return saved;
   }
 
   Future<ReceiverFirmwareInfo> readFirmwareInfo() async {
@@ -240,7 +261,11 @@ class ReceiverBleClient {
   }
 
   Future<void> updateControlValues(ReceiverControlValues values) async {
-    _controlValues = values.sanitize();
+    _controlBuffer.updateBase(values);
+  }
+
+  Future<void> queueAuxChannelPulse(int auxChannelIndex, int value) async {
+    _controlBuffer.queueAuxPulse(auxChannelIndex, value);
   }
 
   Future<void> exitBleMode() async {
@@ -253,7 +278,6 @@ class ReceiverBleClient {
   }
 
   Future<void> startControlLoop() async {
-    _requireRfmId();
     _controlLoop?.cancel();
     _controlLoop = Timer.periodic(const Duration(milliseconds: 10), (_) {
       unawaited(_sendControlHeartbeat());
@@ -366,6 +390,7 @@ class ReceiverBleClient {
         'rx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
         scope: 'ReceiverBleClient',
       );
+      _updateReceiverInfoFromHeartbeat(frame);
       _frameCtrl.add(frame);
       final completer = _pendingResponse;
       final matcher = _pendingMatcher;
@@ -442,8 +467,11 @@ class ReceiverBleClient {
   }
 
   Future<void> _sendControlHeartbeat() async {
-    final rfmId = _requireRfmId();
-    final frame = buildControlHeartbeatFrame(rfmId, _controlValues);
+    final rfmId = _receiverInfo?.rfmId ?? _zeroRfmId;
+    final frame = buildControlHeartbeatFrame(
+      rfmId,
+      _controlBuffer.consumeNextValues(),
+    );
     ReceiverLogging.link(
       'tx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
       scope: 'ReceiverBleClient',
@@ -459,9 +487,38 @@ class ReceiverBleClient {
     return info.rfmId;
   }
 
+  void _updateReceiverInfoFromHeartbeat(ReceiverFrame frame) {
+    if (frame.command != ReceiverCommand.controlHeartbeat.id ||
+        frame.data.length < 4) {
+      return;
+    }
+    final nextInfo = parseHeartbeatReceiverInfo(
+      frame,
+      remoteId: _connectedRemoteId,
+      previous: _receiverInfo,
+    );
+    final previous = _receiverInfo;
+    if (previous != null &&
+        previous.rfmIdHex == nextInfo.rfmIdHex &&
+        previous.remoteId == nextInfo.remoteId &&
+        previous.productModelCode == nextInfo.productModelCode &&
+        previous.batteryLevel == nextInfo.batteryLevel) {
+      return;
+    }
+    _receiverInfo = nextInfo;
+    _infoCtrl.add(nextInfo);
+  }
+
   void _setConnectionState(ReceiverConnectionState state) {
     _connectionState = state;
     _connectionCtrl.add(state);
+  }
+
+  String _describeFailsafeConfig(ReceiverFailsafeConfig config) {
+    return 'throttleUs=${config.throttleUs} '
+        'throttleMode=${config.throttleHold ? 'hold' : 'fixed'} '
+        'steeringUs=${config.steeringUs} '
+        'steeringMode=${config.steeringHold ? 'hold' : 'fixed'}';
   }
 
   void _seedConnectedRssiFromScan(String remoteId) {

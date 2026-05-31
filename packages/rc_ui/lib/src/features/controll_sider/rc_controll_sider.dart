@@ -12,6 +12,7 @@ class RCControllSider extends StatefulWidget {
     this.direction = RCControllSiderDirection.horizontal,
     this.initialValue = 0,
     this.step = 0.1,
+    this.enabled = true,
     this.showButtons = true,
     this.lockSignUntilRelease = false,
     this.onChanged,
@@ -25,6 +26,7 @@ class RCControllSider extends StatefulWidget {
   /// Button increment/decrement step.
   final double step;
 
+  final bool enabled;
   final bool showButtons;
   final bool lockSignUntilRelease;
 
@@ -75,6 +77,9 @@ class _RCControllSiderState extends State<RCControllSider> {
   void _plus() => _stepToward(_value + widget.step);
 
   void _stepToward(double next) {
+    if (!widget.enabled) {
+      return;
+    }
     var candidate = next;
     if (widget.lockSignUntilRelease) {
       final currentSign = _signOf(_value);
@@ -93,11 +98,17 @@ class _RCControllSiderState extends State<RCControllSider> {
   }
 
   void _startDrag(Offset localPos) {
+    if (!widget.enabled) {
+      return;
+    }
     _dragSignLock = widget.lockSignUntilRelease ? _signOf(_value) : null;
     _onDrag(localPos);
   }
 
   void _onDrag(Offset localPos) {
+    if (!widget.enabled) {
+      return;
+    }
     final drag = _isHorizontal ? localPos.dx : localPos.dy;
     final usable = _trackMain - _thumbSize;
     final raw = ((drag - (_thumbSize / 2)) / usable).clamp(0.0, 1.0);
@@ -199,10 +210,10 @@ class _RCControllSiderState extends State<RCControllSider> {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPanStart: (d) => _startDrag(d.localPosition),
-      onPanUpdate: (d) => _onDrag(d.localPosition),
-      onPanEnd: (_) => _dragSignLock = null,
-      onPanCancel: () => _dragSignLock = null,
+      onPanStart: widget.enabled ? (d) => _startDrag(d.localPosition) : null,
+      onPanUpdate: widget.enabled ? (d) => _onDrag(d.localPosition) : null,
+      onPanEnd: widget.enabled ? (_) => _dragSignLock = null : null,
+      onPanCancel: widget.enabled ? () => _dragSignLock = null : null,
       child: SizedBox(
         width: _isHorizontal ? _trackMain : _thumbSize,
         height: _isHorizontal ? _thumbSize : _trackMain,

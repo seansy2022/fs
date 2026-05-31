@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rc_c_ble/rc_c_ble.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
@@ -40,6 +41,7 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
   bool _steeringHold = true;
   bool _throttleHold = true;
   bool _testing = false;
+  bool _loading = false;
 
   @override
   void initState() {
@@ -56,7 +58,12 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
   }
 
   Future<void> _loadConfig() async {
+    setState(() => _loading = true);
     try {
+      final ready = await _ensureReceiverReady();
+      if (!ready) {
+        return;
+      }
       final config = await ref.read(receiverRepositoryProvider).readFailsafe();
       if (!mounted) return;
       setState(() {
@@ -67,6 +74,10 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
       });
     } catch (_) {
       // Use defaults
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -102,6 +113,88 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
     }
   }
 
+  ReceiverFailsafeConfig get _currentConfig => ReceiverFailsafeConfig(
+    throttleUs: _throttleHold ? 0 : _throttleUs,
+    steeringUs: _steeringHold ? 0 : _steeringUs,
+  );
+
+  Future<bool> _ensureReceiverReady() async {
+    final repository = ref.read(receiverRepositoryProvider);
+    if (repository.receiverInfo != null) {
+      return true;
+    }
+    try {
+      await repository.readReceiverInfo();
+      return true;
+    } catch (_) {
+      if (mounted) {
+        await AlertIconWidget.show(
+          context,
+          title: '设备未就绪',
+          message: '暂时无法读取设备信息，失控保护参数还不能读取或写入，请稍后重试。',
+          confirmText: '知道了',
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<void> _saveConfig() async {
+    final ready = await _ensureReceiverReady();
+    if (!ready) {
+      return;
+    }
+    await ref.read(receiverRepositoryProvider).writeFailsafe(_currentConfig);
+  }
+
+  Future<void> _setSteeringHold(bool hold) async {
+    final previous = _steeringHold;
+    setState(() => _steeringHold = hold);
+    try {
+      await _saveConfig();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _steeringHold = previous);
+      }
+    }
+  }
+
+  Future<void> _setThrottleHold(bool hold) async {
+    final previous = _throttleHold;
+    setState(() => _throttleHold = hold);
+    try {
+      await _saveConfig();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _throttleHold = previous);
+      }
+    }
+  }
+
+  Future<void> _setSteeringValue(int valueUs) async {
+    final previous = _steeringUs;
+    setState(() => _steeringUs = valueUs);
+    try {
+      await _saveConfig();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _steeringUs = previous);
+      }
+    }
+  }
+
+  Future<void> _setThrottleValue(int valueUs) async {
+    final previous = _throttleUs;
+    setState(() => _throttleUs = valueUs);
+    try {
+      await _saveConfig();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _throttleUs = previous);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -113,18 +206,18 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
               title: '方向',
               valueUs: _steeringUs,
               hold: _steeringHold,
-              onHoldChanged: (v) => setState(() => _steeringHold = v),
-              onValueChanged: (v) => setState(() => _steeringUs = v),
-              enabled: true,
+              onHoldChanged: (v) => unawaited(_setSteeringHold(v)),
+              onValueChanged: (v) => unawaited(_setSteeringValue(v)),
+              enabled: !_loading,
             ),
             const SizedBox(height: 8),
             _FailsafeChannelStrip(
               title: '油门',
               valueUs: _throttleUs,
               hold: _throttleHold,
-              onHoldChanged: (v) => setState(() => _throttleHold = v),
-              onValueChanged: (v) => setState(() => _throttleUs = v),
-              enabled: true,
+              onHoldChanged: (v) => unawaited(_setThrottleHold(v)),
+              onValueChanged: (v) => unawaited(_setThrottleValue(v)),
+              enabled: !_loading,
             ),
             const Spacer(),
             Center(

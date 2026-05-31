@@ -26,6 +26,22 @@ ReceiverInfo parseReceiverInfoResponse(
   );
 }
 
+ReceiverInfo parseHeartbeatReceiverInfo(
+  ReceiverFrame frame, {
+  String? remoteId,
+  ReceiverInfo? previous,
+}) {
+  _requireCommand(frame, ReceiverCommand.controlHeartbeat);
+  _requireDataLength(frame, 4);
+  final rfmId = Uint8List.fromList(frame.data.sublist(0, 4));
+  return ReceiverInfo(
+    rfmId: rfmId,
+    productModelCode: previous?.productModelCode ?? 0,
+    batteryLevel: previous?.batteryLevel ?? 0,
+    remoteId: remoteId ?? previous?.remoteId,
+  );
+}
+
 ReceiverFrame buildControlHeartbeatFrame(
   Uint8List rfmId,
   ReceiverControlValues values,

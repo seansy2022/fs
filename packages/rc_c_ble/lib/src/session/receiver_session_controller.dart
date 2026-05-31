@@ -121,6 +121,9 @@ class ReceiverSessionController {
   Future<void> updateControlValues(ReceiverControlValues values) =>
       _client.updateControlValues(values);
 
+  Future<void> queueAuxChannelPulse(int auxChannelIndex, int value) =>
+      _client.queueAuxChannelPulse(auxChannelIndex, value);
+
   Future<void> exitBleMode() => _client.exitBleMode();
 
   Future<void> startControlLoop() => _client.startControlLoop();

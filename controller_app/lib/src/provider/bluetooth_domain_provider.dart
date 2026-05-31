@@ -191,6 +191,8 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   );
   DateTime? _lastStopAt;
   bool _deviceViewsRebuildScheduled = false;
+  bool _autoConnectAttempted = false;
+  bool _autoConnectInFlight = false;
 
   void _bind() {
     _adapterSub = ref
@@ -368,6 +370,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         connectedDevice: connectedDevice,
       ),
     );
+    _maybeAutoConnectRememberedDevice();
   }
 
   Future<void> refreshEnvironment() async {
@@ -385,6 +388,8 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
       if (!mounted) {
         return;
       }
+      _autoConnectAttempted = false;
+      _autoConnectInFlight = false;
       _setState(state.copyWith(hasBootstrappedHome: true, clearError: true));
       final granted = await _requestBluetoothPermissionsForBootstrap();
       if (!mounted) {
@@ -538,6 +543,40 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         .rememberDevice(rememberedDevice);
     _rebuildDeviceViews();
     return true;
+  }
+
+  void _maybeAutoConnectRememberedDevice() {
+    if (!mounted ||
+        _autoConnectAttempted ||
+        _autoConnectInFlight ||
+        state.scanOwner != BluetoothScanOwner.home ||
+        !state.isScanning ||
+        state.connectedDevice != null) {
+      return;
+    }
+    final remembered = ref.read(rememberedDevicesProvider);
+    if (remembered.isEmpty) {
+      return;
+    }
+    final lastDevice = remembered.first;
+    final discovered = state.discoveredDevices
+        .where((device) => device.remoteId == lastDevice.remoteId)
+        .cast<ReceiverDeviceView?>()
+        .firstOrNull;
+    if (discovered == null) {
+      return;
+    }
+    _autoConnectAttempted = true;
+    _autoConnectInFlight = true;
+    unawaited(_autoConnectRememberedDevice(discovered.remoteId));
+  }
+
+  Future<void> _autoConnectRememberedDevice(String remoteId) async {
+    try {
+      await connect(remoteId);
+    } finally {
+      _autoConnectInFlight = false;
+    }
   }
 
   Future<bool> _waitForConnectedDevice(String remoteId) async {

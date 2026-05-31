@@ -58,6 +58,9 @@ class ReceiverRepository {
   Future<void> updateControlValues(ReceiverControlValues values) =>
       session.updateControlValues(values);
 
+  Future<void> queueAuxChannelPulse(int auxChannelIndex, int value) =>
+      session.queueAuxChannelPulse(auxChannelIndex, value);
+
   Future<void> exitBleMode() => session.exitBleMode();
 
   Future<void> startControlLoop() => session.startControlLoop();

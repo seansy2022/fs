@@ -47,6 +47,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         appSettingsProvider.overrideWith((ref) => settings),
+        simulatedBluetoothEnabledProvider.overrideWith((ref) => true),
         simulatedBluetoothStepDurationProvider.overrideWith((ref) {
           return const Duration(milliseconds: 10);
         }),
@@ -65,7 +66,7 @@ void main() {
     }, fireImmediately: true);
     addTearDown(subscription.close);
 
-    await Future<void>.delayed(const Duration(milliseconds: 75));
+    await Future<void>.delayed(const Duration(milliseconds: 95));
 
     expect(
       states.any(

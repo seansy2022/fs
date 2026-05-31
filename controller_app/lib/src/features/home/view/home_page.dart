@@ -31,31 +31,12 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  static const Duration _receiverInfoPollInterval = Duration(seconds: 1);
-
   DateTime? _lastHandledPromptAt;
   bool _handlingPrompt = false;
-  ProviderSubscription<AsyncValue<ReceiverConnectionState>>?
-  _connectionSubscription;
-  Timer? _receiverInfoPollTimer;
-  bool _receiverInfoRefreshInFlight = false;
 
   @override
   void initState() {
     super.initState();
-    _connectionSubscription = ref
-        .listenManual<AsyncValue<ReceiverConnectionState>>(
-          receiverConnectionProvider,
-          (_, next) {
-            final connected =
-                next.valueOrNull == ReceiverConnectionState.connected;
-            _syncReceiverInfoPolling(connected);
-          },
-        );
-    _syncReceiverInfoPolling(
-      ref.read(receiverRepositoryProvider).connectionState ==
-          ReceiverConnectionState.connected,
-    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(
         ref
@@ -63,36 +44,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             .bootstrapHomeBluetooth(),
       );
     });
-  }
-
-  void _syncReceiverInfoPolling(bool connected) {
-    if (connected) {
-      _receiverInfoPollTimer ??= Timer.periodic(_receiverInfoPollInterval, (_) {
-        unawaited(_refreshReceiverInfo());
-      });
-      return;
-    }
-    _receiverInfoPollTimer?.cancel();
-    _receiverInfoPollTimer = null;
-  }
-
-  Future<void> _refreshReceiverInfo() async {
-    if (!mounted || _receiverInfoRefreshInFlight) {
-      return;
-    }
-    final repository = ref.read(receiverRepositoryProvider);
-    if (repository.connectionState != ReceiverConnectionState.connected) {
-      return;
-    }
-    _receiverInfoRefreshInFlight = true;
-    try {
-      await repository.readReceiverInfo();
-    } catch (_) {
-      // Keep polling lightweight on the home page; transient read failures can
-      // recover on the next tick without surfacing noisy UI errors.
-    } finally {
-      _receiverInfoRefreshInFlight = false;
-    }
   }
 
   @override
@@ -400,8 +351,6 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   void dispose() {
-    _connectionSubscription?.close();
-    _receiverInfoPollTimer?.cancel();
     super.dispose();
   }
 }

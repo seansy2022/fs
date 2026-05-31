@@ -43,6 +43,18 @@ void main() {
     expect(info.batteryLevel, 88);
   });
 
+  test('parses heartbeat receiver info from cmd 0x02 response', () {
+    final frame = ReceiverFrame(
+      command: ReceiverCommand.controlHeartbeat.id,
+      data: const [0x11, 0x22, 0x33, 0x44],
+    );
+    final info = parseHeartbeatReceiverInfo(frame, remoteId: 'dev-1');
+    expect(info.remoteId, 'dev-1');
+    expect(info.rfmIdHex, '11223344');
+    expect(info.productModelCode, 0);
+    expect(info.batteryLevel, 0);
+  });
+
   test('parses failsafe response', () {
     final frame = ReceiverFrame(
       command: ReceiverCommand.readFailsafe.id,
@@ -52,6 +64,19 @@ void main() {
     expect(config.throttleUs, 1500);
     expect(config.steeringUs, 0);
     expect(config.steeringHold, isTrue);
+  });
+
+  test('control values keep zero for undefined aux channels', () {
+    const values = ReceiverControlValues(
+      throttle: 1500,
+      steering: 1500,
+      auxChannels: [1500, 1000, 0, 0, 0, 0, 0, 0],
+    );
+    final sanitized = values.sanitize();
+    expect(sanitized.auxChannels[0], 1500);
+    expect(sanitized.auxChannels[1], 1000);
+    expect(sanitized.auxChannels[2], 0);
+    expect(sanitized.auxChannels[7], 0);
   });
 
   test('client upgrade flow yields progress until completion', () async {
@@ -106,6 +131,102 @@ void main() {
       await client.dispose();
     }
   });
+
+  test(
+    'control heartbeat applies queued aux pulse for one frame at a time',
+    () async {
+      final transport = _FakeTransport();
+      final client = ReceiverBleClient(transport: transport);
+      transport.onSend = (bytes) {
+        final frame = ReceiverFrame.tryParse(bytes)!;
+        if (frame.command == ReceiverCommand.receiverInfo.id) {
+          transport.emit(
+            ReceiverFrame(
+              command: ReceiverCommand.receiverInfo.id,
+              data: const [0x11, 0x22, 0x33, 0x44, 0x01, 0x02, 95, 0],
+            ).toBytes(),
+          );
+        }
+      };
+
+      try {
+        await client.connect('dev-1');
+        await client.readReceiverInfo();
+        await client.updateControlValues(
+          const ReceiverControlValues(
+            throttle: 1600,
+            steering: 1400,
+            auxChannels: [1500, 1500, 1200, 1800, 1500, 1500, 1500, 1500],
+          ),
+        );
+        await client.queueAuxChannelPulse(0, 1700);
+        await client.queueAuxChannelPulse(0, 1300);
+
+        await client.startControlLoop();
+        await Future<void>.delayed(const Duration(milliseconds: 35));
+        await client.stopControlLoop();
+
+        final heartbeatFrames = transport.sentFrames
+            .where(
+              (frame) => frame.command == ReceiverCommand.controlHeartbeat.id,
+            )
+            .toList(growable: false);
+
+        expect(heartbeatFrames.length, greaterThanOrEqualTo(3));
+        expect(_decodeWord(heartbeatFrames[0].data, 4), 1600);
+        expect(_decodeWord(heartbeatFrames[0].data, 6), 1400);
+        expect(_decodeWord(heartbeatFrames[0].data, 8), 1700);
+        expect(_decodeWord(heartbeatFrames[1].data, 8), 1300);
+        expect(_decodeWord(heartbeatFrames[2].data, 8), 1500);
+        expect(_decodeWord(heartbeatFrames[2].data, 12), 1200);
+        expect(_decodeWord(heartbeatFrames[2].data, 14), 1800);
+      } finally {
+        await client.dispose();
+      }
+    },
+  );
+
+  test('control loop can start before receiverInfo request succeeds', () async {
+    final transport = _FakeTransport();
+    final client = ReceiverBleClient(transport: transport);
+    transport.onSend = (bytes) {
+      final frame = ReceiverFrame.tryParse(bytes)!;
+      if (frame.command == ReceiverCommand.controlHeartbeat.id) {
+        transport.emit(
+          ReceiverFrame(
+            command: ReceiverCommand.controlHeartbeat.id,
+            data: const [0x11, 0x22, 0x33, 0x44],
+          ).toBytes(),
+        );
+      }
+    };
+
+    try {
+      await client.connect('dev-1');
+      await client.updateControlValues(
+        const ReceiverControlValues(throttle: 1600, steering: 1400),
+      );
+      await client.startControlLoop();
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+      await client.stopControlLoop();
+
+      final heartbeatFrames = transport.sentFrames
+          .where(
+            (frame) => frame.command == ReceiverCommand.controlHeartbeat.id,
+          )
+          .toList(growable: false);
+
+      expect(heartbeatFrames, isNotEmpty);
+      expect(_decodeWord(heartbeatFrames.first.data, 0), 0);
+      expect(client.receiverInfo?.rfmIdHex, '11223344');
+    } finally {
+      await client.dispose();
+    }
+  });
+}
+
+int _decodeWord(List<int> bytes, int start) {
+  return ((bytes[start] & 0xFF) << 8) | (bytes[start + 1] & 0xFF);
 }
 
 class _FakeTransport implements LinkTransport {
@@ -113,6 +234,7 @@ class _FakeTransport implements LinkTransport {
       StreamController<List<int>>.broadcast();
   final StreamController<List<BluetoothScanDevice>> _scanCtrl =
       StreamController<List<BluetoothScanDevice>>.broadcast();
+  final List<ReceiverFrame> sentFrames = <ReceiverFrame>[];
 
   void Function(List<int> bytes)? onSend;
 
@@ -150,6 +272,10 @@ class _FakeTransport implements LinkTransport {
 
   @override
   Future<void> send(List<int> bytes) async {
+    final frame = ReceiverFrame.tryParse(bytes);
+    if (frame != null) {
+      sentFrames.add(frame);
+    }
     onSend?.call(bytes);
   }
 

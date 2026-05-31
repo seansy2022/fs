@@ -241,6 +241,73 @@ void main() {
     },
   );
 
+  testWidgets(
+    'gyro throttle mode keeps only the original horizontal control area',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final repository = _FakeReceiverRepository();
+      final settings = _TestSettingsController()
+        ..state = AppSettingsState.defaults().copyWith(
+          controlMode: ControlMode.fixedPosition,
+          handedness: Handedness.rightThrottle,
+          gyroMode: GyroMode.throttleOnly,
+        );
+      final container = ProviderContainer(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          appSettingsProvider.overrideWith((ref) => settings),
+          gyroPromptProvider.overrideWith(
+            (ref) => Stream.value(const GyroPrompt.zero()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: ControlPage()),
+        ),
+      );
+      await tester.pump();
+
+      await container
+          .read(controlControllerProvider.notifier)
+          .setGyroEnabled(true);
+      await tester.pump();
+
+      final horizontalControls = find.byWidgetPredicate(
+        (widget) =>
+            widget is Control &&
+            widget.direction == ControlSliderDirection.horizontal,
+      );
+      final verticalControls = find.byWidgetPredicate(
+        (widget) =>
+            widget is Control &&
+            widget.direction == ControlSliderDirection.vertical,
+      );
+      final horizontalSliders = find.byWidgetPredicate(
+        (widget) =>
+            widget is RCControllSider &&
+            widget.direction == RCControllSiderDirection.horizontal,
+      );
+      final verticalSliders = find.byWidgetPredicate(
+        (widget) =>
+            widget is RCControllSider &&
+            widget.direction == RCControllSiderDirection.vertical,
+      );
+
+      expect(horizontalControls, findsOneWidget);
+      expect(verticalControls, findsNothing);
+      expect(horizontalSliders, findsOneWidget);
+      expect(verticalSliders, findsNothing);
+      expect(
+        tester.getCenter(horizontalControls).dx,
+        lessThan(tester.view.physicalSize.width / tester.view.devicePixelRatio / 2),
+      );
+    },
+  );
+
   test('park lock zeros steering throttle and blocks control input', () async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     final repository = _FakeReceiverRepository();
@@ -285,6 +352,87 @@ void main() {
     expect(unlockedState.highGear, isTrue);
   });
 
+  test('activate pushes base values before starting control loop', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController();
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(controlControllerProvider.notifier);
+
+    await controller.activate();
+
+    expect(
+      repository.callOrder,
+      <String>['updateControlValues', 'startControlLoop'],
+    );
+    expect(repository.lastControlValues?.auxChannels, <int>[
+      1000,
+      1000,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+    ]);
+  });
+
+  test('low gear halves forward throttle output while high gear keeps full', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController();
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(controlControllerProvider.notifier);
+
+    await controller.setThrottle(1);
+    expect(container.read(controlControllerProvider).throttle, 0.5);
+    expect(repository.lastControlValues?.throttle, 1250);
+
+    await controller.toggleGear(true);
+    expect(container.read(controlControllerProvider).throttle, 1);
+    expect(repository.lastControlValues?.throttle, 1000);
+  });
+
+  test('low gear does not affect reverse throttle output', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController();
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(controlControllerProvider.notifier);
+
+    await controller.setThrottle(-1);
+
+    expect(container.read(controlControllerProvider).throttle, -1);
+    expect(repository.lastControlValues?.throttle, 2000);
+  });
+
   test('pressAuxChannel toggles CH3 switch output', () async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     final repository = _FakeReceiverRepository();
@@ -319,14 +467,16 @@ void main() {
       container.read(controlControllerProvider).ch3Runtime.switchOn,
       isTrue,
     );
-    expect(repository.lastControlValues?.auxChannels[0], 2000);
+    expect(repository.lastPulseChannelIndex, 0);
+    expect(repository.lastPulseValue, 2000);
 
     await controller.pressAuxChannel(2);
     expect(
       container.read(controlControllerProvider).ch3Runtime.switchOn,
       isFalse,
     );
-    expect(repository.lastControlValues?.auxChannels[0], 1000);
+    expect(repository.lastPulseChannelIndex, 0);
+    expect(repository.lastPulseValue, 1000);
   });
 
   test('pressAuxChannel cycles CH3 multi-state output', () async {
@@ -363,14 +513,16 @@ void main() {
       container.read(controlControllerProvider).ch3Runtime.selectedIndex,
       1,
     );
-    expect(repository.lastControlValues?.auxChannels[0], 1700);
+    expect(repository.lastPulseChannelIndex, 0);
+    expect(repository.lastPulseValue, 1700);
 
     await controller.pressAuxChannel(2);
     expect(
       container.read(controlControllerProvider).ch3Runtime.selectedIndex,
       0,
     );
-    expect(repository.lastControlValues?.auxChannels[0], 1550);
+    expect(repository.lastPulseChannelIndex, 0);
+    expect(repository.lastPulseValue, 1550);
   });
 
   test('pressAuxChannel sends fixed CH4 value output', () async {
@@ -408,8 +560,51 @@ void main() {
       container.read(controlControllerProvider).ch4Runtime.selectedIndex,
       0,
     );
-    expect(repository.lastControlValues?.auxChannels[1], 1625);
+    expect(repository.lastPulseChannelIndex, 1);
+    expect(repository.lastPulseValue, 1625);
   });
+
+  test(
+    'base CH3 and CH4 values come from channel settings while CH5-CH10 stay zero',
+    () async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final repository = _FakeReceiverRepository();
+      final settings = _TestSettingsController()
+        ..state = AppSettingsState.defaults().copyWith(
+          channels: [
+            ...AppSettingsState.defaults().channels.take(2),
+            AppSettingsState.defaults().channels[2].copyWith(
+              controlType: AuxControlType.switchControl,
+              switchValues: const <double>[100, -100],
+            ),
+            AppSettingsState.defaults().channels[3].copyWith(
+              controlType: AuxControlType.value,
+              singleValue: 25,
+            ),
+          ],
+        );
+      final container = ProviderContainer(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          appSettingsProvider.overrideWith((ref) => settings),
+          gyroPromptProvider.overrideWith(
+            (ref) => Stream.value(const GyroPrompt.zero()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(controlControllerProvider.notifier);
+
+      await controller.setThrottle(0.1);
+
+      expect(repository.lastControlValues?.auxChannels[0], 1000);
+      expect(repository.lastControlValues?.auxChannels[1], 1625);
+      expect(
+        repository.lastControlValues?.auxChannels.sublist(2),
+        everyElement(0),
+      );
+    },
+  );
 
   testWidgets('value aux button flashes active for a single frame after tap', (
     tester,
@@ -458,7 +653,8 @@ void main() {
     await tester.pump();
 
     expect(tester.widget<Text>(labelFinder).style?.color, AppColors.onPrimary);
-    expect(repository.lastControlValues?.auxChannels[1], 1625);
+    expect(repository.lastPulseChannelIndex, 1);
+    expect(repository.lastPulseValue, 1625);
 
     await tester.pump();
 
@@ -518,7 +714,8 @@ void main() {
         tester.widget<Text>(labelFinder).style?.color,
         AppColors.onPrimary,
       );
-      expect(repository.lastControlValues?.auxChannels[0], 1700);
+      expect(repository.lastPulseChannelIndex, 0);
+      expect(repository.lastPulseValue, 1700);
 
       await tester.pump();
 
@@ -590,12 +787,52 @@ void main() {
     expect(ch3State2Top.dx, greaterThan(ch3Top.dx));
     expect(ch4Top.dx, lessThan(driveSwitchTop.dx));
   });
+
+  testWidgets('slider stays inactive until trim toggle is enabled', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController();
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: ControlPage()),
+      ),
+    );
+    await tester.pump();
+
+    final sliderFinder = find.byType(RCControllSider).first;
+    expect(tester.widget<RCControllSider>(sliderFinder).enabled, isFalse);
+
+    container.read(controlControllerProvider.notifier).toggleSliderButtons();
+    await tester.pump();
+
+    expect(tester.widget<RCControllSider>(sliderFinder).enabled, isTrue);
+  });
 }
 
 class _TestSettingsController extends SettingsController {}
 
 class _FakeReceiverRepository implements ReceiverRepository {
+  final List<String> callOrder = <String>[];
   ReceiverControlValues? lastControlValues;
+  int? lastPulseChannelIndex;
+  int? lastPulseValue;
+
+  @override
+  ReceiverConnectionState get connectionState =>
+      ReceiverConnectionState.connected;
 
   @override
   ReceiverInfo? get receiverInfo => null;
@@ -623,14 +860,23 @@ class _FakeReceiverRepository implements ReceiverRepository {
 
   @override
   Future<void> updateControlValues(ReceiverControlValues values) async {
+    callOrder.add('updateControlValues');
     lastControlValues = values;
+  }
+
+  @override
+  Future<void> queueAuxChannelPulse(int auxChannelIndex, int value) async {
+    lastPulseChannelIndex = auxChannelIndex;
+    lastPulseValue = value;
   }
 
   @override
   Future<void> stopScan() async {}
 
   @override
-  Future<void> startControlLoop() async {}
+  Future<void> startControlLoop() async {
+    callOrder.add('startControlLoop');
+  }
 
   @override
   Future<void> stopControlLoop() async {}

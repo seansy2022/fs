@@ -176,9 +176,9 @@ class ControlController extends StateNotifier<ControlScreenState> {
   bool get gyroEnabled => state.gyroEnabled;
 
   Future<void> activate() async {
+    await _syncPromptAndPush();
     await _repository.startControlLoop();
     state = state.copyWith(loopActive: true);
-    await _syncPromptAndPush();
   }
 
   Future<void> deactivate() async {
@@ -233,8 +233,10 @@ class ControlController extends StateNotifier<ControlScreenState> {
     final steering = _roundControlValue(
       (_touchSteering + gyroSteering).clamp(-1, 1).toDouble(),
     );
-    final throttle = _roundControlValue(
+    final throttle = _applyGearToThrottle(
+      _roundControlValue(
       (_touchThrottle + gyroThrottle).clamp(-1, 1).toDouble(),
+      ),
     );
     if (state.steering != steering || state.throttle != throttle) {
       state = state.copyWith(steering: steering, throttle: throttle);
@@ -292,7 +294,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
 
   Future<void> toggleGear(bool highGear) async {
     state = state.copyWith(highGear: highGear, parkLocked: false);
-    await _push();
+    await _syncPromptAndPush();
   }
 
   Future<void> setParkLocked(bool locked) async {
@@ -328,7 +330,8 @@ class ControlController extends StateNotifier<ControlScreenState> {
       AuxControlType.disabled => runtime,
     };
     _setRuntime(channelIndex, nextRuntime);
-    await _push();
+    final pulseOutput = _pulseOutputForChannel(setting, nextRuntime);
+    await _repository.queueAuxChannelPulse(channelIndex - 2, pulseOutput);
   }
 
   Future<void> setTurnSignal({
@@ -405,12 +408,12 @@ class ControlController extends StateNotifier<ControlScreenState> {
     final auxChannels = <int>[
       _auxOutputForChannel(settings, 2),
       _auxOutputForChannel(settings, 3),
-      state.highGear ? 2000 : 1000,
-      state.gyroEnabled ? 2000 : 1000,
-      effectiveThrottle < -0.15 ? 2000 : 1000,
-      effectiveThrottle > 0.15 ? 2000 : 1000,
-      state.leftSignalOn ? 2000 : 1000,
-      state.rightSignalOn ? 2000 : 1000,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
     ];
     final values = ReceiverControlValues(
       throttle: throttleUs,
@@ -432,9 +435,26 @@ class ControlController extends StateNotifier<ControlScreenState> {
     return (value / _controlStateStep).round() * _controlStateStep;
   }
 
+  double _applyGearToThrottle(double throttle) {
+    if (state.highGear || throttle <= 0) {
+      return throttle;
+    }
+    return throttle.clamp(-1, 0.5).toDouble();
+  }
+
   int _auxOutputForChannel(AppSettingsState settings, int channelIndex) {
+    if (_usesPulseOnlyAuxOutput(channelIndex)) {
+      return _defaultPulseBaseOutput(channelIndex, settings);
+    }
     final setting = _channelSettingAt(settings.channels, channelIndex);
     final runtime = _alignedRuntime(channelIndex, setting);
+    return _pulseOutputForChannel(setting, runtime);
+  }
+
+  int _pulseOutputForChannel(
+    ChannelSetting setting,
+    AuxChannelRuntimeState runtime,
+  ) {
     final percent = switch (setting.controlType) {
       AuxControlType.disabled => 0.0,
       AuxControlType.switchControl =>
@@ -445,6 +465,18 @@ class ControlController extends StateNotifier<ControlScreenState> {
       AuxControlType.value => setting.singleValue,
     };
     return (1500 + (percent * 5)).round().clamp(1000, 2000);
+  }
+
+  bool _usesPulseOnlyAuxOutput(int channelIndex) {
+    return channelIndex == 2 || channelIndex == 3;
+  }
+
+  int _defaultPulseBaseOutput(int channelIndex, AppSettingsState settings) {
+    final setting = _channelSettingAt(settings.channels, channelIndex);
+    return _pulseOutputForChannel(
+      setting,
+      AuxChannelRuntimeState(controlType: setting.controlType),
+    );
   }
 
   AuxChannelRuntimeState _alignedRuntime(

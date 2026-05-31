@@ -22,7 +22,7 @@ class SimulatedBluetoothSnapshot {
   final ReceiverInfo? receiverInfo;
 }
 
-final simulatedBluetoothEnabledProvider = Provider<bool>((ref) => true);
+final simulatedBluetoothEnabledProvider = Provider<bool>((ref) => false);
 
 final simulatedBluetoothStepDurationProvider = Provider<Duration>((ref) {
   return const Duration(seconds: 5);
@@ -148,6 +148,6 @@ double calculateBatteryVoltage({
   if (span <= 0) {
     return minVoltage;
   }
-  final ratio = (batteryPercent.clamp(0, 100) as int) / 100;
+  final ratio = batteryPercent.clamp(0, 100) / 100;
   return minVoltage + span * ratio;
 }
