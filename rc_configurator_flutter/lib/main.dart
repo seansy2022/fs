@@ -4,9 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import 'src/app.dart';
+import 'src/provider/locale_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final locale = await resolveInitialLocale(
+    systemLocale: WidgetsBinding.instance.platformDispatcher.locale,
+  );
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -22,5 +26,10 @@ Future<void> main() async {
     ),
   );
   await FlutterBluePlus.setLogLevel(LogLevel.none);
-  runApp(const ProviderScope(child: RcConfiguratorApp()));
+  runApp(
+    ProviderScope(
+      overrides: [initialLocaleProvider.overrideWithValue(locale)],
+      child: const RcConfiguratorApp(),
+    ),
+  );
 }

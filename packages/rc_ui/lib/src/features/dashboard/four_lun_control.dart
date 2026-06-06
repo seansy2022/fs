@@ -16,6 +16,7 @@ class FourLunControl extends StatelessWidget {
     required this.onDirectionChange,
     required this.onLayoutChange,
     this.onChannelTap,
+    this.channelTitle = 'Mix Channel',
     this.ratioTitle = 'Mix Ratio',
     this.layoutLabels,
   });
@@ -27,6 +28,7 @@ class FourLunControl extends StatelessWidget {
   final ValueChanged<String> onDirectionChange;
   final void Function(int ratio, String direction) onLayoutChange;
   final VoidCallback? onChannelTap;
+  final String channelTitle;
   final String ratioTitle;
   final Map<FourCLayoutMode, String>? layoutLabels;
   static const _fontSize = 12.0;
@@ -39,6 +41,7 @@ class FourLunControl extends StatelessWidget {
       child: Column(
         children: [
           MixingChannelRow(
+            title: channelTitle,
             selectedChannel: selectedChannel,
             fontSize: _fontSize,
             onTap: onChannelTap,

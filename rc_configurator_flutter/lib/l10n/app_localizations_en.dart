@@ -84,19 +84,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get steeringRate => 'ST Rate';
 
   @override
-  String get forwardRate => 'Forward Rate';
+  String get forwardRate => 'F Rate';
 
   @override
-  String get brakeRate => 'Brake Rate';
+  String get brakeRate => 'B Rate';
 
   @override
   String get steeringCurve => 'ST Curve';
 
   @override
-  String get forwardCurve => 'Forward Curve';
+  String get forwardCurve => 'F CUR';
 
   @override
-  String get brakeCurve => 'Brake Curve';
+  String get brakeCurve => 'B CUR';
 
   @override
   String get backlightTimeout => 'Backlight Timeout';
@@ -276,7 +276,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scanning => 'Scanning...';
 
   @override
-  String get noDevices => 'No devices available';
+  String get noDevices => 'No device available';
 
   @override
   String get bluetoothOff => 'Bluetooth is off!';

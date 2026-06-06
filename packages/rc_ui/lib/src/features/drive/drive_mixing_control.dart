@@ -17,6 +17,7 @@ class DriveMixingControl extends StatelessWidget {
     required this.onRatioChange,
     required this.onModeChange,
     this.onChannelTap,
+    this.channelTitle = 'Mix Channel',
     this.ratioTitle = 'Mix Ratio',
     this.driveModeLabels,
   });
@@ -30,6 +31,7 @@ class DriveMixingControl extends StatelessWidget {
   onRatioChange;
   final ValueChanged<DriveLayout> onModeChange;
   final VoidCallback? onChannelTap;
+  final String channelTitle;
   final String ratioTitle;
   final Map<DriveLayout, String>? driveModeLabels;
   static const _fontSize = 12.0;
@@ -54,6 +56,7 @@ class DriveMixingControl extends StatelessWidget {
       child: Column(
         children: [
           MixingChannelRow(
+            title: channelTitle,
             selectedChannel: selectedChannel,
             fontSize: _fontSize,
             onTap: onChannelTap,

@@ -278,7 +278,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noDevices => '无可用设备';
 
   @override
-  String get bluetoothOff => '未开启蓝牙!';
+  String get bluetoothOff => '未开启蓝牙';
 
   @override
   String get turnOnBluetooth => '开启蓝牙';

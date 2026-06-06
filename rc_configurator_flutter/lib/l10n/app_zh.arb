@@ -111,7 +111,7 @@
 
   "scanning": "搜索中...",
   "noDevices": "无可用设备",
-  "bluetoothOff": "未开启蓝牙!",
+  "bluetoothOff": "未开启蓝牙",
   "turnOnBluetooth": "开启蓝牙",
   "startScanning": "开始扫描",
   "tapToScan": "点击下方按钮开始扫描",

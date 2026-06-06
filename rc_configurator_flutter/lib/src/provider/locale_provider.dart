@@ -3,32 +3,44 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _localeKey = 'app_locale';
+const _zhLocale = Locale('zh');
+const _enLocale = Locale('en');
+
+final initialLocaleProvider = Provider<Locale>((ref) => _enLocale);
+
+Future<Locale> resolveInitialLocale({
+  Locale? systemLocale,
+  SharedPreferences? prefs,
+}) async {
+  final localPrefs = prefs ?? await SharedPreferences.getInstance();
+  final savedLocale = _parseSavedLocale(localPrefs.getString(_localeKey));
+  if (savedLocale != null) return savedLocale;
+  final locale = normalizeLocale(systemLocale);
+  await localPrefs.setString(_localeKey, locale.toLanguageTag());
+  return locale;
+}
+
+Locale normalizeLocale(Locale? locale) {
+  if (locale?.languageCode == 'zh') return _zhLocale;
+  return _enLocale;
+}
+
+Locale? _parseSavedLocale(String? value) {
+  if (value == null || value.isEmpty) return null;
+  final code = value.split(RegExp('[-_]')).first;
+  return normalizeLocale(Locale(code));
+}
 
 class LocaleNotifier extends Notifier<Locale> {
   @override
   Locale build() {
-    _loadSavedLocale();
-    return const Locale('en');
-  }
-
-  Future<void> _loadSavedLocale() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_localeKey);
-    if (saved != null) {
-      final parts = saved.split('_');
-      if (parts.isNotEmpty) {
-        state = Locale(
-          parts[0],
-          parts.length > 1 ? parts[1] : null,
-        );
-      }
-    }
+    return ref.watch(initialLocaleProvider);
   }
 
   Future<void> setLocale(Locale locale) async {
-    state = locale;
+    state = normalizeLocale(locale);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_localeKey, locale.toLanguageTag());
+    await prefs.setString(_localeKey, state.toLanguageTag());
   }
 }
 

@@ -94,6 +94,7 @@ class Mixing extends StatelessWidget {
     if (mode == '4WS') {
       final value = _modeSettings(mode, enabled: true);
       return FourLunControl(
+        channelTitle: l10n.mixingChannel,
         selectedChannel: value.selectedChannel,
         ratio: value.ratio,
         direction: value.direction,
@@ -145,6 +146,7 @@ class Mixing extends StatelessWidget {
       final value = _modeSettings(mode, enabled: true);
       final leftSelected = value.driveFocusedSide == 'F';
       return DriveMixingControl(
+        channelTitle: l10n.mixingChannel,
         selectedChannel: value.selectedChannel,
         frontRatio: value.driveFrontRatio,
         rearRatio: value.driveRearRatio,
@@ -179,6 +181,7 @@ class Mixing extends StatelessWidget {
     }
     final value = _modeSettings(mode, enabled: true);
     return BrakeMixingControl(
+      channelTitle: l10n.mixingChannel,
       selectedChannel: value.selectedChannel,
       ratio: value.ratio,
       curve: value.curve,

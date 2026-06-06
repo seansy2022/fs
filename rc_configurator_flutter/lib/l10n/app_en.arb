@@ -32,12 +32,12 @@
   "nor": "NOR",
 
   "steeringRate": "ST Rate",
-  "forwardRate": "Forward Rate",
-  "brakeRate": "Brake Rate",
+  "forwardRate": "F Rate",
+  "brakeRate": "B Rate",
 
   "steeringCurve": "ST Curve",
-  "forwardCurve": "Forward Curve",
-  "brakeCurve": "Brake Curve",
+  "forwardCurve": "F CUR",
+  "brakeCurve": "B CUR",
 
   "backlightTimeout": "Backlight Timeout",
   "standbyTimeout": "Standby Timeout",
@@ -117,7 +117,7 @@
   "confirmFactoryReset": "Confirm factory reset?",
 
   "scanning": "Scanning...",
-  "noDevices": "No devices available",
+  "noDevices": "No device available",
   "bluetoothOff": "Bluetooth is off!",
   "turnOnBluetooth": "Turn on Bluetooth",
   "startScanning": "Start Scan",

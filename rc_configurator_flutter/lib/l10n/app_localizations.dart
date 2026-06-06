@@ -251,13 +251,13 @@ abstract class AppLocalizations {
   /// No description provided for @forwardRate.
   ///
   /// In en, this message translates to:
-  /// **'Forward Rate'**
+  /// **'F Rate'**
   String get forwardRate;
 
   /// No description provided for @brakeRate.
   ///
   /// In en, this message translates to:
-  /// **'Brake Rate'**
+  /// **'B Rate'**
   String get brakeRate;
 
   /// No description provided for @steeringCurve.
@@ -269,13 +269,13 @@ abstract class AppLocalizations {
   /// No description provided for @forwardCurve.
   ///
   /// In en, this message translates to:
-  /// **'Forward Curve'**
+  /// **'F CUR'**
   String get forwardCurve;
 
   /// No description provided for @brakeCurve.
   ///
   /// In en, this message translates to:
-  /// **'Brake Curve'**
+  /// **'B CUR'**
   String get brakeCurve;
 
   /// No description provided for @backlightTimeout.
@@ -629,7 +629,7 @@ abstract class AppLocalizations {
   /// No description provided for @noDevices.
   ///
   /// In en, this message translates to:
-  /// **'No devices available'**
+  /// **'No device available'**
   String get noDevices;
 
   /// No description provided for @bluetoothOff.
