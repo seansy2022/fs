@@ -28,6 +28,20 @@ void main() {
     expect(state.availableStates, ['Knob', '3-Pos Switch']);
   });
 
+  test('button function mode options depend on click type', () {
+    expect(functionModeOptionsForChannel('CH3', type: 'Click'), [
+      ...controlMappingChannels,
+      '4WS Mode Switch',
+      'Drive Mix Toggle',
+      controlMappingNoAction,
+    ]);
+    expect(functionModeOptionsForChannel('CH3', type: 'Double Click'), [
+      '4WS Mode Switch',
+      'Drive Mix Toggle',
+      controlMappingNoAction,
+    ]);
+  });
+
   test('CH5 three-way switch initializes and updates mode options', () {
     final container = _createContainer();
     addTearDown(container.dispose);
@@ -99,6 +113,28 @@ void main() {
     notifier.updateAction('4WS Switch');
     state = container.read(controlMappingProvider);
     expect(state.targetChannel, isNull);
+  });
+
+  test('button multi-press keeps only toggle actions and none', () {
+    final container = _createContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(controlMappingProvider.notifier);
+
+    notifier.selectChannel('CH3');
+    notifier.updateAction('CH8');
+    notifier.updateMode('Trigger');
+    notifier.updateType('Double Click');
+
+    final state = container.read(controlMappingProvider);
+    expect(state.type, 'Double Click');
+    expect(state.action, controlMappingNoAction);
+    expect(state.targetChannel, isNull);
+    expect(state.mode, isEmpty);
+    expect(functionModeOptionsForChannel('CH3', type: state.type), [
+      '4WS Mode Switch',
+      'Drive Mix Toggle',
+      controlMappingNoAction,
+    ]);
   });
 
   test('CH5 knob only uses channel function modes and defaults to CH5', () {

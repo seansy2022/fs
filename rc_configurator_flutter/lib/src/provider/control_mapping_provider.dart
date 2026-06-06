@@ -238,6 +238,9 @@ class ControlMappingController extends Notifier<ControlMappingState> {
 
   String _fallbackAction(String channel, String type, List<String> actions) {
     if (actions.isEmpty) return '';
+    if (_isMultiPressButton(channel, type) && actions.contains(controlMappingNoAction)) {
+      return controlMappingNoAction;
+    }
     if (channel == 'CH5' && type == 'Knob' && actions.contains('CH5')) {
       return 'CH5';
     }
@@ -251,6 +254,11 @@ class ControlMappingController extends Notifier<ControlMappingState> {
       return '4W Mix';
     }
     return '';
+  }
+
+  bool _isMultiPressButton(String channel, String type) {
+    return const {'CH3', 'CH4', 'CH7', 'CH8', 'CH11'}.contains(channel) &&
+        type != 'Click';
   }
 
   String _ch5MixingFunctionForAction(String action, {String? fallback}) {

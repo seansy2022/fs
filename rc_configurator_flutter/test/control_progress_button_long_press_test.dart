@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 void main() {
-  testWidgets('tap triggers once and long press repeats', (tester) async {
+  testWidgets('tap triggers once and step buttons repeat twice as fast', (
+    tester,
+  ) async {
     var count = 0;
     await tester.pumpWidget(
       MaterialApp(
@@ -28,10 +30,10 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 650));
     final beforeRepeat = count;
-    expect(beforeRepeat, greaterThan(1));
+    expect(beforeRepeat, greaterThanOrEqualTo(5));
 
     await tester.pump(const Duration(milliseconds: 220));
-    expect(count, greaterThan(beforeRepeat));
+    expect(count - beforeRepeat, greaterThanOrEqualTo(5));
 
     await gesture.up();
     await tester.pump();

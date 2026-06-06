@@ -18,8 +18,13 @@ const _ch5TypeOptions = <String>['Knob', '3-Pos Switch'];
 const _ch9TypeOptions = <String>['Knob'];
 const _ch6TypeOptions = <String>['3-Pos'];
 const _ch10TypeOptions = <String>['2-Pos'];
-const _buttonFunctionModeOptions = <String>[
+const _buttonClickFunctionModeOptions = <String>[
   ...controlMappingChannels,
+  '4WS Mode Switch',
+  'Drive Mix Toggle',
+  controlMappingNoAction,
+];
+const _buttonMultiPressFunctionModeOptions = <String>[
   '4WS Mode Switch',
   'Drive Mix Toggle',
   controlMappingNoAction,
@@ -84,7 +89,9 @@ List<String> functionModeOptionsForChannel(String channel, {String? type}) {
     case 'CH7':
     case 'CH8':
     case 'CH11':
-      return _buttonFunctionModeOptions;
+      return type == 'Click'
+          ? _buttonClickFunctionModeOptions
+          : _buttonMultiPressFunctionModeOptions;
     case 'CH5':
       if (type == 'Knob' || type == 'None') {
         return const [...controlMappingChannels, controlMappingNoAction];
@@ -97,7 +104,7 @@ List<String> functionModeOptionsForChannel(String channel, {String? type}) {
     case 'CH10':
       return _ch10FunctionModeOptions;
     default:
-      return _buttonFunctionModeOptions;
+      return _buttonClickFunctionModeOptions;
   }
 }
 

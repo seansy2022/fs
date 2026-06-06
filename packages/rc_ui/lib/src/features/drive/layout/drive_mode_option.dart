@@ -26,17 +26,27 @@ class DriveModeOption extends StatefulWidget {
 class _DriveModeOptionState extends State<DriveModeOption> {
   bool _isPressed = false;
 
-  String get _asset => switch (widget.mode) {
+  String get _selectedAsset => switch (widget.mode) {
     DriveLayout.front => AppAssets.driveModeFront,
     DriveLayout.rear => AppAssets.driveModeRear,
     DriveLayout.mixed => AppAssets.driveModeMixed,
   };
 
-  String get _label => widget.labels?[widget.mode] ?? switch (widget.mode) {
-    DriveLayout.front => 'Front Drive',
-    DriveLayout.rear => 'Rear Drive',
-    DriveLayout.mixed => 'F/R Hybrid',
+  String get _unselectedAsset => switch (widget.mode) {
+    DriveLayout.front => AppAssets.driveModeFrontUnselected,
+    DriveLayout.rear => AppAssets.driveModeRearUnselected,
+    DriveLayout.mixed => AppAssets.driveModeMixedUnselected,
   };
+
+  String get _asset => widget.selected ? _selectedAsset : _unselectedAsset;
+
+  String get _label =>
+      widget.labels?[widget.mode] ??
+      switch (widget.mode) {
+        DriveLayout.front => 'Front Drive',
+        DriveLayout.rear => 'Rear Drive',
+        DriveLayout.mixed => 'F/R Hybrid',
+      };
 
   @override
   Widget build(BuildContext context) {

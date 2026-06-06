@@ -47,8 +47,14 @@ class AppAssets {
   static const driveRear = '$_asset/drive_rear.svg';
   static const driveMixed = '$_asset/drive_mixed.svg';
   static const driveModeFront = '$_asset/drive_mode/前驱.svg';
+  static const driveModeFrontUnselected =
+      '$_asset/drive_mode/front_unselected.svg';
   static const driveModeRear = '$_asset/drive_mode/后驱.svg';
+  static const driveModeRearUnselected =
+      '$_asset/drive_mode/rear_unselected.svg';
   static const driveModeMixed = '$_asset/drive_mode/前后混驱.svg';
+  static const driveModeMixedUnselected =
+      '$_asset/drive_mode/mixed_unselected.svg';
 
   static const tabbarHome = '$_asset/tabbar/home.svg';
   static const tabbarHomeSelected = '$_asset/tabbar/home_select.svg';

@@ -43,6 +43,7 @@ class RCIconButton extends StatefulWidget {
 
 class _RCIconButtonState extends State<RCIconButton> {
   static const _repeatInterval = Duration(milliseconds: 80);
+  static const _stepRepeatInterval = Duration(milliseconds: 40);
   Timer? _repeatTimer;
   bool _isPressed = false;
 
@@ -60,7 +61,10 @@ class _RCIconButtonState extends State<RCIconButton> {
     if (!widget.enableRepeat || widget.onTap == null) return;
     _trigger();
     _repeatTimer?.cancel();
-    _repeatTimer = Timer.periodic(_repeatInterval, (_) => _trigger());
+    final interval = widget.plus != null
+        ? _stepRepeatInterval
+        : _repeatInterval;
+    _repeatTimer = Timer.periodic(interval, (_) => _trigger());
   }
 
   void _stopRepeat([Object? _]) {

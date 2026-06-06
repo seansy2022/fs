@@ -344,11 +344,9 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
       final selected = current.isNotEmpty ? current.first : defaults.last;
       nextState = working.copyWith(controlMapping: selected);
     } else if (screen == Screen.modelSelection) {
-      if (state.models.isEmpty) return false;
-      final firstId = state.models.first.id;
-      final models = state.models
-          .map((m) => m.copyWith(active: m.id == firstId))
-          .toList(growable: false);
+      final models = _resetModelSelectionDefaults(state.models);
+      if (models.isEmpty) return false;
+      final firstId = models.first.id;
       nextState = state.copyWith(models: models);
       writes.add((ModelSelectedIntent(firstId), nextState));
     } else if (screen == Screen.failsafe) {
@@ -552,6 +550,9 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
     }
 
     state = nextState;
+    if (screen == Screen.modelSelection) {
+      unawaited(_persistModelNames(state.models));
+    }
     if (!state.bluetooth.isConnected ||
         (writes.isEmpty && preControlMappingWrites.isEmpty)) {
       return false;
@@ -1573,6 +1574,14 @@ class RcAppController extends Notifier<RcAppState> with WidgetsBindingObserver {
       return _reduceControlMapping(current, intent.next);
     }
     return current;
+  }
+
+  List<Model> _resetModelSelectionDefaults(List<Model> models) {
+    if (models.isEmpty) return const <Model>[];
+    final firstId = models.first.id;
+    return models
+        .map((m) => m.copyWith(name: '', active: m.id == firstId))
+        .toList(growable: false);
   }
 
   RcAppState _reduceChannel(RcAppState current, String id, ChannelState next) {

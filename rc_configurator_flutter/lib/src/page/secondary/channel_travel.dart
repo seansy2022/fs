@@ -34,6 +34,7 @@ class ChannelTravel extends StatelessWidget {
       rightValue: ch.rLimit,
       max: 120,
       statusButtonType: RCIconButtonType.textButton,
+      progressScale: 0.6,
       onAdjust: (leftSelected, delta) =>
           _updateSelected(ch, leftSelected, delta),
       onRefresh: () => _confirmAndReset(context, ch),

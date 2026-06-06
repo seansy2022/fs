@@ -16,12 +16,24 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  ({ProviderContainer container, MemoryLinkTransport transport}) createTestEnv() {
+    final transport = MemoryLinkTransport(linkType: LinkType.usb);
+    final container = ProviderContainer(
+      overrides: [linkTransportProvider.overrideWithValue(transport)],
+    );
+    return (container: container, transport: transport);
+  }
+
   test('model names are restored from local preferences on startup', () async {
     SharedPreferences.setMockInitialValues({
       'rc_model_names': <String>['MOD01-A', 'MOD02-B'],
     });
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
+    final env = createTestEnv();
+    final container = env.container;
+    addTearDown(() async {
+      await env.transport.dispose();
+      container.dispose();
+    });
 
     container.read(rcAppStateProvider.notifier);
     await Future<void>.delayed(const Duration(milliseconds: 20));
@@ -31,8 +43,12 @@ void main() {
   });
 
   test('model rename is persisted to local preferences', () async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
+    final env = createTestEnv();
+    final container = env.container;
+    addTearDown(() async {
+      await env.transport.dispose();
+      container.dispose();
+    });
     final notifier = container.read(rcAppStateProvider.notifier);
 
     notifier.dispatch(const ModelRenamedIntent(id: 'MOD02', name: '赛车模型'));
@@ -41,6 +57,26 @@ void main() {
     final names = prefs.getStringList('rc_model_names');
     expect(names, isNotNull);
     expect(names![1], '赛车模型');
+  });
+
+  test('model selection reset clears custom names and persists defaults', () async {
+    final env = createTestEnv();
+    final container = env.container;
+    addTearDown(() async {
+      await env.transport.dispose();
+      container.dispose();
+    });
+    final notifier = container.read(rcAppStateProvider.notifier);
+
+    notifier.dispatch(const ModelRenamedIntent(id: 'MOD02', name: '赛车模型'));
+    await notifier.resetDefaultsForScreen(Screen.modelSelection);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    final state = container.read(rcAppStateProvider);
+    expect(state.models.first.active, isTrue);
+    expect(state.models[1].name, isEmpty);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getStringList('rc_model_names')?[1], isEmpty);
   });
 
   test('app state reflects injected usb transport device type', () async {

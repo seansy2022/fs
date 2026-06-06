@@ -23,6 +23,7 @@ class SidesControlProgressWidget extends StatefulWidget {
     this.titleFontSize = AppFonts.s14,
     this.statusButtonType = RCIconButtonType.normal,
     this.horizontalPadding = 16,
+    this.progressScale = 0.5,
     this.showBottomBorder = true,
     this.onAdjust,
     this.onSelectedChanged,
@@ -43,6 +44,7 @@ class SidesControlProgressWidget extends StatefulWidget {
   final double titleFontSize;
   final RCIconButtonType statusButtonType;
   final double horizontalPadding;
+  final double progressScale;
   final bool showBottomBorder;
   final void Function(bool leftSelected, int delta)? onAdjust;
   final ValueChanged<bool>? onSelectedChanged;
@@ -169,7 +171,7 @@ class _SidesControlProgressWidgetState
         leftValue: widget.leftValue,
         rightValue: widget.rightValue,
         max: widget.max,
-        scale: 0.5,
+        scale: widget.progressScale,
         onMinus: () => widget.onAdjust?.call(_leftSelected, -1),
         onPlus: () => widget.onAdjust?.call(_leftSelected, 1),
       ),
