@@ -390,6 +390,12 @@ class ReceiverBleClient {
         'rx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
         scope: 'ReceiverBleClient',
       );
+      if (frame.command == ReceiverCommand.controlHeartbeat.id) {
+        ReceiverLogging.link(
+          '[heartbeat-rx] cmd=0x02 len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
+          scope: 'ReceiverBleClient',
+        );
+      }
       _updateReceiverInfoFromHeartbeat(frame);
       _frameCtrl.add(frame);
       final completer = _pendingResponse;
@@ -476,6 +482,10 @@ class ReceiverBleClient {
       'tx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
       scope: 'ReceiverBleClient',
     );
+    ReceiverLogging.link(
+      '[heartbeat-tx] cmd=0x02 len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
+      scope: 'ReceiverBleClient',
+    );
     await _transport.send(frame.toBytes());
   }
 
@@ -507,6 +517,10 @@ class ReceiverBleClient {
     }
     _receiverInfo = nextInfo;
     _infoCtrl.add(nextInfo);
+    ReceiverLogging.link(
+      '[heartbeat-info] rfmId=${nextInfo.rfmIdHex} battery=${nextInfo.batteryLevel} model=0x${nextInfo.productModelCode.toRadixString(16).padLeft(4, '0').toUpperCase()}',
+      scope: 'ReceiverBleClient',
+    );
   }
 
   void _setConnectionState(ReceiverConnectionState state) {

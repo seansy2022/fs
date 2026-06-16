@@ -187,7 +187,11 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
       selectedOption: selectedDisplay,
       titleFontWeight: AppFonts.w700,
       onOptionSelected: (v) {
-        final internalValue = ControlMappingLabels.internalId(v, locale);
+        final internalValue = ControlMappingLabels.internalIdForOptions(
+          v,
+          locale,
+          options,
+        );
         onOptionSelected(internalValue);
       },
     );
@@ -230,7 +234,9 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
   }
 
   bool _shouldShowMode(ControlMappingState state) {
-    return state.channel != 'CH10' && state.type == 'Click';
+    if (state.channel == 'CH10' || state.type != 'Click') return false;
+    return state.action != '4WS Mode Switch' &&
+        state.action != 'Drive Mix Toggle';
   }
 
   String _toggleMode(String mode) {

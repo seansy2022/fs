@@ -73,6 +73,26 @@ void main() {
       }
     });
 
+    test('uses option context for duplicated English labels', () {
+      const locale = Locale('en');
+      expect(
+        ControlMappingLabels.internalIdForOptions(
+          '3 POS',
+          locale,
+          const ['Knob', '3-Pos Switch'],
+        ),
+        '3-Pos Switch',
+      );
+      expect(
+        ControlMappingLabels.internalIdForOptions(
+          '3 POS',
+          locale,
+          const ['3-Pos'],
+        ),
+        '3-Pos',
+      );
+    });
+
     test('keeps Chinese mappings aligned', () {
       const locale = Locale('zh');
       expect(ControlMappingLabels.displayLabel('Click', locale), '单击');

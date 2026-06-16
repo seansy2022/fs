@@ -199,9 +199,9 @@ class RcProgressTrack extends StatelessWidget {
           ),
 
           // Background Ticks: All except 0-tick (Center)
-          ...List.generate(11, (i) {
-            if (i == 5) return const SizedBox.shrink(); // Skip center tick here
-            final fraction = i / 10;
+          ...List.generate(13, (i) {
+            if (i == 6) return const SizedBox.shrink(); // Skip center tick here
+            final fraction = i / 12;
             final y = fraction * height;
             return _tickV(y, i);
           }),
@@ -214,9 +214,9 @@ class RcProgressTrack extends StatelessWidget {
 
           // Foreground Ticks: Only 0-tick (Center) to stay on top
           ...List.generate(1, (i) {
-            final fraction = 5 / 10;
+            final fraction = 6 / 12;
             final y = fraction * height;
-            return _tickV(y, 5);
+            return _tickV(y, 6);
           }),
         ],
       ),
@@ -384,9 +384,9 @@ class RcProgressTrack extends StatelessWidget {
   }
 
   Widget _tickV(double y, int i) {
-    final isCenter = i == 5;
-    final isEnd = i == 0 || i == 10;
-    final is100 = i == 1 || i == 9;
+    final isCenter = i == 6;
+    final isEnd = i == 0 || i == 12;
+    final is100 = i == 1 || i == 11;
 
     double w = 2.0;
     if (isCenter)
@@ -399,7 +399,7 @@ class RcProgressTrack extends StatelessWidget {
     final left = trackThickness - w;
     final displayY =
         y.clamp(0.0, double.infinity) -
-        (isEnd && i == 10 ? 2 : 0) -
+        (isEnd && i == 12 ? 2 : 0) -
         (isCenter ? 0.5 : 0);
     final tickMainColor = _tickGray.withValues(alpha: isCenter ? 0.7 : 1);
     final tickShadowColor = const Color(
@@ -495,9 +495,9 @@ class RcProgressTrack extends StatelessWidget {
       final bottomMax = absoluteLabels ? '$max' : '-$max';
       labels = [
         ('$max', 0.0),
-        ('$v80', 0.1),
+        ('$v80', 1 / 12),
         ('0', 0.5),
-        (bottom80, 0.9),
+        (bottom80, 11 / 12),
         (bottomMax, 1.0),
       ];
     }

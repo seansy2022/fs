@@ -6,6 +6,10 @@ import 'receiver_link_transport.dart';
 import 'receiver_logging.dart';
 
 class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
+  static const String _customIoServiceUuidSuffix = '0a0b0c0d1910';
+  static const String _customNotifyUuidSuffix = '0a0b0c0d2b10';
+  static const String _customWriteUuidSuffix = '0a0b0c0d2b11';
+
   FlutterBlueReceiverTransport({LogLevel logLevel = LogLevel.none}) {
     unawaited(FlutterBluePlus.setLogLevel(logLevel));
   }
@@ -95,6 +99,7 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
       'connect remoteId=$remoteId',
       scope: 'FlutterBlueReceiverTransport',
     );
+    await _stopNativeScanIfNeeded();
     final device = _known[remoteId];
     if (device == null) {
       throw StateError('unknown bluetooth device: $remoteId');
@@ -168,11 +173,25 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
       scope: 'FlutterBlueReceiverTransport',
     );
     final services = await device.discoverServices();
+    final customPair = _findCustomIoPair(services);
     final writeCandidates = <BluetoothCharacteristic>[];
     final notifyCandidates = <BluetoothCharacteristic>[];
     BluetoothCharacteristic? duplex;
     for (final service in services) {
       for (final characteristic in service.characteristics) {
+        ReceiverLogging.link(
+          'service=${service.serviceUuid.str} '
+          'char=${characteristic.characteristicUuid.str} '
+          'props('
+          'read=${characteristic.properties.read},'
+          'write=${characteristic.properties.write},'
+          'writeNoRsp=${characteristic.properties.writeWithoutResponse},'
+          'notify=${characteristic.properties.notify},'
+          'indicate=${characteristic.properties.indicate}'
+          ') '
+          'descriptors=${characteristic.descriptors.map((d) => d.descriptorUuid.str).join(",")}',
+          scope: 'FlutterBlueReceiverTransport',
+        );
         final canNotify =
             characteristic.properties.notify ||
             characteristic.properties.indicate;
@@ -192,8 +211,10 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
         }
       }
     }
-    final writeTarget = duplex ?? _pickIoCharacteristic(writeCandidates);
+    final writeTarget =
+        customPair?.$1 ?? duplex ?? _pickIoCharacteristic(writeCandidates);
     final notifyTarget =
+        customPair?.$2 ??
         duplex ??
         _pickIoCharacteristic(
           notifyCandidates,
@@ -205,7 +226,18 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
         'no io characteristics found (write=${writeCandidates.length}, notify=${notifyCandidates.length})',
       );
     }
+    if (customPair != null) {
+      ReceiverLogging.link(
+        'prefer custom io pair write=${writeTarget.characteristicUuid.str} '
+        'notify=${notifyTarget.characteristicUuid.str}',
+        scope: 'FlutterBlueReceiverTransport',
+      );
+    }
     await notifyTarget.setNotifyValue(true);
+    ReceiverLogging.link(
+      'notify enabled=${notifyTarget.isNotifying}',
+      scope: 'FlutterBlueReceiverTransport',
+    );
     await _notifySub?.cancel();
     _notifySub = notifyTarget.onValueReceived.listen((value) {
       if (value.isNotEmpty) {
@@ -222,6 +254,56 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     );
     _activeDevice = device;
     _writeCharacteristic = writeTarget;
+  }
+
+  (BluetoothCharacteristic, BluetoothCharacteristic)? _findCustomIoPair(
+    List<BluetoothService> services,
+  ) {
+    for (final service in services) {
+      ReceiverLogging.link(
+        'custom pair service=${service.serviceUuid.str} '
+        'serviceMatch=${_uuidSuffixMatches(service.serviceUuid.str, _customIoServiceUuidSuffix)}',
+        scope: 'FlutterBlueReceiverTransport',
+      );
+      if (!_uuidSuffixMatches(
+        service.serviceUuid.str,
+        _customIoServiceUuidSuffix,
+      )) {
+        continue;
+      }
+      BluetoothCharacteristic? writeCharacteristic;
+      BluetoothCharacteristic? notifyCharacteristic;
+      for (final characteristic in service.characteristics) {
+        final uuid = characteristic.characteristicUuid.str;
+        ReceiverLogging.link(
+          'custom pair char=$uuid '
+          'writeMatch=${_uuidSuffixMatches(uuid, _customWriteUuidSuffix)} '
+          'notifyMatch=${_uuidSuffixMatches(uuid, _customNotifyUuidSuffix)}',
+          scope: 'FlutterBlueReceiverTransport',
+        );
+        if (_uuidSuffixMatches(uuid, _customWriteUuidSuffix)) {
+          writeCharacteristic = characteristic;
+        }
+        if (_uuidSuffixMatches(uuid, _customNotifyUuidSuffix)) {
+          notifyCharacteristic = characteristic;
+        }
+      }
+      ReceiverLogging.link(
+        'custom pair resolved '
+        'write=${writeCharacteristic?.characteristicUuid.str} '
+        'notify=${notifyCharacteristic?.characteristicUuid.str}',
+        scope: 'FlutterBlueReceiverTransport',
+      );
+      if (writeCharacteristic != null && notifyCharacteristic != null) {
+        return (writeCharacteristic, notifyCharacteristic);
+      }
+    }
+    return null;
+  }
+
+  bool _uuidSuffixMatches(String uuid, String suffix) {
+    final normalized = uuid.toLowerCase().replaceAll('-', '');
+    return normalized.endsWith(suffix);
   }
 
   BluetoothCharacteristic? _pickIoCharacteristic(

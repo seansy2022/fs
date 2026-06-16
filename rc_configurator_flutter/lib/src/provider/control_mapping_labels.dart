@@ -92,6 +92,17 @@ class ControlMappingLabels {
     return _idByEn[displayText] ?? displayText;
   }
 
+  static String internalIdForOptions(
+    String displayText,
+    Locale locale,
+    List<String> options,
+  ) {
+    for (final option in options) {
+      if (displayLabel(option, locale) == displayText) return option;
+    }
+    return internalId(displayText, locale);
+  }
+
   static List<String> displayLabels(List<String> values, Locale locale) {
     return values.map((v) => displayLabel(v, locale)).toList();
   }

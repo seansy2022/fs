@@ -137,6 +137,31 @@ void main() {
     ]);
   });
 
+  test('click mode is hidden-state for 4WS and drive mix mode actions', () {
+    final container = _createContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(controlMappingProvider.notifier);
+
+    notifier.selectChannel('CH3');
+    notifier.updateMode('Trigger');
+    notifier.updateAction('4WS Mode Switch');
+    var state = container.read(controlMappingProvider);
+    expect(state.mode, isEmpty);
+
+    notifier.updateMode('Flip');
+    state = container.read(controlMappingProvider);
+    expect(state.mode, isEmpty);
+
+    notifier.updateAction('CH8');
+    state = container.read(controlMappingProvider);
+    expect(state.mode, 'Flip');
+
+    notifier.updateMode('Trigger');
+    notifier.updateAction('Drive Mix Toggle');
+    state = container.read(controlMappingProvider);
+    expect(state.mode, isEmpty);
+  });
+
   test('CH5 knob only uses channel function modes and defaults to CH5', () {
     final container = _createContainer();
     addTearDown(container.dispose);

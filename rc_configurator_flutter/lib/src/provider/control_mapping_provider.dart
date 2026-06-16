@@ -66,6 +66,7 @@ class ControlMappingController extends Notifier<ControlMappingState> {
   }
 
   void updateMode(String mode) {
+    if (!_supportsMode(state.channel, state.type, state.action)) return;
     _commit(state.copyWith(mode: mode));
   }
 
@@ -107,7 +108,7 @@ class ControlMappingController extends Notifier<ControlMappingState> {
       selectedState: type,
       controlType: controlTypeForSelection(channel, type),
       availableStates: controlTypeOptionsForChannel(channel),
-      mode: type == 'Click' ? (current.mode.isEmpty ? 'Flip' : current.mode) : '',
+      mode: _modeFor(channel, type, normalizedAction, current.mode),
       action: normalizedAction,
       functionType: normalizedAction,
       targetChannel: isChannelFunctionMode(normalizedAction)
@@ -165,6 +166,12 @@ class ControlMappingController extends Notifier<ControlMappingState> {
       return _nextCh5Action(current, action);
     }
     final next = current.copyWith(
+      mode: _modeFor(
+        current.channel,
+        current.type,
+        action,
+        current.mode,
+      ),
       action: action,
       functionType: action,
       targetChannel: isChannelFunctionMode(action) ? action : null,
@@ -259,6 +266,21 @@ class ControlMappingController extends Notifier<ControlMappingState> {
   bool _isMultiPressButton(String channel, String type) {
     return const {'CH3', 'CH4', 'CH7', 'CH8', 'CH11'}.contains(channel) &&
         type != 'Click';
+  }
+
+  String _modeFor(
+    String channel,
+    String type,
+    String action,
+    String currentMode,
+  ) {
+    if (!_supportsMode(channel, type, action)) return '';
+    return currentMode.isEmpty ? 'Flip' : currentMode;
+  }
+
+  bool _supportsMode(String channel, String type, String action) {
+    if (channel == 'CH10' || type != 'Click') return false;
+    return action != '4WS Mode Switch' && action != 'Drive Mix Toggle';
   }
 
   String _ch5MixingFunctionForAction(String action, {String? fallback}) {
