@@ -18,6 +18,7 @@ void main() {
       ),
     );
     final payload = _controlMappingPayload(state);
+    expect(payload[2], 0x10);
     expect(payload[4], 0);
     expect(payload[5], 1);
     expect(payload[6], 3);
@@ -38,6 +39,7 @@ void main() {
       ),
     );
     final payload = _controlMappingPayload(state);
+    expect(payload[2], 0x10);
     expect(payload[4], 0);
     expect(payload[5], 1);
     expect(payload[6], 2);
@@ -55,8 +57,24 @@ void main() {
       ),
     );
     final payload = _controlMappingPayload(state);
+    expect(payload[2], 0x10);
     expect(payload[7], 0);
     expect(payload[8], 7);
+  });
+
+  test('CH5 knob encodes type as 0x20', () {
+    final state = RcAppState.initial().copyWith(
+      controlMapping: RcAppState.initial().controlMapping.copyWith(
+        channel: 'CH5',
+        type: 'Knob',
+        action: 'CH5',
+        targetChannel: 'CH5',
+      ),
+    );
+    final payload = _controlMappingPayload(state);
+    expect(payload[2], 0x20);
+    expect(payload[7], 0);
+    expect(payload[8], 4);
   });
 
   test('Control mapping None function encodes as 25', () {
@@ -98,25 +116,28 @@ void main() {
     }
   });
 
-  test('CH5 3-Pos response parses mix function and 3-pos direction from byte 8', () {
-    final adapter = ProtocolAdapterV1();
-    final state = RcAppState.initial();
-    final frame = BluetoothFrame(
-      seq: 1,
-      command: BluetoothCommand.controlMapping.id,
-      length: 9,
-      data: const [0, 4, 0, 0, 0, 1, 3, 1, 12],
-    );
-    final next = adapter.applyToState(state, adapter.decodeFrame(frame));
-    expect(next.controlMapping.type, '3-Pos Switch');
-    expect(next.controlMapping.mixingFunction, '4W');
-    expect(next.controlMapping.mixingMode1, '4WS Front');
-    expect(next.controlMapping.mixingMode2, '4WS F/R Reverse');
-    expect(next.controlMapping.mixingMode3, '4WS Rear');
-    expect(next.controlMapping.action, '4W Mix');
-    expect(next.controlMappings['CH5']?.action, '4W Mix');
-    expect(next.controlMappings['CH5']?.mixingMode3, '4WS Rear');
-  });
+  test(
+    'CH5 3-Pos response parses mix function and 3-pos direction from byte 8',
+    () {
+      final adapter = ProtocolAdapterV1();
+      final state = RcAppState.initial();
+      final frame = BluetoothFrame(
+        seq: 1,
+        command: BluetoothCommand.controlMapping.id,
+        length: 9,
+        data: const [0, 4, 0x10, 0, 0, 1, 3, 1, 12],
+      );
+      final next = adapter.applyToState(state, adapter.decodeFrame(frame));
+      expect(next.controlMapping.type, '3-Pos Switch');
+      expect(next.controlMapping.mixingFunction, '4W');
+      expect(next.controlMapping.mixingMode1, '4WS Front');
+      expect(next.controlMapping.mixingMode2, '4WS F/R Reverse');
+      expect(next.controlMapping.mixingMode3, '4WS Rear');
+      expect(next.controlMapping.action, '4W Mix');
+      expect(next.controlMappings['CH5']?.action, '4W Mix');
+      expect(next.controlMappings['CH5']?.mixingMode3, '4WS Rear');
+    },
+  );
 
   test('CH5 3-Pos Hybrid response parses 0/1/2 as Rear/Middle/Front', () {
     final adapter = ProtocolAdapterV1();
@@ -124,7 +145,7 @@ void main() {
       seq: 1,
       command: BluetoothCommand.controlMapping.id,
       length: 9,
-      data: const [0, 4, 0, 0, 0, 1, 2, 1, 14],
+      data: const [0, 4, 0x10, 0, 0, 1, 2, 1, 14],
     );
     final next = adapter.applyToState(
       RcAppState.initial(),
@@ -144,7 +165,7 @@ void main() {
       seq: 1,
       command: BluetoothCommand.controlMapping.id,
       length: 9,
-      data: const [0, 4, 0, 0, 0, 1, 3, 2, 17],
+      data: const [0, 4, 0x20, 0, 0, 1, 3, 2, 17],
     );
     final next = adapter.applyToState(
       RcAppState.initial(),
@@ -160,7 +181,7 @@ void main() {
       seq: 1,
       command: BluetoothCommand.controlMapping.id,
       length: 9,
-      data: const [0, 4, 0, 0, 0, 1, 3, 2, 11],
+      data: const [0, 4, 0x20, 0, 0, 1, 3, 2, 11],
     );
     final next = adapter.applyToState(
       RcAppState.initial(),
@@ -181,6 +202,22 @@ void main() {
     );
     final next = adapter.applyToState(state, adapter.decodeFrame(frame));
     expect(next.controlMapping.channel, 'CH5');
+    expect(next.controlMapping.type, 'Knob');
+    expect(next.controlMapping.selectedState, 'Knob');
+  });
+
+  test('CH5 response state 0x20 parses as Knob', () {
+    final adapter = ProtocolAdapterV1();
+    final frame = BluetoothFrame(
+      seq: 1,
+      command: BluetoothCommand.controlMapping.id,
+      length: 9,
+      data: const [0, 4, 0x20, 0, 0, 0, 0, 0, 4],
+    );
+    final next = adapter.applyToState(
+      RcAppState.initial(),
+      adapter.decodeFrame(frame),
+    );
     expect(next.controlMapping.type, 'Knob');
     expect(next.controlMapping.selectedState, 'Knob');
   });

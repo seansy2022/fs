@@ -8,8 +8,10 @@ void main() {
   test('CH6 three-way mixing payload matches CH5 three-way payload shape', () {
     final ch5Type = controlTypeOptionsForChannel('CH5').last;
     final ch6Type = controlTypeOptionsForChannel('CH6').first;
-    final mixAction = functionModeOptionsForChannel('CH5', type: ch5Type)
-        .firstWhere((e) => !e.startsWith('CH'));
+    final mixAction = functionModeOptionsForChannel(
+      'CH5',
+      type: ch5Type,
+    ).firstWhere((e) => !e.startsWith('CH'));
     final mixingFunction = ch5MixingFunctionOptions.first;
     final modes = ch5DirectionOptions(mixingFunction);
     final base = RcAppState.initial().controlMapping.copyWith(
@@ -22,22 +24,29 @@ void main() {
     final payloadCh5 = _payload(base.copyWith(channel: 'CH5', type: ch5Type));
     final payloadCh6 = _payload(base.copyWith(channel: 'CH6', type: ch6Type));
     expect(payloadCh5[1], 4);
+    expect(payloadCh5[2], 0x10);
     expect(payloadCh6[1], 5);
-    expect(payloadCh6.sublist(2), payloadCh5.sublist(2));
+    expect(payloadCh6[2], 0);
+    expect(payloadCh6.sublist(3), payloadCh5.sublist(3));
   });
 
   test('CH6 mixing response is parsed as three-way with CH6 mapping', () {
     final adapter = ProtocolAdapterV1();
     final ch6Type = controlTypeOptionsForChannel('CH6').first;
-    final expectedAction = functionModeOptionsForChannel('CH6', type: ch6Type)
-        .firstWhere((e) => !e.startsWith('CH'));
+    final expectedAction = functionModeOptionsForChannel(
+      'CH6',
+      type: ch6Type,
+    ).firstWhere((e) => !e.startsWith('CH'));
     final frame = BluetoothFrame(
       seq: 1,
       command: BluetoothCommand.controlMapping.id,
       length: 9,
       data: const [0, 5, 0, 0, 0, 1, 3, 1, 12],
     );
-    final next = adapter.applyToState(RcAppState.initial(), adapter.decodeFrame(frame));
+    final next = adapter.applyToState(
+      RcAppState.initial(),
+      adapter.decodeFrame(frame),
+    );
     expect(next.controlMapping.channel, 'CH6');
     expect(next.controlMapping.type, ch6Type);
     expect(next.controlMapping.selectedState, ch6Type);
@@ -50,6 +59,9 @@ void main() {
 List<int> _payload(ControlMappingState mapping) {
   final state = RcAppState.initial().copyWith(controlMapping: mapping);
   final adapter = ProtocolAdapterV1();
-  final writes = adapter.writesForIntent(ControlMappingUpdatedIntent(mapping), state);
+  final writes = adapter.writesForIntent(
+    ControlMappingUpdatedIntent(mapping),
+    state,
+  );
   return writes.single.payload;
 }
