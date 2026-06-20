@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rc_ble/rc_ble.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
 import 'package:rc_configurator_flutter/src/lib/link/link_providers.dart';
 import 'package:rc_configurator_flutter/src/page/secondary/secondary_route_page.dart';
 import 'package:rc_configurator_flutter/src/provider/app_state_models.dart';
@@ -40,7 +41,9 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: SecondaryRoutePage(screen: Screen.controlMapping),
         ),
       ),

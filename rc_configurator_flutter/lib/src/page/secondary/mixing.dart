@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:rc_ui/rc_ui.dart';
 import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
+import '../selection_sheet.dart';
 import '../../provider/app_state_models.dart';
 import '../../types.dart';
 
@@ -59,7 +60,7 @@ class Mixing extends StatelessWidget {
               const SizedBox(height: 16),
               _resetItem(l10n),
               const SizedBox(height: 16),
-      _modePanel(context, mode.$1, l10n),
+              _modePanel(context, mode.$1, l10n),
               // const SizedBox(height: 16),
             ],
             const SizedBox(height: 16),
@@ -202,7 +203,7 @@ class Mixing extends StatelessWidget {
     String selectedChannel,
   ) {
     final l10n = AppLocalizations.of(context)!;
-    AlertSelectionSheet.show(
+    showSelectionSheet(
       context,
       title: l10n.mixingChannel,
       options: _channels,

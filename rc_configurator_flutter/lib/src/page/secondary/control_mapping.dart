@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_ui/rc_ui.dart';
 import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
+import '../selection_sheet.dart';
 import '../../provider/control_mapping_labels.dart';
 import '../../provider/control_mapping_options.dart';
 import '../../provider/control_mapping_provider.dart';
@@ -177,10 +178,11 @@ class _ControlMappingState extends ConsumerState<ControlMapping> {
     final displayOptions = options
         .map((o) => ControlMappingLabels.displayLabel(o, locale))
         .toList();
-    final selectedDisplay = (selectedOption != null && selectedOption.isNotEmpty)
+    final selectedDisplay =
+        (selectedOption != null && selectedOption.isNotEmpty)
         ? ControlMappingLabels.displayLabel(selectedOption, locale)
         : null;
-    AlertSelectionSheet.show(
+    showSelectionSheet(
       context,
       title: title,
       options: displayOptions,

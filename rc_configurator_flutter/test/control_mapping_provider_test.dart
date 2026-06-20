@@ -20,7 +20,12 @@ void main() {
     var state = container.read(controlMappingProvider);
     expect(state.type, 'Click');
     expect(state.mode, 'Flip');
-    expect(state.availableStates, ['Click', 'Double Click', 'Triple Click', 'Long Press']);
+    expect(state.availableStates, [
+      'Click',
+      'Double Click',
+      'Triple Click',
+      'Long Press',
+    ]);
 
     notifier.selectChannel('CH5');
     state = container.read(controlMappingProvider);
@@ -265,6 +270,58 @@ void main() {
     expect(container.read(controlMappingProvider).channel, 'CH4');
   });
 
+  test('CH11 4WS mode switch conflicts with CH6 4W mix both directions', () {
+    _expectDuplicateResolution(
+      previousChannel: 'CH11',
+      previousAction: '4WS Mode Switch',
+      nextChannel: 'CH6',
+      nextAction: '4W Mix',
+    );
+    _expectDuplicateResolution(
+      previousChannel: 'CH6',
+      previousAction: '4W Mix',
+      nextChannel: 'CH11',
+      nextAction: '4WS Mode Switch',
+    );
+  });
+
+  test(
+    'CH11 drive mix toggle conflicts with CH6 drive mix both directions',
+    () {
+      _expectDuplicateResolution(
+        previousChannel: 'CH11',
+        previousAction: 'Drive Mix Toggle',
+        nextChannel: 'CH6',
+        nextAction: 'Drive Mix',
+      );
+      _expectDuplicateResolution(
+        previousChannel: 'CH6',
+        previousAction: 'Drive Mix',
+        nextChannel: 'CH11',
+        nextAction: 'Drive Mix Toggle',
+      );
+    },
+  );
+
+  test(
+    'non-CH11 button channels also conflict with CH6 and CH5 mix actions',
+    () {
+      _expectDuplicateResolution(
+        previousChannel: 'CH7',
+        previousAction: '4WS Mode Switch',
+        nextChannel: 'CH6',
+        nextAction: '4W Mix',
+      );
+      _expectDuplicateResolution(
+        previousChannel: 'CH8',
+        previousAction: 'Drive Mix Toggle',
+        nextChannel: 'CH5',
+        setupNextChannel: (notifier) => notifier.updateType('3-Pos Switch'),
+        nextAction: 'Drive Mix',
+      );
+    },
+  );
+
   test('switching channels restores saved mapping state', () {
     final container = _createContainer();
     addTearDown(container.dispose);
@@ -325,4 +382,28 @@ ProviderContainer _createContainer() {
       ),
     ],
   );
+}
+
+void _expectDuplicateResolution({
+  required String previousChannel,
+  required String previousAction,
+  required String nextChannel,
+  void Function(ControlMappingController notifier)? setupNextChannel,
+  required String nextAction,
+}) {
+  final container = _createContainer();
+  addTearDown(container.dispose);
+  final notifier = container.read(controlMappingProvider.notifier);
+
+  notifier.selectChannel(previousChannel);
+  notifier.updateAction(previousAction);
+  notifier.selectChannel(nextChannel);
+  setupNextChannel?.call(notifier);
+
+  expect(notifier.duplicateActionOwner(nextAction), previousChannel);
+  notifier.updateActionResolvingDuplicate(nextAction, previousChannel);
+
+  final app = container.read(rcAppStateProvider);
+  expect(app.controlMappings[previousChannel]?.action, controlMappingNoAction);
+  expect(app.controlMappings[nextChannel]?.action, nextAction);
 }

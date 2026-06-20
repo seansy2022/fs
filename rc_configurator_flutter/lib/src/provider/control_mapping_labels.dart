@@ -11,7 +11,7 @@ class ControlMappingLabels {
     'Triple Click': '三击',
     'Long Press': '长按',
     'Knob': '旋钮',
-    '3-Pos Switch': '3档',
+    '3-Pos Switch': '三档',
     '3-Pos': '三档',
     '2-Pos': '2档',
     'Flip': '翻转',

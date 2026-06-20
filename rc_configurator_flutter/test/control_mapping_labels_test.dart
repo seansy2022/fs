@@ -99,6 +99,8 @@ void main() {
       expect(ControlMappingLabels.internalId('单击', locale), 'Click');
       expect(ControlMappingLabels.displayLabel('Double Click', locale), '双击');
       expect(ControlMappingLabels.displayLabel('Triple Click', locale), '三击');
+      expect(ControlMappingLabels.displayLabel('3-Pos Switch', locale), '三档');
+      expect(ControlMappingLabels.internalId('三档', locale), '3-Pos');
     });
   });
 }

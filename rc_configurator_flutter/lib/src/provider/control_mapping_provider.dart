@@ -44,10 +44,12 @@ class ControlMappingController extends Notifier<ControlMappingState> {
     if (action == state.action || !_shouldCheckDuplicateAction(action)) {
       return null;
     }
+    final actionKey = _duplicateActionKey(action);
     final mappings = ref.container.read(rcAppStateProvider).controlMappings;
     for (final channel in controlMappingChannels) {
       if (channel == state.channel) continue;
-      if (mappings[channel]?.action == action) return channel;
+      final currentAction = mappings[channel]?.action;
+      if (_duplicateActionKey(currentAction) == actionKey) return channel;
     }
     return null;
   }
@@ -166,12 +168,7 @@ class ControlMappingController extends Notifier<ControlMappingState> {
       return _nextCh5Action(current, action);
     }
     final next = current.copyWith(
-      mode: _modeFor(
-        current.channel,
-        current.type,
-        action,
-        current.mode,
-      ),
+      mode: _modeFor(current.channel, current.type, action, current.mode),
       action: action,
       functionType: action,
       targetChannel: isChannelFunctionMode(action) ? action : null,
@@ -245,7 +242,8 @@ class ControlMappingController extends Notifier<ControlMappingState> {
 
   String _fallbackAction(String channel, String type, List<String> actions) {
     if (actions.isEmpty) return '';
-    if (_isMultiPressButton(channel, type) && actions.contains(controlMappingNoAction)) {
+    if (_isMultiPressButton(channel, type) &&
+        actions.contains(controlMappingNoAction)) {
       return controlMappingNoAction;
     }
     if (channel == 'CH5' && type == 'Knob' && actions.contains('CH5')) {
@@ -257,7 +255,9 @@ class ControlMappingController extends Notifier<ControlMappingState> {
     if (channel == 'CH10' && type == '2-Pos' && actions.contains('CH10')) {
       return 'CH10';
     }
-    if (channel == 'CH5' && type == '3-Pos Switch' && actions.contains('4W Mix')) {
+    if (channel == 'CH5' &&
+        type == '3-Pos Switch' &&
+        actions.contains('4W Mix')) {
       return '4W Mix';
     }
     return '';
@@ -326,6 +326,17 @@ class ControlMappingController extends Notifier<ControlMappingState> {
 
   bool _shouldCheckDuplicateAction(String action) {
     return action.isNotEmpty && !isNoFunctionMode(action);
+  }
+
+  String? _duplicateActionKey(String? action) {
+    if (action == null || action.isEmpty || isNoFunctionMode(action)) {
+      return null;
+    }
+    if (action == '4WS Mode Switch' || action == '4W Mix') return '4w_mix';
+    if (action == 'Drive Mix Toggle' || action == 'Drive Mix') {
+      return 'drive_mix';
+    }
+    return action;
   }
 }
 

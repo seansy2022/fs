@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:rc_ui/rc_ui.dart';
 import 'package:rc_configurator_flutter/l10n/app_localizations.dart';
+import '../selection_sheet.dart';
 import '../../provider/locale_provider.dart';
 import '../../types.dart';
 
@@ -66,7 +67,7 @@ class RadioSettingsView extends ConsumerWidget {
 
   void _showLanguageSheet(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    AlertSelectionSheet.show(
+    showSelectionSheet(
       context,
       title: l10n.language,
       options: [l10n.english, l10n.chinese],
