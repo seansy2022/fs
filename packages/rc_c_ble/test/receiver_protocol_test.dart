@@ -106,11 +106,15 @@ void main() {
           ).toBytes(),
         );
       } else if (frame.command == ReceiverCommand.sendUpgradeChunk.id) {
-        final seq = frame.data.first;
+        final seq = _decodeWord(frame.data, 0);
         transport.emit(
           ReceiverFrame(
             command: ReceiverCommand.sendUpgradeChunk.id,
-            data: <int>[seq, seq == 1 ? 2 : 1],
+            data: <int>[
+              (seq >> 8) & 0xFF,
+              seq & 0xFF,
+              seq == 1 ? 2 : 1,
+            ],
           ).toBytes(),
         );
       }
@@ -122,7 +126,7 @@ void main() {
 
       final progress = await client
           .startUpgrade(
-            Uint8List.fromList(List<int>.generate(48, (index) => index)),
+            Uint8List.fromList(List<int>.generate(46, (index) => index)),
           )
           .toList();
       expect(progress.last.stage, ReceiverUpgradeStage.completed);

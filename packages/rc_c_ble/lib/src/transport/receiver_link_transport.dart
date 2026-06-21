@@ -3,11 +3,13 @@ class ReceiverBluetoothScanDevice {
     required this.remoteId,
     required this.name,
     required this.rssi,
+    this.connected = false,
   });
 
   final String remoteId;
   final String name;
   final int rssi;
+  final bool connected;
 }
 
 enum ReceiverLinkType { ble, usb }

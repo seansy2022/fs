@@ -20,6 +20,7 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
   StreamSubscription<List<int>>? _notifySub;
   BluetoothDevice? _activeDevice;
   BluetoothCharacteristic? _writeCharacteristic;
+  List<int>? _lastSentBytes;
   AdapterState _adapterState = AdapterState.unknown;
   Future<void> _scanQueue = Future<void>.value();
   bool _isScanning = false;
@@ -100,10 +101,8 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
       scope: 'FlutterBlueReceiverTransport',
     );
     await _stopNativeScanIfNeeded();
-    final device = _known[remoteId];
-    if (device == null) {
-      throw StateError('unknown bluetooth device: $remoteId');
-    }
+    final device = _known[remoteId] ?? BluetoothDevice.fromId(remoteId);
+    _known[remoteId] = device;
     if (!device.isConnected) {
       await device.connect(timeout: const Duration(seconds: 12));
     }
@@ -139,10 +138,11 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     if (characteristic == null) {
       throw StateError('bluetooth write characteristic is not ready');
     }
-    ReceiverLogging.link(
+    ReceiverLogging.phone(
       'tx bytes(${bytes.length}) ${ReceiverLogging.hexBytes(bytes)}',
       scope: 'FlutterBlueReceiverTransport',
     );
+    _lastSentBytes = List<int>.from(bytes, growable: false);
     final mtu = _activeDevice?.mtuNow ?? 23;
     final chunkSize = (mtu - 3).clamp(1, bytes.length);
     final withoutResponse =
@@ -241,8 +241,13 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     await _notifySub?.cancel();
     _notifySub = notifyTarget.onValueReceived.listen((value) {
       if (value.isNotEmpty) {
-        ReceiverLogging.link(
-          'rx bytes(${value.length}) ${ReceiverLogging.hexBytes(value)}',
+        final possibleEcho =
+            _lastSentBytes != null &&
+            _lastSentBytes!.length == value.length &&
+            _sameBytes(_lastSentBytes!, value);
+        ReceiverLogging.device(
+          'rx bytes(${value.length}) ${ReceiverLogging.hexBytes(value)}'
+          '${possibleEcho ? ' [possible-write-echo]' : ''}',
           scope: 'FlutterBlueReceiverTransport',
         );
         _incomingCtrl.add(value);
@@ -377,6 +382,7 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
             remoteId: remoteId,
             name: name.isEmpty ? remoteId : name,
             rssi: result.rssi,
+            connected: result.device.isConnected,
           );
         })
         .toList(growable: false);
@@ -442,5 +448,14 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     }
     _isScanning = false;
     _lastScanStopAt = DateTime.now();
+  }
+
+  bool _sameBytes(List<int> a, List<int> b) {
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 }

@@ -518,6 +518,12 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         _setState(state.copyWith(errorMessage: '连接设备失败，请重试。'));
         return false;
       }
+      try {
+        await repo.readReceiverInfo();
+      } catch (_) {
+        _setState(state.copyWith(errorMessage: '读取接收机信息失败，请重试。'));
+        return false;
+      }
     }
 
     final connected = await _waitForConnectedDevice(remoteId);
@@ -546,12 +552,16 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   }
 
   void _maybeAutoConnectRememberedDevice() {
+    final info = ref.read(receiverInfoProvider).valueOrNull;
+    final appConnected =
+        ref.read(receiverConnectionProvider).valueOrNull ==
+        ReceiverConnectionState.connected;
     if (!mounted ||
         _autoConnectAttempted ||
         _autoConnectInFlight ||
         state.scanOwner != BluetoothScanOwner.home ||
         !state.isScanning ||
-        state.connectedDevice != null) {
+        (state.connectedDevice != null && appConnected && info != null)) {
       return;
     }
     final remembered = ref.read(rememberedDevicesProvider);
@@ -563,12 +573,11 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         .where((device) => device.remoteId == lastDevice.remoteId)
         .cast<ReceiverDeviceView?>()
         .firstOrNull;
-    if (discovered == null) {
-      return;
-    }
     _autoConnectAttempted = true;
     _autoConnectInFlight = true;
-    unawaited(_autoConnectRememberedDevice(discovered.remoteId));
+    unawaited(
+      _autoConnectRememberedDevice(discovered?.remoteId ?? lastDevice.remoteId),
+    );
   }
 
   Future<void> _autoConnectRememberedDevice(String remoteId) async {
@@ -680,6 +689,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
       );
       if (owner == BluetoothScanOwner.home) {
         _scheduleHomeScanStop();
+        _maybeAutoConnectRememberedDevice();
       }
       return true;
     } catch (error) {

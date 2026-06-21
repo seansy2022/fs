@@ -44,6 +44,7 @@ lib/src/provider/
 - `AGENTS.md`：协作规则。
 - `File.md`：本规范文件。
 - `assets/`：统一资源目录。
+- `assets/firmware/`：随 App 打包的接收机固件升级包。
 - `doc/`：需求、协议、问题记录。
 - `test/`：单元与 Widget 测试。
 
@@ -65,6 +66,8 @@ lib/src/provider/
 - `features/control/widgets/control_status_warning_text.dart`：控制页顶部居中报警提示文案。
 - `features/settings/view/`：设置主页与子页。
 - `features/settings/widgets/`：设置页复用组件（布局、切换项、数值弹窗、统一操作按钮）。
+- `features/settings/widgets/firmware_upgrade_progress_dialog.dart`：固件升级真实进度弹窗。
+- `features/settings/widgets/firmware_upgrade_status_view.dart`：固件升级中/成功/失败统一状态视图。
 - `features/settings/widgets/tank_mixing_panel.dart`：履带混控布局与方向输入按钮。
 - `features/help/view/`：帮助页。
 
@@ -87,6 +90,7 @@ lib/src/provider/
 
 ### core
 - `app_vibration.dart`：统一震动工具。
+- `receiver_device_view.dart`：蓝牙设备展示模型、设备名展示与扫描过滤规则。
 
 ## 5. 变更同步规则（执行清单）
 1. 改目录前先改本文件中的目标结构与规则。

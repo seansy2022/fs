@@ -12,7 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('home scan auto-connects the most recently remembered device', () async {
+  test('home scan reconnects remembered device without scan result', () async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     final repository = _FakeReceiverRepository();
     final history = DeviceHistoryController();
@@ -20,7 +20,7 @@ void main() {
     await history.rememberDevice(
       const ReceiverScanDevice(
         remoteId: 'last-device',
-        name: 'Last Device',
+        name: 'R4P Last Device',
         rssi: -40,
       ),
     );
@@ -43,29 +43,43 @@ void main() {
       await repository.dispose();
     });
 
-    final controller = container.read(bluetoothDomainControllerProvider.notifier);
+    final controller = container.read(
+      bluetoothDomainControllerProvider.notifier,
+    );
 
     await controller.startHomeScanSession();
-    repository.emitScanResults([
-      const ReceiverScanDevice(
-        remoteId: 'other-device',
-        name: 'Other Device',
-        rssi: -55,
-      ),
-      const ReceiverScanDevice(
-        remoteId: 'last-device',
-        name: 'Last Device',
-        rssi: -42,
-      ),
-    ]);
-    await Future<void>.delayed(Duration.zero);
-    controller.rebuildDeviceViews();
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
     expect(repository.connectCalls, <String>['last-device']);
     expect(
-      container.read(bluetoothDomainControllerProvider).connectedDevice?.remoteId,
+      container
+          .read(bluetoothDomainControllerProvider)
+          .connectedDevice
+          ?.remoteId,
       'last-device',
+    );
+  });
+
+  test('bluetooth scan filter only allows R4P devices', () {
+    expect(
+      shouldIncludeBluetoothDevice(
+        const ReceiverScanDevice(
+          remoteId: 'r4p-device',
+          name: 'R4P Receiver',
+          rssi: -48,
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      shouldIncludeBluetoothDevice(
+        const ReceiverScanDevice(
+          remoteId: 'other-device',
+          name: 'Other Device',
+          rssi: -55,
+        ),
+      ),
+      isFalse,
     );
   });
 }
@@ -74,8 +88,7 @@ class _FakeReceiverRepository implements ReceiverRepository {
   final List<String> connectCalls = <String>[];
   final _adapterCtrl = StreamController<AdapterState>.broadcast();
   final _scanCtrl = StreamController<List<ReceiverScanDevice>>.broadcast();
-  final _connectionCtrl =
-      StreamController<ReceiverConnectionState>.broadcast();
+  final _connectionCtrl = StreamController<ReceiverConnectionState>.broadcast();
   final _infoCtrl = StreamController<ReceiverInfo?>.broadcast();
   final _rssiCtrl = StreamController<int?>.broadcast();
 
@@ -130,7 +143,9 @@ class _FakeReceiverRepository implements ReceiverRepository {
       remoteId: remoteId,
     );
     _scanResults = _scanResults
-        .map((device) => device.copyWith(connected: device.remoteId == remoteId))
+        .map(
+          (device) => device.copyWith(connected: device.remoteId == remoteId),
+        )
         .toList(growable: false);
     _scanCtrl.add(_scanResults);
     _connectionCtrl.add(ReceiverConnectionState.connected);

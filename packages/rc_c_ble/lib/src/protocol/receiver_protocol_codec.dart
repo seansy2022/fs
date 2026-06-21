@@ -134,13 +134,13 @@ ReceiverFrame buildUpgradeLengthRequest(int length) {
 }
 
 ReceiverFrame buildUpgradeChunkRequest(int sequence, List<int> chunk) {
-  final payload = List<int>.filled(24, 0, growable: false);
-  for (var index = 0; index < chunk.length && index < 24; index++) {
+  final payload = List<int>.filled(23, 0, growable: false);
+  for (var index = 0; index < chunk.length && index < 23; index++) {
     payload[index] = chunk[index] & 0xFF;
   }
   return ReceiverFrame(
     command: ReceiverCommand.sendUpgradeChunk.id,
-    data: <int>[sequence & 0xFF, ...payload],
+    data: <int>[...encodeWord(sequence), ...payload],
   );
 }
 
@@ -151,14 +151,14 @@ int parseUpgradeState(ReceiverFrame frame, {required int stateIndex}) {
 
 int parseUpgradeChunkSequence(ReceiverFrame frame) {
   _requireCommand(frame, ReceiverCommand.sendUpgradeChunk);
-  _requireDataLength(frame, 2);
-  return frame.data[0] & 0xFF;
+  _requireDataLength(frame, 3);
+  return decodeWord(frame.data[0], frame.data[1]);
 }
 
 int parseUpgradeChunkState(ReceiverFrame frame) {
   _requireCommand(frame, ReceiverCommand.sendUpgradeChunk);
-  _requireDataLength(frame, 2);
-  return frame.data[1] & 0xFF;
+  _requireDataLength(frame, 3);
+  return frame.data[2] & 0xFF;
 }
 
 List<int> encodeWord(int value) {
