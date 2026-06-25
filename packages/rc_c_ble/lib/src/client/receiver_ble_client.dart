@@ -296,7 +296,7 @@ class ReceiverBleClient {
 
   Future<void> startControlLoop() async {
     _controlLoop?.cancel();
-    _controlLoop = Timer.periodic(const Duration(milliseconds: 10), (_) {
+    _controlLoop = Timer.periodic(const Duration(milliseconds: 30), (_) {
       unawaited(_sendControlHeartbeat());
     });
     await _sendControlHeartbeat();
@@ -549,7 +549,7 @@ class ReceiverBleClient {
       '[heartbeat-tx] cmd=0x02 len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
       scope: 'ReceiverBleClient',
     );
-    await _transport.send(frame.toBytes());
+    await _transport.send(frame.toBytes(), preferWithoutResponse: true);
   }
 
   Uint8List _requireRfmId() {

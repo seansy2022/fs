@@ -110,11 +110,7 @@ void main() {
         transport.emit(
           ReceiverFrame(
             command: ReceiverCommand.sendUpgradeChunk.id,
-            data: <int>[
-              (seq >> 8) & 0xFF,
-              seq & 0xFF,
-              seq == 1 ? 2 : 1,
-            ],
+            data: <int>[(seq >> 8) & 0xFF, seq & 0xFF, seq == 1 ? 2 : 1],
           ).toBytes(),
         );
       }
@@ -167,7 +163,7 @@ void main() {
         await client.queueAuxChannelPulse(0, 1300);
 
         await client.startControlLoop();
-        await Future<void>.delayed(const Duration(milliseconds: 35));
+        await Future<void>.delayed(const Duration(milliseconds: 95));
         await client.stopControlLoop();
 
         final heartbeatFrames = transport.sentFrames
@@ -177,6 +173,12 @@ void main() {
             .toList(growable: false);
 
         expect(heartbeatFrames.length, greaterThanOrEqualTo(3));
+        expect(transport.sendWithoutResponseFlags, isNotEmpty);
+        expect(transport.sendWithoutResponseFlags.first, isFalse);
+        expect(
+          transport.sendWithoutResponseFlags.skip(1).contains(true),
+          isTrue,
+        );
         expect(_decodeWord(heartbeatFrames[0].data, 4), 1600);
         expect(_decodeWord(heartbeatFrames[0].data, 6), 1400);
         expect(_decodeWord(heartbeatFrames[0].data, 8), 1700);
@@ -239,6 +241,7 @@ class _FakeTransport implements LinkTransport {
   final StreamController<List<BluetoothScanDevice>> _scanCtrl =
       StreamController<List<BluetoothScanDevice>>.broadcast();
   final List<ReceiverFrame> sentFrames = <ReceiverFrame>[];
+  final List<bool> sendWithoutResponseFlags = <bool>[];
 
   void Function(List<int> bytes)? onSend;
 
@@ -275,7 +278,11 @@ class _FakeTransport implements LinkTransport {
   }
 
   @override
-  Future<void> send(List<int> bytes) async {
+  Future<void> send(
+    List<int> bytes, {
+    bool preferWithoutResponse = false,
+  }) async {
+    sendWithoutResponseFlags.add(preferWithoutResponse);
     final frame = ReceiverFrame.tryParse(bytes);
     if (frame != null) {
       sentFrames.add(frame);

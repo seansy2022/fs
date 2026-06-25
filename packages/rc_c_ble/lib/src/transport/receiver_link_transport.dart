@@ -47,7 +47,7 @@ abstract class ReceiverLinkTransport {
 
   Future<int> readRssi(String remoteId);
 
-  Future<void> send(List<int> bytes);
+  Future<void> send(List<int> bytes, {bool preferWithoutResponse = false});
 }
 
 typedef ReceiverBluetoothTransport = ReceiverLinkTransport;

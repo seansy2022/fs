@@ -156,7 +156,7 @@ class ControlScreenState {
 }
 
 class ControlController extends StateNotifier<ControlScreenState> {
-  static const _gyroPromptFrameInterval = Duration(milliseconds: 20);
+  static const _gyroPromptFrameInterval = Duration(milliseconds: 30);
   static const _controlStateStep = 0.01;
 
   ControlController(this._ref, this._repository)

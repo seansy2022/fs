@@ -133,7 +133,10 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
   }
 
   @override
-  Future<void> send(List<int> bytes) async {
+  Future<void> send(
+    List<int> bytes, {
+    bool preferWithoutResponse = false,
+  }) async {
     final characteristic = _writeCharacteristic;
     if (characteristic == null) {
       throw StateError('bluetooth write characteristic is not ready');
@@ -146,8 +149,7 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     final mtu = _activeDevice?.mtuNow ?? 23;
     final chunkSize = (mtu - 3).clamp(1, bytes.length);
     final withoutResponse =
-        characteristic.properties.writeWithoutResponse &&
-        !characteristic.properties.write;
+        preferWithoutResponse && characteristic.properties.writeWithoutResponse;
     for (var i = 0; i < bytes.length; i += chunkSize) {
       final end = (i + chunkSize > bytes.length) ? bytes.length : i + chunkSize;
       await characteristic.write(
