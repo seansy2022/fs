@@ -23,6 +23,9 @@ class ReceiverBleClient {
       _onScanResults,
       onError: _onScanError,
     );
+    _transportConnectionSub = _transport.connectionEvents.listen(
+      _onTransportConnectionEvent,
+    );
     _adapterSub = _transport.adapterState.listen((state) {
       _adapterState = state;
       _adapterCtrl.add(state);
@@ -35,6 +38,7 @@ class ReceiverBleClient {
   static const Duration _scanRestartCooldown = Duration(milliseconds: 700);
 
   StreamSubscription<AdapterState>? _adapterSub;
+  StreamSubscription<ReceiverLinkConnectionEvent>? _transportConnectionSub;
 
   final StreamController<List<ReceiverScanDevice>> _scanCtrl =
       StreamController<List<ReceiverScanDevice>>.broadcast();
@@ -165,43 +169,45 @@ class ReceiverBleClient {
   }
 
   Future<void> connect(String remoteId) async {
+    if (_connectedRemoteId == remoteId &&
+        _connectionState == ReceiverConnectionState.connected) {
+      return;
+    }
+    if (_connectedRemoteId != null && _connectedRemoteId != remoteId) {
+      await disconnect();
+    }
     _setConnectionState(ReceiverConnectionState.connecting);
-    await _transport.connect(remoteId);
-    _controlBuffer.clear();
-    _connectedRemoteId = remoteId;
-    _scanResults = _scanResults
-        .map(
-          (device) => device.copyWith(connected: device.remoteId == remoteId),
-        )
-        .toList(growable: false);
-    _scanCtrl.add(_scanResults);
-    _setConnectionState(ReceiverConnectionState.connected);
-    _seedConnectedRssiFromScan(remoteId);
-    _startConnectedRssiPolling();
+    try {
+      await _transport.connect(remoteId);
+      _isScanning = false;
+      _lastScanStopAt = DateTime.now();
+      _controlBuffer.clear();
+      _connectedRemoteId = remoteId;
+      _markScanDeviceConnection(remoteId: remoteId);
+      _setConnectionState(ReceiverConnectionState.connected);
+      _seedConnectedRssiFromScan(remoteId);
+      _startConnectedRssiPolling();
+      _startReceiverInfoPolling();
+    } catch (error) {
+      try {
+        await _transport.disconnect(remoteId);
+      } catch (_) {
+        // Cleanup is best-effort; callers still need the original error.
+      }
+      _resetConnectionState(remoteId: remoteId);
+      rethrow;
+    }
   }
 
   Future<void> disconnect() async {
-    _controlLoop?.cancel();
-    _controlLoop = null;
-    _stopConnectedRssiPolling();
-    _stopReceiverInfoPolling();
-    _controlBuffer.clear();
     final remoteId = _connectedRemoteId;
-    _connectedRemoteId = null;
-    _receiverInfo = null;
-    _connectedRssi = null;
-    _firmwareInfo = null;
-    _infoCtrl.add(null);
-    _connectedRssiCtrl.add(null);
-    _firmwareCtrl.add(null);
-    if (remoteId != null) {
-      await _transport.disconnect(remoteId);
+    try {
+      if (remoteId != null) {
+        await _transport.disconnect(remoteId);
+      }
+    } finally {
+      _resetConnectionState(remoteId: remoteId);
     }
-    _scanResults = _scanResults
-        .map((device) => device.copyWith(connected: false))
-        .toList(growable: false);
-    _scanCtrl.add(_scanResults);
-    _setConnectionState(ReceiverConnectionState.disconnected);
   }
 
   Future<ReceiverInfo> readReceiverInfo({bool restartPolling = true}) async {
@@ -437,6 +443,7 @@ class ReceiverBleClient {
     await stopScan();
     await _incomingSub?.cancel();
     await _scanSub?.cancel();
+    await _transportConnectionSub?.cancel();
     await _adapterSub?.cancel();
     await _scanCtrl.close();
     await _connectionCtrl.close();
@@ -591,6 +598,17 @@ class ReceiverBleClient {
     _connectionCtrl.add(state);
   }
 
+  void _onTransportConnectionEvent(ReceiverLinkConnectionEvent event) {
+    if (event.state == ReceiverLinkConnectionState.connected) {
+      return;
+    }
+    _markScanDeviceConnection(remoteId: event.remoteId);
+    if (_connectedRemoteId != event.remoteId) {
+      return;
+    }
+    _resetConnectionState(remoteId: event.remoteId);
+  }
+
   String _describeFailsafeConfig(ReceiverFailsafeConfig config) {
     return 'throttleUs=${config.throttleUs} '
         'throttleMode=${config.throttleHold ? 'hold' : 'fixed'} '
@@ -608,6 +626,17 @@ class ReceiverBleClient {
     }
     _connectedRssi = scanDevice.rssi;
     _connectedRssiCtrl.add(scanDevice.rssi);
+  }
+
+  void _markScanDeviceConnection({String? remoteId}) {
+    _scanResults = _scanResults
+        .map(
+          (device) => device.copyWith(
+            connected: remoteId != null && device.remoteId == remoteId,
+          ),
+        )
+        .toList(growable: false);
+    _scanCtrl.add(_scanResults);
   }
 
   void _startConnectedRssiPolling() {
@@ -684,6 +713,28 @@ class ReceiverBleClient {
     } finally {
       _rssiReadInFlight = false;
     }
+  }
+
+  void _resetConnectionState({String? remoteId}) {
+    _controlLoop?.cancel();
+    _controlLoop = null;
+    _stopConnectedRssiPolling();
+    _stopReceiverInfoPolling();
+    _controlBuffer.clear();
+    _connectedRemoteId = null;
+    _receiverInfo = null;
+    _connectedRssi = null;
+    _firmwareInfo = null;
+    _infoCtrl.add(null);
+    _connectedRssiCtrl.add(null);
+    _firmwareCtrl.add(null);
+    _markScanDeviceConnection();
+    final activeRemoteId = remoteId ?? _connectedRemoteId;
+    if (activeRemoteId != null &&
+        _connectionState != ReceiverConnectionState.scanning) {
+      _lastScanStopAt ??= DateTime.now();
+    }
+    _setConnectionState(ReceiverConnectionState.disconnected);
   }
 
   ReceiverScanDevice _preferScanDevice(

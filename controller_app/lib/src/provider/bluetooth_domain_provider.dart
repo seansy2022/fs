@@ -174,11 +174,13 @@ class BluetoothDomainState {
 
 class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   BluetoothDomainController(this.ref)
-    : super(const BluetoothDomainState.initial()) {
+    : _repository = ref.read(receiverRepositoryProvider),
+      super(const BluetoothDomainState.initial()) {
     _bind();
   }
 
   final Ref ref;
+  final ReceiverRepository _repository;
   StreamSubscription<AdapterState>? _adapterSub;
   Future<void> _queue = Future<void>.value();
   Timer? _homeScanTimer;
@@ -189,19 +191,18 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   static const Duration _connectVerificationInterval = Duration(
     milliseconds: 120,
   );
+  ReceiverConnectionState _connectionState =
+      ReceiverConnectionState.disconnected;
   DateTime? _lastStopAt;
   bool _deviceViewsRebuildScheduled = false;
   bool _autoConnectAttempted = false;
   bool _autoConnectInFlight = false;
 
   void _bind() {
-    _adapterSub = ref
-        .read(receiverRepositoryProvider)
-        .adapterStateStream
-        .listen((adapterState) {
-          _setState(state.copyWith(adapterState: adapterState));
-          _refreshAvailability();
-        });
+    _adapterSub = _repository.adapterStateStream.listen((adapterState) {
+      _setState(state.copyWith(adapterState: adapterState));
+      _refreshAvailability();
+    });
     _rebuildDeviceViews();
   }
 
@@ -224,6 +225,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   }
 
   void syncConnectionState(ReceiverConnectionState connectionState) {
+    _connectionState = connectionState;
     if (connectionState == ReceiverConnectionState.scanning) {
       _setState(
         state.copyWith(
@@ -250,6 +252,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         ),
       );
     }
+    _rebuildDeviceViews();
   }
 
   void _rebuildDeviceViews() {
@@ -263,6 +266,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         .toList(growable: false);
     final remembered = ref.read(rememberedDevicesProvider);
     final rememberedIds = remembered.map((device) => device.remoteId).toSet();
+    final appConnected = _connectionState == ReceiverConnectionState.connected;
     final receiverInfo = ref.read(receiverInfoProvider).valueOrNull;
     final connectedRssi = ref.read(connectedRssiProvider).valueOrNull;
 
@@ -274,7 +278,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
               device.name,
               fallbackRemoteId: device.remoteId,
             ),
-            isConnected: device.connected,
+            isConnected: appConnected && device.connected,
             isRemembered: rememberedIds.contains(device.remoteId),
             isOnline: device.rssi > -120,
             rssi: device.rssi,
@@ -293,12 +297,15 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         break;
       }
     }
-    final connectedId = receiverInfo?.remoteId ?? connectedIdFromScan;
+    final connectedId = appConnected
+        ? (receiverInfo?.remoteId ?? connectedIdFromScan)
+        : null;
     final pairedDevices = remembered
         .map((entry) {
           final scan = scannedMap[entry.remoteId];
           final isConnected =
-              scan?.connected == true || connectedId == entry.remoteId;
+              connectedId == entry.remoteId ||
+              (appConnected && scan?.connected == true);
           final rssi = isConnected ? (connectedRssi ?? scan?.rssi) : scan?.rssi;
           return ReceiverDeviceView(
             remoteId: entry.remoteId,
@@ -368,6 +375,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         pairedDevices: pairedDevices,
         discoveredDevices: discoveredDevices,
         connectedDevice: connectedDevice,
+        clearConnectedDevice: connectedDevice == null,
       ),
     );
     _maybeAutoConnectRememberedDevice();
@@ -449,7 +457,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   }
 
   Future<void> openBluetoothSettings() async {
-    await ref.read(receiverRepositoryProvider).turnOnAdapter();
+    await _repository.turnOnAdapter();
   }
 
   Future<void> clearBootstrapPrompt() async {
@@ -499,6 +507,16 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   }
 
   Future<bool> connect(String remoteId) async {
+    return _enqueue(() => _connectInternal(remoteId));
+  }
+
+  Future<bool> _connectInternal(String remoteId) async {
+    if (!mounted) {
+      return false;
+    }
+    if (_isConnectedTo(remoteId)) {
+      return true;
+    }
     final target = state.discoveredDevices
         .where((d) => d.remoteId == remoteId)
         .cast<ReceiverDeviceView?>()
@@ -508,20 +526,23 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         .cast<ReceiverDeviceView?>()
         .firstOrNull;
     final rememberedTarget = target ?? pairedTarget;
-    final repo = ref.read(receiverRepositoryProvider);
+    final connectedDevice = state.connectedDevice;
+
+    if (connectedDevice != null &&
+        connectedDevice.isConnected &&
+        connectedDevice.remoteId != remoteId) {
+      final disconnected = await _disconnectInternal();
+      if (!disconnected) {
+        return false;
+      }
+    }
 
     try {
-      await repo.connect(remoteId);
+      await _repository.connect(remoteId);
     } catch (_) {
       final connectedAfterError = await _waitForConnectedDevice(remoteId);
       if (!connectedAfterError) {
         _setState(state.copyWith(errorMessage: '连接设备失败，请重试。'));
-        return false;
-      }
-      try {
-        await repo.readReceiverInfo();
-      } catch (_) {
-        _setState(state.copyWith(errorMessage: '读取接收机信息失败，请重试。'));
         return false;
       }
     }
@@ -548,20 +569,18 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         .read(rememberedDevicesProvider.notifier)
         .rememberDevice(rememberedDevice);
     _rebuildDeviceViews();
+    _setState(state.copyWith(clearError: true));
     return true;
   }
 
   void _maybeAutoConnectRememberedDevice() {
-    final info = ref.read(receiverInfoProvider).valueOrNull;
-    final appConnected =
-        ref.read(receiverConnectionProvider).valueOrNull ==
-        ReceiverConnectionState.connected;
     if (!mounted ||
         _autoConnectAttempted ||
         _autoConnectInFlight ||
         state.scanOwner != BluetoothScanOwner.home ||
         !state.isScanning ||
-        (state.connectedDevice != null && appConnected && info != null)) {
+        _connectionState != ReceiverConnectionState.disconnected ||
+        state.connectedDevice != null) {
       return;
     }
     final remembered = ref.read(rememberedDevicesProvider);
@@ -573,11 +592,12 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         .where((device) => device.remoteId == lastDevice.remoteId)
         .cast<ReceiverDeviceView?>()
         .firstOrNull;
+    if (discovered == null) {
+      return;
+    }
     _autoConnectAttempted = true;
     _autoConnectInFlight = true;
-    unawaited(
-      _autoConnectRememberedDevice(discovered?.remoteId ?? lastDevice.remoteId),
-    );
+    unawaited(_autoConnectRememberedDevice(discovered.remoteId));
   }
 
   Future<void> _autoConnectRememberedDevice(String remoteId) async {
@@ -603,6 +623,9 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   }
 
   bool _isConnectedTo(String remoteId) {
+    if (_connectionState != ReceiverConnectionState.connected) {
+      return false;
+    }
     final connected = state.connectedDevice;
     if (connected != null &&
         connected.remoteId == remoteId &&
@@ -626,8 +649,17 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   }
 
   Future<bool> disconnect() async {
+    return _enqueue(_disconnectInternal);
+  }
+
+  Future<bool> _disconnectInternal() async {
+    if (!mounted) {
+      return false;
+    }
     try {
-      await ref.read(receiverRepositoryProvider).disconnect();
+      await _repository.disconnect();
+      _rebuildDeviceViews();
+      _setState(state.copyWith(clearError: true));
       return true;
     } catch (_) {
       _setState(state.copyWith(errorMessage: '断开连接失败，请重试。'));
@@ -677,7 +709,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
     );
     try {
       await _waitForScanCooldown();
-      await ref.read(receiverRepositoryProvider).startScan();
+      await _repository.startScan();
       _setState(
         state.copyWith(
           scanPhase: BluetoothScanPhase.scanning,
@@ -738,7 +770,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
       state.copyWith(scanPhase: BluetoothScanPhase.stopping, isWorking: true),
     );
     try {
-      await ref.read(receiverRepositoryProvider).stopScan();
+      await _repository.stopScan();
       _homeScanTimer?.cancel();
       _lastStopAt = DateTime.now();
       _setState(
@@ -921,7 +953,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   void dispose() {
     _adapterSub?.cancel();
     _homeScanTimer?.cancel();
-    unawaited(ref.read(receiverRepositoryProvider).stopScan());
+    unawaited(_repository.stopScan());
     super.dispose();
   }
 }

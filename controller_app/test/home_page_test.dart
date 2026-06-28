@@ -80,7 +80,7 @@ void main() {
 }
 
 class _FakeBluetoothDomainController extends BluetoothDomainController {
-  _FakeBluetoothDomainController(Ref ref) : super(ref);
+  _FakeBluetoothDomainController(super.ref);
 
   int ensureScanStoppedCalls = 0;
 
@@ -91,9 +91,6 @@ class _FakeBluetoothDomainController extends BluetoothDomainController {
   Future<void> ensureScanStopped() async {
     ensureScanStoppedCalls += 1;
   }
-
-  @override
-  void dispose() {}
 }
 
 class _FakeReceiverRepository implements ReceiverRepository {

@@ -219,8 +219,8 @@ class _ControlPageState extends ConsumerState<ControlPage> {
   }
 
   Future<void> _activate() async {
-    final repository = ref.read(receiverRepositoryProvider);
-    if (repository.connectionState == ReceiverConnectionState.connected) {
+    if (ref.read(effectiveReceiverConnectionProvider) ==
+        ReceiverConnectionState.connected) {
       await _getControlController().activate();
     }
   }

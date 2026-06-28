@@ -24,6 +24,18 @@ enum AdapterState {
   unsupported,
 }
 
+enum ReceiverLinkConnectionState { connected, disconnected }
+
+class ReceiverLinkConnectionEvent {
+  const ReceiverLinkConnectionEvent({
+    required this.remoteId,
+    required this.state,
+  });
+
+  final String remoteId;
+  final ReceiverLinkConnectionState state;
+}
+
 abstract class ReceiverLinkTransport {
   ReceiverLinkType get type;
 
@@ -32,6 +44,8 @@ abstract class ReceiverLinkTransport {
   Stream<List<int>> get incomingBytes;
 
   Stream<AdapterState> get adapterState;
+
+  Stream<ReceiverLinkConnectionEvent> get connectionEvents;
 
   AdapterState get currentAdapterState;
 

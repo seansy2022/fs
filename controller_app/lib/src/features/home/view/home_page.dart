@@ -9,6 +9,7 @@ import 'package:rc_ui/rc_ui.dart';
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
+import '../../../provider/effective_bluetooth_provider.dart';
 import '../../bluetooth/widgets/bluetooth_connect_feedback.dart';
 
 const _blueSvg = '''
@@ -68,14 +69,13 @@ class _HomePageState extends ConsumerState<HomePage> {
       });
     });
 
-    final connectionState =
-        ref.watch(receiverConnectionProvider).valueOrNull ??
-        ReceiverConnectionState.disconnected;
-    final receiverInfo = ref.watch(receiverInfoProvider).valueOrNull;
+    final connectionState = ref.watch(effectiveReceiverConnectionProvider);
+    final receiverInfo = ref.watch(effectiveReceiverInfoProvider);
+    final connectedRssi = ref.watch(effectiveConnectedRssiProvider);
     final connectedDevice = bluetoothState.connectedDevice;
     final connected = connectionState == ReceiverConnectionState.connected;
     final batteryLevel = receiverInfo?.batteryLevel;
-    final rssi = connectedDevice?.rssi;
+    final rssi = connected ? (connectedRssi ?? connectedDevice?.rssi) : null;
     final deviceName = connectedDevice?.name ?? '--';
 
     return Scaffold(
@@ -414,9 +414,10 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
     final bluetoothController = ref.read(
       bluetoothDomainControllerProvider.notifier,
     );
+    final itemMap = <AlertBlueItem, ReceiverDeviceView>{};
     final items = devices
-        .map(
-          (device) => AlertBlueItem(
+        .map((device) {
+          final item = AlertBlueItem(
             title: device.name,
             status: device.isConnected
                 ? '\u5df2\u8fde\u63a5'
@@ -424,8 +425,10 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
             statusColor: device.isConnected
                 ? const Color(0xFF00C6FF)
                 : Colors.white.withValues(alpha: 0.65),
-          ),
-        )
+          );
+          itemMap[item] = device;
+          return item;
+        })
         .toList(growable: false);
 
     return AlertBlueWidget(
@@ -433,7 +436,10 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
       items: items,
       emptyText: '\u6682\u65e0\u5386\u53f2\u8bbe\u5907',
       onTap: (item) async {
-        final target = devices.firstWhere((d) => d.name == item.title);
+        final target = itemMap[item];
+        if (target == null) {
+          return;
+        }
         if (target.isConnected) {
           return;
         }
@@ -447,7 +453,10 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
         }
       },
       onDelete: (item) async {
-        final target = devices.firstWhere((d) => d.name == item.title);
+        final target = itemMap[item];
+        if (target == null) {
+          return;
+        }
         final confirmed = await AlertIconWidget.show(
           context,
           title: '\u5220\u9664\u8bbe\u5907',
@@ -598,9 +607,10 @@ class _ScanDevicesDialogContentState
   Widget build(BuildContext context) {
     final bluetoothState = ref.watch(bluetoothDomainControllerProvider);
     final devices = bluetoothState.discoveredDevices;
+    final itemMap = <AlertBlueItem, ReceiverDeviceView>{};
     final items = devices
-        .map(
-          (device) => AlertBlueItem(
+        .map((device) {
+          final item = AlertBlueItem(
             title: device.name,
             status: device.isConnected
                 ? '\u5df2\u8fde\u63a5'
@@ -608,8 +618,10 @@ class _ScanDevicesDialogContentState
             statusColor: device.isConnected
                 ? const Color(0xFF00C6FF)
                 : Colors.white.withValues(alpha: 0.65),
-          ),
-        )
+          );
+          itemMap[item] = device;
+          return item;
+        })
         .toList(growable: false);
 
     return AlertBlueWidget(
@@ -619,7 +631,10 @@ class _ScanDevicesDialogContentState
       onRefresh: bluetoothState.isWorking ? null : _refreshScanWithFeedback,
       emptyText: '\u6682\u65e0\u53ef\u7528\u84dd\u7259\u8bbe\u5907',
       onTap: (item) async {
-        final target = devices.firstWhere((d) => d.name == item.title);
+        final target = itemMap[item];
+        if (target == null) {
+          return;
+        }
         if (target.isConnected) {
           return;
         }
@@ -667,7 +682,6 @@ class _HomeActionButton extends StatelessWidget {
     required this.text,
     required this.onTap,
     required this.icon,
-    this.enabled = true,
     this.width = 174,
     this.height = 44,
     this.backgroundColor,
@@ -678,7 +692,6 @@ class _HomeActionButton extends StatelessWidget {
   final String text;
   final VoidCallback? onTap;
   final Widget icon;
-  final bool enabled;
   final double width;
   final double height;
   final Color? backgroundColor;
@@ -687,13 +700,6 @@ class _HomeActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedTextColor = enabled
-        ? textColor
-        : textColor.withValues(alpha: 0.45);
-    final resolvedBackgroundColor = enabled
-        ? backgroundColor
-        : const Color(0x661B2D4D);
-    final resolvedGradient = enabled ? gradient : null;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -701,22 +707,19 @@ class _HomeActionButton extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: resolvedBackgroundColor,
-          gradient: resolvedGradient,
+          color: backgroundColor,
+          gradient: gradient,
           borderRadius: BorderRadius.circular(4),
-          border: enabled
-              ? null
-              : Border.all(color: const Color(0x667DA2CE), width: 1),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Opacity(opacity: enabled ? 1 : 0.45, child: icon),
+            icon,
             const SizedBox(width: 8),
             Text(
               text,
               style: TextStyle(
-                color: resolvedTextColor,
+                color: textColor,
                 fontSize: AppFonts.s16,
                 fontWeight: AppFonts.w700,
               ),

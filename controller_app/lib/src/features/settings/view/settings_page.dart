@@ -12,6 +12,7 @@ import 'package:rc_c_ble/rc_c_ble.dart';
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
+import '../../../provider/effective_bluetooth_provider.dart';
 import '../models/app_settings_state.dart';
 import '../widgets/settings_workspace.dart';
 import 'alarm_settings_page.dart';
@@ -301,9 +302,7 @@ class BasicSettingsContent extends ConsumerWidget {
 }
 
 Future<void> _onExitBleModeTap(BuildContext context, WidgetRef ref) async {
-  final connectionState =
-      ref.read(receiverConnectionProvider).valueOrNull ??
-      ReceiverConnectionState.disconnected;
+  final connectionState = ref.read(effectiveReceiverConnectionProvider);
 
   if (connectionState == ReceiverConnectionState.connected) {
     final result = await AlertIconWidget.show(
@@ -317,7 +316,12 @@ Future<void> _onExitBleModeTap(BuildContext context, WidgetRef ref) async {
       try {
         await ref.read(receiverRepositoryProvider).exitBleMode();
         if (context.mounted) {
-          await ref.read(receiverRepositoryProvider).disconnect();
+          final disconnected = await ref
+              .read(bluetoothDomainControllerProvider.notifier)
+              .disconnect();
+          if (!disconnected) {
+            throw StateError('disconnect failed');
+          }
           if (context.mounted) {
             await AlertIconWidget.show(
               context,

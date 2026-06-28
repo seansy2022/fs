@@ -40,6 +40,13 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
   }
 
   @override
+  Stream<ReceiverLinkConnectionEvent> get connectionEvents {
+    return FlutterBluePlus.events.onConnectionStateChanged.map(
+      _mapConnectionEvent,
+    );
+  }
+
+  @override
   Stream<List<ReceiverBluetoothScanDevice>> get scanResults {
     return FlutterBluePlus.scanResults
         .handleError(_handleScanStreamError)
@@ -370,6 +377,26 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     };
     _adapterState = mapped;
     return mapped;
+  }
+
+  ReceiverLinkConnectionEvent _mapConnectionEvent(
+    OnConnectionStateChangedEvent event,
+  ) {
+    final remoteId = event.device.remoteId.str;
+    _known[remoteId] = event.device;
+    if (event.connectionState == BluetoothConnectionState.disconnected &&
+        _activeDevice?.remoteId.str == remoteId) {
+      unawaited(_notifySub?.cancel());
+      _notifySub = null;
+      _activeDevice = null;
+      _writeCharacteristic = null;
+    }
+    return ReceiverLinkConnectionEvent(
+      remoteId: remoteId,
+      state: event.connectionState == BluetoothConnectionState.connected
+          ? ReceiverLinkConnectionState.connected
+          : ReceiverLinkConnectionState.disconnected,
+    );
   }
 
   List<ReceiverBluetoothScanDevice> _mapScanResults(List<ScanResult> results) {
