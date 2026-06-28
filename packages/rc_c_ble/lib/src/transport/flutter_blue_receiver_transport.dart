@@ -156,7 +156,8 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     final mtu = _activeDevice?.mtuNow ?? 23;
     final chunkSize = (mtu - 3).clamp(1, bytes.length);
     final withoutResponse =
-        preferWithoutResponse && characteristic.properties.writeWithoutResponse;
+        characteristic.properties.writeWithoutResponse &&
+        (preferWithoutResponse || !characteristic.properties.write);
     for (var i = 0; i < bytes.length; i += chunkSize) {
       final end = (i + chunkSize > bytes.length) ? bytes.length : i + chunkSize;
       await characteristic.write(

@@ -240,6 +240,8 @@ class _FakeTransport implements LinkTransport {
       StreamController<List<int>>.broadcast();
   final StreamController<List<BluetoothScanDevice>> _scanCtrl =
       StreamController<List<BluetoothScanDevice>>.broadcast();
+  final StreamController<ReceiverLinkConnectionEvent> _connectionCtrl =
+      StreamController<ReceiverLinkConnectionEvent>.broadcast();
   final List<ReceiverFrame> sentFrames = <ReceiverFrame>[];
   final List<bool> sendWithoutResponseFlags = <bool>[];
 
@@ -253,6 +255,10 @@ class _FakeTransport implements LinkTransport {
 
   @override
   Stream<List<BluetoothScanDevice>> get scanResults => _scanCtrl.stream;
+
+  @override
+  Stream<ReceiverLinkConnectionEvent> get connectionEvents =>
+      _connectionCtrl.stream;
 
   @override
   AdapterState get currentAdapterState => AdapterState.on;
