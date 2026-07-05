@@ -57,8 +57,7 @@ Future<BluetoothConnectFeedbackResult> showBluetoothConnectFeedback(
     await Future<void>.delayed(const Duration(seconds: 2));
     return BluetoothConnectFeedbackResult.success;
   } catch (_) {
-    notifier.value = _BluetoothConnectStage.completingFailure;
-    await _waitForStage(notifier, _BluetoothConnectStage.failure);
+    notifier.value = _BluetoothConnectStage.failure;
     await Future<void>.delayed(const Duration(seconds: 2));
     return BluetoothConnectFeedbackResult.failure;
   } finally {
@@ -94,13 +93,7 @@ Future<void> _waitForStage(
   }
 }
 
-enum _BluetoothConnectStage {
-  connecting,
-  completingSuccess,
-  completingFailure,
-  success,
-  failure,
-}
+enum _BluetoothConnectStage { connecting, completingSuccess, success, failure }
 
 class _BluetoothConnectFeedbackDialog extends StatelessWidget {
   const _BluetoothConnectFeedbackDialog({
@@ -133,17 +126,6 @@ class _BluetoothConnectFeedbackDialog extends StatelessWidget {
           onCompleted: () {
             if (notifier.value == _BluetoothConnectStage.completingSuccess) {
               notifier.value = _BluetoothConnectStage.success;
-            }
-          },
-        ),
-        _BluetoothConnectStage.completingFailure => BlueConnectingLoading(
-          key: const ValueKey('completing-failure'),
-          text: '\u84dd\u7259\u8fde\u63a5\u4e2d...',
-          connectingStartedAt: startedAt,
-          complete: true,
-          onCompleted: () {
-            if (notifier.value == _BluetoothConnectStage.completingFailure) {
-              notifier.value = _BluetoothConnectStage.failure;
             }
           },
         ),

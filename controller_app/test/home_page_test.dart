@@ -85,7 +85,10 @@ class _FakeBluetoothDomainController extends BluetoothDomainController {
   int ensureScanStoppedCalls = 0;
 
   @override
-  Future<void> bootstrapHomeBluetooth() async {}
+  Future<bool> autoReconnectLastDevice({
+    Duration timeout = const Duration(seconds: 5),
+    bool queueUnavailablePrompt = true,
+  }) async => false;
 
   @override
   Future<void> ensureScanStopped() async {

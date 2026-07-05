@@ -33,7 +33,8 @@ class ReceiverRepository {
       session.firmwareInfoStream;
   Stream<AdapterState> get adapterStateStream => session.adapterStateStream;
 
-  Future<void> startScan() => session.startScan();
+  Future<void> startScan({List<String>? withRemoteIds, Duration? timeout}) =>
+      session.startScan(withRemoteIds: withRemoteIds, timeout: timeout);
 
   Future<void> stopScan() => session.stopScan();
 
@@ -43,6 +44,17 @@ class ReceiverRepository {
     await session.connect(remoteId);
     return session.readReceiverInfo();
   }
+
+  Future<ReceiverInfo> scanAndConnectByBlueId(
+    String blueId, {
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    await session.scanAndConnectByBlueId(blueId, timeout: timeout);
+    return session.readReceiverInfo();
+  }
+
+  Future<void> cancelPendingScanAndConnect() =>
+      session.cancelPendingScanAndConnect();
 
   Future<ReceiverInfo> readReceiverInfo() => session.readReceiverInfo();
 

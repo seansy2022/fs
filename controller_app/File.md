@@ -47,6 +47,8 @@ lib/src/provider/
 - `assets/firmware/`：随 App 打包的接收机固件升级包。
 - `doc/`：需求、协议、问题记录。
 - `test/`：单元与 Widget 测试。
+- `test/home_reconnect_flow_test.dart`：首页自动扫描上次蓝牙设备的启动链路测试。
+- `test/global_reconnect_provider_test.dart`：全局断线自动重连与取消链路测试。
 
 ### lib/src 分层
 - `app/`：应用装配与路由。
@@ -77,6 +79,7 @@ lib/src/provider/
 - `app_settings_provider.dart`：设置状态。
 - `battery_alert_provider.dart`：低模型电压报警监听与触发。
 - `bluetooth_domain_provider.dart`：蓝牙扫描、连接、设备聚合状态。
+- `global_reconnect_provider.dart`：全局断线后自动重连状态与重试流程。
 - `control_provider.dart`：控制状态流转入口。
 - `control_presentation_provider.dart`：控制页音效与动画展示状态。
 - `effective_bluetooth_provider.dart`：统一真实蓝牙与模拟蓝牙的有效状态入口。
@@ -91,6 +94,7 @@ lib/src/provider/
 ### core
 - `app_vibration.dart`：统一震动工具。
 - `receiver_device_view.dart`：蓝牙设备展示模型、设备名展示与扫描过滤规则。
+- `shared/widgets/global_reconnect_overlay.dart`：全局断线自动重连 loading 与取消按钮。
 
 ## 5. 变更同步规则（执行清单）
 1. 改目录前先改本文件中的目标结构与规则。

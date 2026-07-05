@@ -226,12 +226,59 @@ void main() {
       );
     },
   );
+
+  test('auto reconnect timeout preserves device failure message', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository()
+      ..scanAndConnectTimeoutRemoteId = 'last-device';
+    final history = DeviceHistoryController();
+    await Future<void>.delayed(Duration.zero);
+    await history.rememberDevice(
+      const ReceiverScanDevice(
+        remoteId: 'last-device',
+        name: 'R4P Last Device',
+        rssi: -40,
+      ),
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        rememberedDevicesProvider.overrideWith((ref) => history),
+      ],
+    );
+    final subscription = container.listen(
+      bluetoothDomainControllerProvider,
+      (_, __) {},
+      fireImmediately: true,
+    );
+    addTearDown(() async {
+      subscription.close();
+      await Future<void>.delayed(Duration.zero);
+      container.dispose();
+      await repository.dispose();
+    });
+
+    final controller = container.read(
+      bluetoothDomainControllerProvider.notifier,
+    );
+    final connected = await controller.autoReconnectLastDevice(
+      timeout: const Duration(milliseconds: 10),
+    );
+
+    expect(connected, isFalse);
+    expect(
+      container.read(bluetoothDomainControllerProvider).errorMessage,
+      'R4P Last Device设备连接失败',
+    );
+  });
 }
 
 class _FakeReceiverRepository implements ReceiverRepository {
   final List<String> connectCalls = <String>[];
   int disconnectCalls = 0;
   String? connectThrowsAfterConnectedRemoteId;
+  String? scanAndConnectTimeoutRemoteId;
   final _adapterCtrl = StreamController<AdapterState>.broadcast();
   final _scanCtrl = StreamController<List<ReceiverScanDevice>>.broadcast();
   final _connectionCtrl = StreamController<ReceiverConnectionState>.broadcast();
@@ -307,7 +354,27 @@ class _FakeReceiverRepository implements ReceiverRepository {
   }
 
   @override
-  Future<void> startScan() async {}
+  Future<void> startScan({
+    List<String>? withRemoteIds,
+    Duration? timeout,
+  }) async {}
+
+  @override
+  Future<ReceiverInfo> scanAndConnectByBlueId(
+    String blueId, {
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    emitScanResults(const <ReceiverScanDevice>[]);
+    _connectionState = ReceiverConnectionState.scanning;
+    _connectionCtrl.add(ReceiverConnectionState.scanning);
+    await Future<void>.delayed(timeout);
+    _connectionState = ReceiverConnectionState.disconnected;
+    _connectionCtrl.add(ReceiverConnectionState.disconnected);
+    if (scanAndConnectTimeoutRemoteId == blueId) {
+      throw TimeoutException('Unable to find bluetooth device: $blueId');
+    }
+    throw StateError('scanAndConnectByBlueId not configured for $blueId');
+  }
 
   @override
   Future<ReceiverInfo> connect(String remoteId) async {

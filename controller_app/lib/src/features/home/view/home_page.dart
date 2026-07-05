@@ -32,23 +32,95 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
+  static const _historyLoadDelay = Duration(milliseconds: 120);
+  static const _autoReconnectDuration = Duration(seconds: 5);
   DateTime? _lastHandledPromptAt;
+  DateTime? _reconnectStartedAt;
+  String? _lastReconnectFailureMessage;
   bool _handlingPrompt = false;
+  bool _autoReconnectActive = false;
+  bool _autoReconnectAttempted = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(
-        ref
-            .read(bluetoothDomainControllerProvider.notifier)
-            .bootstrapHomeBluetooth(),
+      Future<void>.delayed(_historyLoadDelay, _startAutoReconnectIfNeeded);
+    });
+  }
+
+  Future<void> _startAutoReconnectIfNeeded() async {
+    final bluetoothState = ref.read(bluetoothDomainControllerProvider);
+    final remembered = ref.read(rememberedDevicesProvider);
+    if (_autoReconnectAttempted ||
+        _autoReconnectActive ||
+        bluetoothState.hasBootstrappedHome ||
+        remembered.isEmpty) {
+      return;
+    }
+    setState(() {
+      _autoReconnectAttempted = true;
+      _autoReconnectActive = true;
+      _reconnectStartedAt = DateTime.now();
+    });
+    final connected = await ref
+        .read(bluetoothDomainControllerProvider.notifier)
+        .autoReconnectLastDevice(timeout: _autoReconnectDuration);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _autoReconnectActive = false;
+      _reconnectStartedAt = null;
+    });
+    if (connected) {
+      return;
+    }
+    final failure = _resolveReconnectFailure(
+      ref.read(bluetoothDomainControllerProvider).errorMessage,
+    );
+    if (failure == null) {
+      return;
+    }
+    _showReconnectFailure(failure);
+  }
+
+  _ReconnectFailure? _resolveReconnectFailure(String? errorMessage) {
+    if (errorMessage == null || errorMessage.isEmpty) {
+      return null;
+    }
+    return _ReconnectFailure(
+      title: '连接失败',
+      message: errorMessage,
+      confirmText: '知道了',
+    );
+  }
+
+  void _showReconnectFailure(_ReconnectFailure failure) {
+    if (!mounted || _lastReconnectFailureMessage == failure.message) {
+      return;
+    }
+    _lastReconnectFailureMessage = failure.message;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        return;
+      }
+      await AlertIconWidget.show(
+        context,
+        title: failure.title,
+        message: failure.message,
+        confirmText: failure.confirmText,
       );
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(rememberedDevicesProvider, (_, next) {
+      if (next.isNotEmpty) {
+        _startAutoReconnectIfNeeded();
+      }
+    });
     final bluetoothState = ref.watch(bluetoothDomainControllerProvider);
     ref.listen<BluetoothDomainState>(bluetoothDomainControllerProvider, (
       _,
@@ -234,6 +306,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               ],
             ),
           ),
+          if (_reconnectStartedAt != null)
+            _HomeReconnectOverlay(startedAt: _reconnectStartedAt!),
         ],
       ),
     );
@@ -353,6 +427,39 @@ class _HomePageState extends ConsumerState<HomePage> {
   void dispose() {
     super.dispose();
   }
+}
+
+class _HomeReconnectOverlay extends StatelessWidget {
+  const _HomeReconnectOverlay({required this.startedAt});
+
+  final DateTime startedAt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: ColoredBox(
+        color: const Color(0x66000000),
+        child: Center(
+          child: BlueConnectingLoading(
+            text: '扫描上次设备中...',
+            connectingStartedAt: startedAt,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReconnectFailure {
+  const _ReconnectFailure({
+    required this.title,
+    required this.message,
+    required this.confirmText,
+  });
+
+  final String title;
+  final String message;
+  final String confirmText;
 }
 
 class _BluetoothEntryDialog extends StatelessWidget {

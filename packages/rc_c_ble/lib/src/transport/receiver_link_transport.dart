@@ -49,7 +49,7 @@ abstract class ReceiverLinkTransport {
 
   AdapterState get currentAdapterState;
 
-  Future<void> startScan();
+  Future<void> startScan({List<String>? withRemoteIds, Duration? timeout});
 
   Future<void> stopScan();
 

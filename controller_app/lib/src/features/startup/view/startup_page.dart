@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +14,8 @@ class StartupPage extends ConsumerStatefulWidget {
 }
 
 class _StartupPageState extends ConsumerState<StartupPage> {
+  static const _startupDuration = Duration(seconds: 5);
+
   @override
   void initState() {
     super.initState();
@@ -21,8 +23,6 @@ class _StartupPageState extends ConsumerState<StartupPage> {
       unawaited(_bootstrap());
     });
   }
-
-  static const _startupDuration = Duration(seconds: 5);
 
   Future<void> _bootstrap() async {
     await Future<void>.delayed(_startupDuration);

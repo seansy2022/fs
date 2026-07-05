@@ -101,11 +101,20 @@ class ReceiverSessionController {
 
   Future<bool> turnOnAdapter() => _client.turnOnAdapter();
 
-  Future<void> startScan() => _client.startScan();
+  Future<void> startScan({List<String>? withRemoteIds, Duration? timeout}) =>
+      _client.startScan(withRemoteIds: withRemoteIds, timeout: timeout);
 
   Future<void> stopScan() => _client.stopScan();
 
   Future<void> connect(String remoteId) => _client.connect(remoteId);
+
+  Future<void> scanAndConnectByBlueId(
+    String blueId, {
+    Duration timeout = const Duration(seconds: 5),
+  }) => _client.scanAndConnectByBlueId(blueId, timeout: timeout);
+
+  Future<void> cancelPendingScanAndConnect() =>
+      _client.cancelPendingScanAndConnect();
 
   Future<void> disconnect() => _client.disconnect();
 

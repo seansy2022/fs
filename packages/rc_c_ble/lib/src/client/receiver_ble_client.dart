@@ -26,10 +26,7 @@ class ReceiverBleClient {
     _transportConnectionSub = _transport.connectionEvents.listen(
       _onTransportConnectionEvent,
     );
-    _adapterSub = _transport.adapterState.listen((state) {
-      _adapterState = state;
-      _adapterCtrl.add(state);
-    });
+    _adapterSub = _transport.adapterState.listen(_onAdapterStateChanged);
   }
 
   final LinkTransport _transport;
@@ -78,6 +75,7 @@ class ReceiverBleClient {
   bool _receiverInfoPollingEnabled = false;
   bool _receiverInfoReadInFlight = false;
   DateTime? _lastScanStopAt;
+  Completer<void>? _scanAndConnectCancelCompleter;
 
   ReceiverConnectionState get connectionState => _connectionState;
   List<ReceiverScanDevice> get scanResults => _scanResults;
@@ -120,7 +118,7 @@ class ReceiverBleClient {
 
   Stream<ReceiverFrame> get frameStream => _frameCtrl.stream;
 
-  Future<void> startScan() {
+  Future<void> startScan({List<String>? withRemoteIds, Duration? timeout}) {
     return _enqueueScanOperation(() async {
       if (_isScanning) {
         if (_connectionState != ReceiverConnectionState.connected) {
@@ -135,7 +133,10 @@ class ReceiverBleClient {
       );
       await _waitForScanCooldown();
       try {
-        await _transport.startScan();
+        await _transport.startScan(
+          withRemoteIds: withRemoteIds,
+          timeout: timeout,
+        );
         _isScanning = true;
       } catch (error) {
         _isScanning = false;
@@ -197,6 +198,37 @@ class ReceiverBleClient {
       _resetConnectionState(remoteId: remoteId);
       rethrow;
     }
+  }
+
+  Future<void> scanAndConnectByBlueId(
+    String blueId, {
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    if (_connectedRemoteId == blueId &&
+        _connectionState == ReceiverConnectionState.connected) {
+      return;
+    }
+    if (_connectedRemoteId != null && _connectedRemoteId != blueId) {
+      await disconnect();
+    }
+    _scanAndConnectCancelCompleter = Completer<void>();
+    final result = await _scanForRemoteId(blueId, timeout: timeout);
+    _scanAndConnectCancelCompleter = null;
+    if (result == _ScanForRemoteIdResult.cancelled) {
+      throw const ReceiverScanConnectCancelledException();
+    }
+    if (result != _ScanForRemoteIdResult.found) {
+      throw TimeoutException('Unable to find bluetooth device: $blueId');
+    }
+    await connect(blueId);
+  }
+
+  Future<void> cancelPendingScanAndConnect() async {
+    final completer = _scanAndConnectCancelCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
+    await stopScan();
   }
 
   Future<void> disconnect() async {
@@ -598,6 +630,20 @@ class ReceiverBleClient {
     _connectionCtrl.add(state);
   }
 
+  void _onAdapterStateChanged(AdapterState state) {
+    _adapterState = state;
+    _adapterCtrl.add(state);
+    if (state != AdapterState.off && state != AdapterState.turningOff) {
+      return;
+    }
+    _isScanning = false;
+    final activeRemoteId = _connectedRemoteId;
+    if (activeRemoteId != null ||
+        _connectionState == ReceiverConnectionState.scanning) {
+      _resetConnectionState(remoteId: activeRemoteId);
+    }
+  }
+
   void _onTransportConnectionEvent(ReceiverLinkConnectionEvent event) {
     if (event.state == ReceiverLinkConnectionState.connected) {
       return;
@@ -753,6 +799,46 @@ class ReceiverBleClient {
     return current;
   }
 
+  Future<_ScanForRemoteIdResult> _scanForRemoteId(
+    String remoteId, {
+    required Duration timeout,
+  }) async {
+    if (_scanResults.any((device) => device.remoteId == remoteId)) {
+      return _ScanForRemoteIdResult.found;
+    }
+    final completer = Completer<_ScanForRemoteIdResult>();
+    late final StreamSubscription<List<ReceiverScanDevice>> subscription;
+    Timer? timer;
+
+    void complete(_ScanForRemoteIdResult result) {
+      if (!completer.isCompleted) {
+        completer.complete(result);
+      }
+    }
+
+    subscription = scanResultsStream.listen((devices) {
+      if (devices.any((device) => device.remoteId == remoteId)) {
+        complete(_ScanForRemoteIdResult.found);
+      }
+    });
+    timer = Timer(timeout, () => complete(_ScanForRemoteIdResult.timeout));
+    _scanAndConnectCancelCompleter?.future.then((_) {
+      complete(_ScanForRemoteIdResult.cancelled);
+    });
+
+    try {
+      await startScan(withRemoteIds: <String>[remoteId], timeout: timeout);
+      if (_scanResults.any((device) => device.remoteId == remoteId)) {
+        complete(_ScanForRemoteIdResult.found);
+      }
+      return await completer.future;
+    } finally {
+      timer.cancel();
+      await subscription.cancel();
+      await stopScan();
+    }
+  }
+
   Future<void> _enqueueScanOperation(Future<void> Function() task) {
     final completer = Completer<void>();
     _scanQueue = _scanQueue.then((_) async {
@@ -792,3 +878,5 @@ class ReceiverBleClient {
     return '${command.name}($hex)';
   }
 }
+
+enum _ScanForRemoteIdResult { found, timeout, cancelled }

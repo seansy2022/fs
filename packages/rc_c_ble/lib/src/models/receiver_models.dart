@@ -2,6 +2,10 @@ import 'dart:typed_data';
 
 enum ReceiverConnectionState { disconnected, scanning, connecting, connected }
 
+class ReceiverScanConnectCancelledException implements Exception {
+  const ReceiverScanConnectCancelledException();
+}
+
 enum ReceiverUpgradeStage {
   idle,
   enteringBoot,

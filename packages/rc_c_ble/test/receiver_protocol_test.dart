@@ -79,6 +79,25 @@ void main() {
     expect(sanitized.auxChannels[7], 0);
   });
 
+  test('adapter off resets client connection state', () async {
+    final transport = _FakeTransport();
+    final client = ReceiverBleClient(transport: transport);
+
+    try {
+      await client.connect('dev-1');
+      expect(client.connectionState, ReceiverConnectionState.connected);
+
+      transport.emitAdapterState(AdapterState.off);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(client.connectionState, ReceiverConnectionState.disconnected);
+      expect(client.receiverInfo, isNull);
+      expect(client.connectedRssi, isNull);
+    } finally {
+      await client.dispose();
+    }
+  });
+
   test('client upgrade flow yields progress until completion', () async {
     final transport = _FakeTransport();
     final client = ReceiverBleClient(transport: transport);
@@ -238,12 +257,15 @@ int _decodeWord(List<int> bytes, int start) {
 class _FakeTransport implements LinkTransport {
   final StreamController<List<int>> _incomingCtrl =
       StreamController<List<int>>.broadcast();
+  final StreamController<AdapterState> _adapterCtrl =
+      StreamController<AdapterState>.broadcast();
   final StreamController<List<BluetoothScanDevice>> _scanCtrl =
       StreamController<List<BluetoothScanDevice>>.broadcast();
   final StreamController<ReceiverLinkConnectionEvent> _connectionCtrl =
       StreamController<ReceiverLinkConnectionEvent>.broadcast();
   final List<ReceiverFrame> sentFrames = <ReceiverFrame>[];
   final List<bool> sendWithoutResponseFlags = <bool>[];
+  AdapterState _adapterState = AdapterState.on;
 
   void Function(List<int> bytes)? onSend;
 
@@ -261,11 +283,13 @@ class _FakeTransport implements LinkTransport {
       _connectionCtrl.stream;
 
   @override
-  AdapterState get currentAdapterState => AdapterState.on;
+  AdapterState get currentAdapterState => _adapterState;
 
   @override
-  Stream<AdapterState> get adapterState =>
-      Stream<AdapterState>.value(AdapterState.on);
+  Stream<AdapterState> get adapterState async* {
+    yield _adapterState;
+    yield* _adapterCtrl.stream;
+  }
 
   @override
   Future<bool> turnOnAdapter() async => true;
@@ -283,6 +307,11 @@ class _FakeTransport implements LinkTransport {
     scheduleMicrotask(() => _incomingCtrl.add(bytes));
   }
 
+  void emitAdapterState(AdapterState state) {
+    _adapterState = state;
+    scheduleMicrotask(() => _adapterCtrl.add(state));
+  }
+
   @override
   Future<void> send(
     List<int> bytes, {
@@ -297,7 +326,10 @@ class _FakeTransport implements LinkTransport {
   }
 
   @override
-  Future<void> startScan() async {}
+  Future<void> startScan({
+    List<String>? withRemoteIds,
+    Duration? timeout,
+  }) async {}
 
   @override
   Future<void> stopScan() async {}

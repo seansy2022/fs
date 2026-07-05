@@ -197,6 +197,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   bool _deviceViewsRebuildScheduled = false;
   bool _autoConnectAttempted = false;
   bool _autoConnectInFlight = false;
+  bool _suppressNextGlobalReconnect = false;
 
   void _bind() {
     _adapterSub = _repository.adapterStateStream.listen((adapterState) {
@@ -241,6 +242,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
         connectionState == ReceiverConnectionState.disconnected) {
       _homeScanTimer?.cancel();
       _lastStopAt = DateTime.now();
+      final preserveError = state.errorMessage != null;
       _setState(
         state.copyWith(
           scanPhase: BluetoothScanPhase.idle,
@@ -248,7 +250,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
           isScanning: false,
           isWorking: false,
           clearHomeScanEndsAt: true,
-          errorMessage: '蓝牙扫描已停止，请刷新重试。',
+          clearError: !preserveError,
         ),
       );
     }
@@ -422,6 +424,39 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
     await bootstrapHomeBluetooth();
   }
 
+  bool consumeGlobalReconnectSuppressed() {
+    final suppressed = _suppressNextGlobalReconnect;
+    _suppressNextGlobalReconnect = false;
+    return suppressed;
+  }
+
+  Future<void> cancelPendingAutoReconnect() async {
+    await _repository.cancelPendingScanAndConnect();
+    _homeScanTimer?.cancel();
+    _setState(
+      state.copyWith(
+        scanPhase: BluetoothScanPhase.idle,
+        scanOwner: BluetoothScanOwner.none,
+        isScanning: false,
+        isWorking: false,
+        clearHomeScanEndsAt: true,
+        clearError: true,
+      ),
+    );
+  }
+
+  Future<bool> autoReconnectLastDevice({
+    Duration timeout = const Duration(seconds: 5),
+    bool queueUnavailablePrompt = true,
+  }) async {
+    return _enqueue(
+      () => _autoReconnectLastDeviceInternal(
+        timeout: timeout,
+        queueUnavailablePrompt: queueUnavailablePrompt,
+      ),
+    );
+  }
+
   Future<void> refreshPermissionState() async {
     final permissionState = await _readPermissionState();
     _setState(state.copyWith(permissionState: permissionState));
@@ -508,6 +543,116 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
 
   Future<bool> connect(String remoteId) async {
     return _enqueue(() => _connectInternal(remoteId));
+  }
+
+  Future<bool> _autoReconnectLastDeviceInternal({
+    required Duration timeout,
+    required bool queueUnavailablePrompt,
+  }) async {
+    if (!mounted) {
+      return false;
+    }
+    final remembered = ref.read(rememberedDevicesProvider);
+    if (remembered.isEmpty) {
+      return false;
+    }
+    _setState(
+      state.copyWith(
+        hasBootstrappedHome: true,
+        isWorking: true,
+        clearError: true,
+      ),
+    );
+    final granted = await _requestBluetoothPermissionsForBootstrap();
+    if (!mounted) {
+      return false;
+    }
+    if (!granted) {
+      _setState(state.copyWith(isWorking: false));
+      if (queueUnavailablePrompt) {
+        _queueBootstrapPrompt(BluetoothBootstrapPrompt.permissionRequired);
+      }
+      return false;
+    }
+    _refreshAvailability();
+    if (state.availability == BluetoothAvailability.bluetoothOff) {
+      _setState(state.copyWith(isWorking: false));
+      if (queueUnavailablePrompt) {
+        _queueBootstrapPrompt(BluetoothBootstrapPrompt.bluetoothOff);
+      }
+      return false;
+    }
+    if (state.availability != BluetoothAvailability.ready) {
+      _setState(
+        state.copyWith(isWorking: false, errorMessage: '蓝牙当前不可用，请稍后重试。'),
+      );
+      return false;
+    }
+    final lastDevice = remembered.first;
+    try {
+      await _repository.scanAndConnectByBlueId(
+        lastDevice.remoteId,
+        timeout: timeout,
+      );
+      final connected = await _waitForConnectedDevice(lastDevice.remoteId);
+      if (!connected) {
+        _setState(
+          state.copyWith(
+            isWorking: false,
+            errorMessage: _deviceConnectFailedMessage(lastDevice.name),
+          ),
+        );
+        return false;
+      }
+      await ref
+          .read(rememberedDevicesProvider.notifier)
+          .rememberDevice(
+            ReceiverScanDevice(
+              remoteId: lastDevice.remoteId,
+              name: _preferredDeviceName(
+                state.connectedDevice?.name,
+                rememberedName: lastDevice.name,
+                fallbackRemoteId: lastDevice.remoteId,
+              ),
+              rssi: state.connectedDevice?.rssi ?? -127,
+              connected: true,
+            ),
+          );
+      _rebuildDeviceViews();
+      _setState(state.copyWith(isWorking: false, clearError: true));
+      return true;
+    } on TimeoutException {
+      _setState(
+        state.copyWith(
+          isWorking: false,
+          errorMessage: _deviceConnectFailedMessage(lastDevice.name),
+        ),
+      );
+      return false;
+    } on ReceiverScanConnectCancelledException {
+      _setState(state.copyWith(isWorking: false, clearError: true));
+      return false;
+    } catch (_) {
+      final connected = await _waitForConnectedDevice(lastDevice.remoteId);
+      _setState(
+        state.copyWith(
+          isWorking: false,
+          errorMessage: connected
+              ? null
+              : _deviceConnectFailedMessage(lastDevice.name),
+          clearError: connected,
+        ),
+      );
+      return connected;
+    }
+  }
+
+  String _deviceConnectFailedMessage(String deviceName) {
+    final resolvedName = deviceName.trim().isEmpty ? '蓝牙设备' : deviceName;
+    if (resolvedName.contains('设备')) {
+      return '$resolvedName连接失败';
+    }
+    return '$resolvedName设备连接失败';
   }
 
   Future<bool> _connectInternal(String remoteId) async {
@@ -656,6 +801,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
     if (!mounted) {
       return false;
     }
+    _suppressNextGlobalReconnect = true;
     try {
       await _repository.disconnect();
       _rebuildDeviceViews();

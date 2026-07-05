@@ -57,7 +57,7 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
   Stream<List<int>> get incomingBytes => _incomingCtrl.stream;
 
   @override
-  Future<void> startScan() {
+  Future<void> startScan({List<String>? withRemoteIds, Duration? timeout}) {
     return _enqueueScanOperation(() async {
       if (_isScanning || FlutterBluePlus.isScanningNow) {
         ReceiverLogging.link(
@@ -71,7 +71,10 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
       await _waitForScanCooldown();
       ReceiverLogging.link('startScan', scope: 'FlutterBlueReceiverTransport');
       try {
-        await FlutterBluePlus.startScan();
+        await FlutterBluePlus.startScan(
+          withRemoteIds: withRemoteIds ?? const <String>[],
+          timeout: timeout,
+        );
         _isScanning = true;
       } catch (error) {
         _isScanning = false;

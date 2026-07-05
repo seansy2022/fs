@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../provider/battery_alert_provider.dart';
+import '../provider/bluetooth_domain_provider.dart';
+import '../provider/global_reconnect_provider.dart';
 import '../provider/reconnect_alert_provider.dart';
 import '../provider/signal_alert_provider.dart';
 import '../features/bluetooth/view/device_list_page.dart';
@@ -12,6 +14,7 @@ import '../features/help/view/help_center_page.dart';
 import '../features/home/view/home_page.dart';
 import '../features/settings/view/settings_page.dart';
 import '../features/startup/view/startup_page.dart';
+import '../shared/widgets/global_reconnect_overlay.dart';
 import 'app_routes.dart';
 
 class ControllerApp extends ConsumerWidget {
@@ -22,11 +25,21 @@ class ControllerApp extends ConsumerWidget {
     ref.watch(batteryAlertMonitorProvider);
     ref.watch(signalAlertMonitorProvider);
     ref.watch(reconnectAlertMonitorProvider);
+    ref.watch(bluetoothDomainControllerProvider);
+    ref.watch(globalReconnectControllerProvider);
     return MaterialApp(
       title: 'Flysky Smart Car',
       debugShowCheckedModeBanner: false,
       theme: appTheme(),
       initialRoute: AppRoutes.splash,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            child ?? const SizedBox.shrink(),
+            const GlobalReconnectOverlay(),
+          ],
+        );
+      },
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case AppRoutes.splash:
