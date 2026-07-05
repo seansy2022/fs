@@ -47,6 +47,7 @@ lib/src/provider/
 - `assets/firmware/`：随 App 打包的接收机固件升级包。
 - `doc/`：需求、协议、问题记录。
 - `test/`：单元与 Widget 测试。
+- `test/fakes/`：测试用蓝牙仓库等替身对象，避免测试文件膨胀。
 - `test/home_reconnect_flow_test.dart`：首页自动扫描上次蓝牙设备的启动链路测试。
 - `test/global_reconnect_provider_test.dart`：全局断线自动重连与取消链路测试。
 
@@ -77,7 +78,7 @@ lib/src/provider/
 - `alert_audio_player.dart`：报警语音播放能力。
 - `alert_message_provider.dart`：控制页报警文案显示状态。
 - `app_settings_provider.dart`：设置状态。
-- `battery_alert_provider.dart`：低模型电压报警监听与触发。
+- `battery_alert_provider.dart`：模型低电压报警监听与触发。
 - `bluetooth_domain_provider.dart`：蓝牙扫描、连接、设备聚合状态。
 - `global_reconnect_provider.dart`：全局断线后自动重连状态与重试流程。
 - `control_provider.dart`：控制状态流转入口。
@@ -85,6 +86,7 @@ lib/src/provider/
 - `effective_bluetooth_provider.dart`：统一真实蓝牙与模拟蓝牙的有效状态入口。
 - `gyro_prompt_provider.dart`：陀螺仪输入映射状态。
 - `race_sound_player.dart`：音效播放器能力。
+- `receiver_ble_mode_provider.dart`：接收机退出蓝牙模式并断开连接的流程编排。
 - `reconnect_alert_provider.dart`：断开/连上提示监听与触发。
 - `signal_alert_provider.dart`：低模型信号报警监听与触发。
 - `signal_strength_utils.dart`：RSSI 转信号百分比工具。

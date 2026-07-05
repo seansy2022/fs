@@ -33,6 +33,9 @@ class ReceiverBleClient {
   final Duration requestTimeout;
   final ReceiverFrameParser _parser = ReceiverFrameParser();
   static const Duration _scanRestartCooldown = Duration(milliseconds: 700);
+  static const Duration _bootDisconnectTimeout = Duration(seconds: 5);
+  static const Duration _bootReconnectTimeout = Duration(seconds: 20);
+  static const Duration _bootReconnectRetryDelay = Duration(milliseconds: 700);
 
   StreamSubscription<AdapterState>? _adapterSub;
   StreamSubscription<ReceiverLinkConnectionEvent>? _transportConnectionSub;
@@ -243,10 +246,6 @@ class ReceiverBleClient {
   }
 
   Future<ReceiverInfo> readReceiverInfo({bool restartPolling = true}) async {
-    ReceiverLogging.phone(
-      '[receiver-info-tx] cmd=0x01 read RX battery/model/rfmId',
-      scope: 'ReceiverBleClient',
-    );
     final frame = await _sendRequest(
       buildReceiverInfoRequest(),
       matcher: (response) =>
@@ -255,12 +254,6 @@ class ReceiverBleClient {
     final info = parseReceiverInfoResponse(frame, remoteId: _connectedRemoteId);
     _receiverInfo = info;
     _infoCtrl.add(info);
-    ReceiverLogging.device(
-      '[receiver-info-rx] cmd=0x01 rfmId=${info.rfmIdHex} '
-      'model=0x${info.productModelCode.toRadixString(16).padLeft(4, '0').toUpperCase()} '
-      'battery=${info.batteryLevel}%',
-      scope: 'ReceiverBleClient',
-    );
     if (restartPolling) {
       _startReceiverInfoPolling();
     }
@@ -273,12 +266,7 @@ class ReceiverBleClient {
       matcher: (response) =>
           response.command == ReceiverCommand.readFailsafe.id,
     );
-    final config = parseFailsafeResponse(frame);
-    ReceiverLogging.device(
-      '[failsafe-rx] cmd=0x07 ${_describeFailsafeConfig(config)}',
-      scope: 'ReceiverBleClient',
-    );
-    return config;
+    return parseFailsafeResponse(frame);
   }
 
   Future<ReceiverFailsafeConfig> writeFailsafe(
@@ -286,21 +274,12 @@ class ReceiverBleClient {
   ) async {
     final rfmId = _requireRfmId();
     final request = buildWriteFailsafeRequest(rfmId, config);
-    ReceiverLogging.phone(
-      '[failsafe-tx] cmd=0x08 ${_describeFailsafeConfig(config)}',
-      scope: 'ReceiverBleClient',
-    );
     final frame = await _sendRequest(
       request,
       matcher: (response) =>
           response.command == ReceiverCommand.writeFailsafe.id,
     );
-    final saved = parseFailsafeResponse(frame);
-    ReceiverLogging.device(
-      '[failsafe-rx] cmd=0x08 ${_describeFailsafeConfig(saved)}',
-      scope: 'ReceiverBleClient',
-    );
-    return saved;
+    return parseFailsafeResponse(frame);
   }
 
   Future<ReceiverFirmwareInfo> readFirmwareInfo() async {
@@ -356,6 +335,16 @@ class ReceiverBleClient {
       return;
     }
     _stopReceiverInfoPolling();
+    final remoteId = _connectedRemoteId;
+    if (remoteId == null) {
+      yield const ReceiverUpgradeProgress(
+        stage: ReceiverUpgradeStage.failed,
+        sentChunks: 0,
+        totalChunks: 0,
+        message: 'Receiver is not connected.',
+      );
+      return;
+    }
     final rfmId = _requireRfmId();
     final totalChunks = (firmwareBytes.length / 23).ceil();
     try {
@@ -389,6 +378,13 @@ class ReceiverBleClient {
       }
 
       yield ReceiverUpgradeProgress(
+        stage: ReceiverUpgradeStage.waitingBootReconnect,
+        sentChunks: 0,
+        totalChunks: totalChunks,
+      );
+      await _reconnectForBootUpgrade(remoteId);
+
+      yield ReceiverUpgradeProgress(
         stage: ReceiverUpgradeStage.sendingLength,
         sentChunks: 0,
         totalChunks: totalChunks,
@@ -409,7 +405,10 @@ class ReceiverBleClient {
         scope: 'ReceiverBleClient',
       );
       if (lengthState != 1) {
-        throw StateError('Receiver rejected firmware length.');
+        ReceiverLogging.device(
+          '[upgrade][0x13] ignore state=$lengthState and continue',
+          scope: 'ReceiverBleClient',
+        );
       }
 
       for (var index = 0; index < totalChunks; index++) {
@@ -427,6 +426,7 @@ class ReceiverBleClient {
           buildUpgradeChunkRequest(index, chunk),
           matcher: (frame) =>
               frame.command == ReceiverCommand.sendUpgradeChunk.id &&
+              frame.data.length == 3 &&
               parseUpgradeChunkSequence(frame) == index,
         );
         final responseSeq = parseUpgradeChunkSequence(response);
@@ -488,13 +488,9 @@ class ReceiverBleClient {
 
   void _onBytes(List<int> bytes) {
     for (final frame in _parser.addChunk(bytes)) {
-      ReceiverLogging.device(
-        'rx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
-        scope: 'ReceiverBleClient',
-      );
-      if (frame.command == ReceiverCommand.controlHeartbeat.id) {
+      if (_isFirmwareUpgradeCommand(frame.command)) {
         ReceiverLogging.device(
-          '[heartbeat-rx] cmd=0x02 len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
+          'rx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
           scope: 'ReceiverBleClient',
         );
       }
@@ -554,10 +550,12 @@ class ReceiverBleClient {
     _pendingResponse = completer;
     _pendingMatcher = matcher;
     try {
-      ReceiverLogging.phone(
-        'tx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
-        scope: 'ReceiverBleClient',
-      );
+      if (_isFirmwareUpgradeCommand(frame.command)) {
+        ReceiverLogging.phone(
+          'tx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
+          scope: 'ReceiverBleClient',
+        );
+      }
       await _transport.send(frame.toBytes());
       return completer.future.timeout(
         requestTimeout,
@@ -580,15 +578,86 @@ class ReceiverBleClient {
       rfmId,
       _controlBuffer.consumeNextValues(),
     );
-    ReceiverLogging.phone(
-      'tx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
-      scope: 'ReceiverBleClient',
-    );
-    ReceiverLogging.phone(
-      '[heartbeat-tx] cmd=0x02 len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
-      scope: 'ReceiverBleClient',
-    );
     await _transport.send(frame.toBytes(), preferWithoutResponse: true);
+  }
+
+  Future<void> _reconnectForBootUpgrade(String remoteId) async {
+    ReceiverLogging.phone(
+      '[upgrade] wait boot reconnect remoteId=$remoteId',
+      scope: 'ReceiverBleClient',
+    );
+    _stopConnectedRssiPolling();
+    _stopReceiverInfoPolling();
+
+    final disconnected = await _waitForDisconnected(
+      timeout: _bootDisconnectTimeout,
+    );
+    if (!disconnected) {
+      ReceiverLogging.device(
+        '[upgrade] boot disconnect not observed, rebinding BLE link',
+        scope: 'ReceiverBleClient',
+      );
+    }
+
+    await _connectForUpgrade(remoteId, timeout: _bootReconnectTimeout);
+    ReceiverLogging.device(
+      '[upgrade] boot BLE reconnected',
+      scope: 'ReceiverBleClient',
+    );
+  }
+
+  Future<bool> _waitForDisconnected({required Duration timeout}) async {
+    if (_connectionState == ReceiverConnectionState.disconnected) {
+      return true;
+    }
+    try {
+      await connectionStateStream
+          .firstWhere((state) => state == ReceiverConnectionState.disconnected)
+          .timeout(timeout);
+      return true;
+    } on TimeoutException {
+      return false;
+    }
+  }
+
+  Future<void> _connectForUpgrade(
+    String remoteId, {
+    required Duration timeout,
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    Object? lastError;
+    while (DateTime.now().isBefore(deadline)) {
+      _setConnectionState(ReceiverConnectionState.connecting);
+      try {
+        await _transport.connect(remoteId);
+        _isScanning = false;
+        _lastScanStopAt = DateTime.now();
+        _connectedRemoteId = remoteId;
+        _markScanDeviceConnection(remoteId: remoteId);
+        _setConnectionState(ReceiverConnectionState.connected);
+        return;
+      } catch (error) {
+        lastError = error;
+        try {
+          await _transport.disconnect(remoteId);
+        } catch (_) {
+          // Best-effort cleanup before the next reconnect attempt.
+        }
+        _resetConnectionState(remoteId: remoteId);
+        final remaining = deadline.difference(DateTime.now());
+        if (remaining <= Duration.zero) {
+          break;
+        }
+        final delay = remaining < _bootReconnectRetryDelay
+            ? remaining
+            : _bootReconnectRetryDelay;
+        await Future<void>.delayed(delay);
+      }
+    }
+    throw TimeoutException(
+      'Timed out waiting for receiver boot reconnect. Last error: $lastError',
+      timeout,
+    );
   }
 
   Uint8List _requireRfmId() {
@@ -619,10 +688,6 @@ class ReceiverBleClient {
     }
     _receiverInfo = nextInfo;
     _infoCtrl.add(nextInfo);
-    ReceiverLogging.link(
-      '[heartbeat-info] rfmId=${nextInfo.rfmIdHex} battery=${nextInfo.batteryLevel} model=0x${nextInfo.productModelCode.toRadixString(16).padLeft(4, '0').toUpperCase()}',
-      scope: 'ReceiverBleClient',
-    );
   }
 
   void _setConnectionState(ReceiverConnectionState state) {
@@ -653,13 +718,6 @@ class ReceiverBleClient {
       return;
     }
     _resetConnectionState(remoteId: event.remoteId);
-  }
-
-  String _describeFailsafeConfig(ReceiverFailsafeConfig config) {
-    return 'throttleUs=${config.throttleUs} '
-        'throttleMode=${config.throttleHold ? 'hold' : 'fixed'} '
-        'steeringUs=${config.steeringUs} '
-        'steeringMode=${config.steeringHold ? 'hold' : 'fixed'}';
   }
 
   void _seedConnectedRssiFromScan(String remoteId) {
@@ -876,6 +934,13 @@ class ReceiverBleClient {
       return hex;
     }
     return '${command.name}($hex)';
+  }
+
+  bool _isFirmwareUpgradeCommand(int commandId) {
+    final command = ReceiverCommand.fromId(commandId);
+    return command == ReceiverCommand.startUpgradeBoot ||
+        command == ReceiverCommand.setUpgradeLength ||
+        command == ReceiverCommand.sendUpgradeChunk;
   }
 }
 

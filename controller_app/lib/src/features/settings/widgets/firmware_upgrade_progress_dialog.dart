@@ -72,6 +72,7 @@ class _FirmwareProgressDialogState extends State<FirmwareProgressDialog> {
     }
     return switch (progress.stage) {
       ReceiverUpgradeStage.enteringBoot => 10,
+      ReceiverUpgradeStage.waitingBootReconnect => 15,
       ReceiverUpgradeStage.sendingLength => 20,
       ReceiverUpgradeStage.sendingPayload =>
         20 + (progress.fraction * 80).round(),

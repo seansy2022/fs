@@ -9,6 +9,7 @@ class ReceiverScanConnectCancelledException implements Exception {
 enum ReceiverUpgradeStage {
   idle,
   enteringBoot,
+  waitingBootReconnect,
   sendingLength,
   sendingPayload,
   completed,

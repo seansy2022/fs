@@ -1,12 +1,15 @@
-import 'package:controller_app/src/core/providers.dart';
-import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
-import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
-import 'package:controller_app/src/features/settings/view/settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rc_ui/rc_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:controller_app/src/core/providers.dart';
+import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
+import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
+import 'package:controller_app/src/features/settings/view/settings_page.dart';
+
+import 'fakes/exit_ble_repository_fake.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -125,6 +128,32 @@ void main() {
 
     expect(find.byKey(const ValueKey('bg-music-check-默认背景音乐')), findsOneWidget);
     expect(find.byKey(const ValueKey('bg-music-check-选择本地音乐')), findsNothing);
+  });
+
+  testWidgets('exit BLE mode treats disconnect as success', (tester) async {
+    final controller = _TestSettingsController(AppSettingsState.defaults());
+    final repository = ExitBleRepositoryFake(throwOnExit: true);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appSettingsProvider.overrideWith((ref) => controller),
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+        ],
+        child: const MaterialApp(home: Scaffold(body: BasicSettingsContent())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('设置接收机退出蓝牙模式'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('是'));
+    await tester.pumpAndSettle();
+
+    expect(repository.exitBleModeCalls, 1);
+    expect(repository.disconnectCalls, 1);
+    expect(find.text('接收机已退出蓝牙模式。'), findsOneWidget);
+    expect(find.text('退出蓝牙模式失败，请重试。'), findsNothing);
   });
 }
 

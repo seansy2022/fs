@@ -43,7 +43,7 @@ int mapThrottleInputToUs({
   required double highPercent,
 }) {
   return mapControlInputToUs(
-    input: -throttle,
+    input: throttle,
     lowPercent: lowPercent,
     centerPercent: centerPercent,
     highPercent: highPercent,

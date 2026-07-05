@@ -399,8 +399,8 @@ class ControlController extends StateNotifier<ControlScreenState> {
     final effectiveSteering = steering ?? state.steering;
     final effectiveThrottle = throttle ?? state.throttle;
     final settings = _ref.read(appSettingsProvider);
-    final steeringSetting = _channelSettingAt(settings.channels, 0);
-    final throttleSetting = _channelSettingAt(settings.channels, 1);
+    final throttleSetting = _channelSettingAt(settings.channels, 0);
+    final steeringSetting = _channelSettingAt(settings.channels, 1);
     final steeringUs = mapSteeringInputToUs(
       steering: effectiveSteering,
       lowPercent: steeringSetting.lowPercent,

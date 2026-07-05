@@ -414,13 +414,48 @@ class _HomePageState extends ConsumerState<HomePage> {
         builder: (_) => const _PairedDevicesDialogContent(),
       );
     } else if (option == 'scan_pairing') {
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: true,
-        barrierColor: const Color(0xCC000000),
-        builder: (_) => const _ScanDevicesDialogContent(),
-      );
+      await _openScanPairingEntry(context);
     }
+  }
+
+  Future<void> _openScanPairingEntry(BuildContext context) async {
+    if (ref.read(effectiveReceiverConnectionProvider) ==
+        ReceiverConnectionState.connected) {
+      final confirmed = await AlertIconWidget.show(
+        context,
+        title: '提示',
+        message: '确定放弃当前连接接收机去配对其它接收机？',
+        cancelText: '取消',
+        confirmText: '确定',
+      );
+      if (confirmed != true || !context.mounted) {
+        return;
+      }
+      final disconnected = await ref
+          .read(bluetoothDomainControllerProvider.notifier)
+          .disconnect();
+      if (!disconnected) {
+        if (!context.mounted) {
+          return;
+        }
+        await AlertIconWidget.show(
+          context,
+          title: '断开失败',
+          message: '当前连接接收机断开失败，请重试。',
+          confirmText: '知道了',
+        );
+        return;
+      }
+    }
+    if (!context.mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: const Color(0xCC000000),
+      builder: (_) => const _ScanDevicesDialogContent(),
+    );
   }
 
   @override

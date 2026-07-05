@@ -234,7 +234,7 @@ void main() {
       await tester.pump();
 
       expect(repository.lastControlValues, isNotNull);
-      expect(repository.lastControlValues!.throttle, lessThan(1500));
+      expect(repository.lastControlValues!.throttle, greaterThan(1500));
 
       await gesture.up();
       await tester.pump();
@@ -408,11 +408,11 @@ void main() {
 
       await controller.setThrottle(1);
       expect(container.read(controlControllerProvider).throttle, 0.5);
-      expect(repository.lastControlValues?.throttle, 1250);
+      expect(repository.lastControlValues?.throttle, 1750);
 
       await controller.toggleGear(true);
       expect(container.read(controlControllerProvider).throttle, 1);
-      expect(repository.lastControlValues?.throttle, 1000);
+      expect(repository.lastControlValues?.throttle, 2000);
     },
   );
 
@@ -435,22 +435,23 @@ void main() {
     await controller.setThrottle(-1);
 
     expect(container.read(controlControllerProvider).throttle, -1);
-    expect(repository.lastControlValues?.throttle, 2000);
+    expect(repository.lastControlValues?.throttle, 1000);
   });
 
-  test('CH1 uses configured low high center mapping', () async {
+  test('CH2 uses configured low high center mapping for steering', () async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     final repository = _FakeReceiverRepository();
     final defaults = AppSettingsState.defaults();
     final settings = _TestSettingsController()
       ..state = defaults.copyWith(
         channels: [
-          defaults.channels.first.copyWith(
+          defaults.channels.first,
+          defaults.channels[1].copyWith(
             lowPercent: -50,
             highPercent: 50,
             trimPercent: 1,
           ),
-          ...defaults.channels.skip(1),
+          ...defaults.channels.skip(2),
         ],
       );
     final container = ProviderContainer(
@@ -476,7 +477,7 @@ void main() {
   });
 
   test(
-    'CH2 uses configured mapping while preserving forward reverse direction',
+    'CH1 uses configured mapping while preserving forward reverse direction',
     () async {
       SharedPreferences.setMockInitialValues(const <String, Object>{});
       final repository = _FakeReceiverRepository();
@@ -484,12 +485,12 @@ void main() {
       final settings = _TestSettingsController()
         ..state = defaults.copyWith(
           channels: [
-            defaults.channels.first,
-            defaults.channels[1].copyWith(
+            defaults.channels.first.copyWith(
               lowPercent: -50,
               highPercent: 80,
               trimPercent: -1,
             ),
+            defaults.channels[1],
             ...defaults.channels.skip(2),
           ],
         );
@@ -506,28 +507,29 @@ void main() {
       final controller = container.read(controlControllerProvider.notifier);
 
       await controller.setThrottle(1);
-      expect(repository.lastControlValues?.throttle, 1373);
+      expect(repository.lastControlValues?.throttle, 1698);
 
       await controller.toggleGear(true);
-      expect(repository.lastControlValues?.throttle, 1250);
+      expect(repository.lastControlValues?.throttle, 1900);
 
       await controller.setThrottle(0);
       expect(repository.lastControlValues?.throttle, 1495);
 
       await controller.setThrottle(-1);
-      expect(repository.lastControlValues?.throttle, 1900);
+      expect(repository.lastControlValues?.throttle, 1250);
     },
   );
 
-  test('CH1 trim applies after configured channel center mapping', () async {
+  test('CH2 trim applies after configured channel center mapping', () async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     final repository = _FakeReceiverRepository();
     final defaults = AppSettingsState.defaults();
     final settings = _TestSettingsController()
       ..state = defaults.copyWith(
         channels: [
-          defaults.channels.first.copyWith(trimPercent: 10),
-          ...defaults.channels.skip(1),
+          defaults.channels.first,
+          defaults.channels[1].copyWith(trimPercent: 10),
+          ...defaults.channels.skip(2),
         ],
       );
     final container = ProviderContainer(

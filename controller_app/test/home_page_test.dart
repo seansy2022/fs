@@ -6,22 +6,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
+import 'package:rc_ui/rc_ui.dart';
+
+import 'fakes/home_page_fakes.dart';
 
 void main() {
   testWidgets('start button navigates to control page when disconnected', (
     tester,
   ) async {
-    final repository = _FakeReceiverRepository(
+    final repository = FakeHomeReceiverRepository(
       connectionState: ReceiverConnectionState.disconnected,
     );
-    late _FakeBluetoothDomainController bluetoothController;
+    late FakeHomeBluetoothDomainController bluetoothController;
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           receiverRepositoryProvider.overrideWith((ref) => repository),
           bluetoothDomainControllerProvider.overrideWith((ref) {
-            bluetoothController = _FakeBluetoothDomainController(ref);
+            bluetoothController = FakeHomeBluetoothDomainController(ref);
             return bluetoothController;
           }),
         ],
@@ -46,17 +49,17 @@ void main() {
   testWidgets('start button navigates to control page when connected', (
     tester,
   ) async {
-    final repository = _FakeReceiverRepository(
+    final repository = FakeHomeReceiverRepository(
       connectionState: ReceiverConnectionState.connected,
     );
-    late _FakeBluetoothDomainController bluetoothController;
+    late FakeHomeBluetoothDomainController bluetoothController;
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           receiverRepositoryProvider.overrideWith((ref) => repository),
           bluetoothDomainControllerProvider.overrideWith((ref) {
-            bluetoothController = _FakeBluetoothDomainController(ref);
+            bluetoothController = FakeHomeBluetoothDomainController(ref);
             return bluetoothController;
           }),
         ],
@@ -77,60 +80,76 @@ void main() {
     expect(find.text('control-page'), findsOneWidget);
     expect(bluetoothController.ensureScanStoppedCalls, 1);
   });
-}
 
-class _FakeBluetoothDomainController extends BluetoothDomainController {
-  _FakeBluetoothDomainController(super.ref);
+  testWidgets('connected scan pairing asks for confirmation first', (
+    tester,
+  ) async {
+    final repository = FakeHomeReceiverRepository(
+      connectionState: ReceiverConnectionState.connected,
+    );
+    late FakeHomeBluetoothDomainController bluetoothController;
 
-  int ensureScanStoppedCalls = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          bluetoothDomainControllerProvider.overrideWith((ref) {
+            bluetoothController = FakeHomeBluetoothDomainController(ref);
+            return bluetoothController;
+          }),
+        ],
+        child: const MaterialApp(home: HomePage()),
+      ),
+    );
+    await tester.pump();
 
-  @override
-  Future<bool> autoReconnectLastDevice({
-    Duration timeout = const Duration(seconds: 5),
-    bool queueUnavailablePrompt = true,
-  }) async => false;
+    await tester.tap(find.byType(RCButton).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('去配对'));
+    await tester.pumpAndSettle();
 
-  @override
-  Future<void> ensureScanStopped() async {
-    ensureScanStoppedCalls += 1;
-  }
-}
+    expect(find.text('确定放弃当前连接接收机去配对其它接收机？'), findsOneWidget);
+    expect(bluetoothController.disconnectCalls, 0);
+    expect(bluetoothController.startListScanSessionCalls, 0);
 
-class _FakeReceiverRepository implements ReceiverRepository {
-  _FakeReceiverRepository({required ReceiverConnectionState connectionState})
-    : _connectionState = connectionState;
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
 
-  final ReceiverConnectionState _connectionState;
+    expect(bluetoothController.disconnectCalls, 0);
+    expect(bluetoothController.startListScanSessionCalls, 0);
+  });
 
-  @override
-  ReceiverConnectionState get connectionState => _connectionState;
+  testWidgets('confirmed scan pairing disconnects before opening scan', (
+    tester,
+  ) async {
+    final repository = FakeHomeReceiverRepository(
+      connectionState: ReceiverConnectionState.connected,
+    );
+    late FakeHomeBluetoothDomainController bluetoothController;
 
-  @override
-  ReceiverInfo? get receiverInfo => null;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          bluetoothDomainControllerProvider.overrideWith((ref) {
+            bluetoothController = FakeHomeBluetoothDomainController(ref);
+            return bluetoothController;
+          }),
+        ],
+        child: const MaterialApp(home: HomePage()),
+      ),
+    );
+    await tester.pump();
 
-  @override
-  Stream<ReceiverInfo?> get receiverInfoStream => Stream.value(null);
+    await tester.tap(find.byType(RCButton).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('去配对'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
 
-  @override
-  Stream<ReceiverConnectionState> get connectionStateStream =>
-      Stream.value(_connectionState);
-
-  @override
-  Stream<int?> get connectedRssiStream => Stream.value(null);
-
-  @override
-  Stream<List<ReceiverScanDevice>> get scanResultsStream =>
-      Stream.value(const <ReceiverScanDevice>[]);
-
-  @override
-  Stream<AdapterState> get adapterStateStream => Stream.value(AdapterState.on);
-
-  @override
-  Future<void> stopScan() async {}
-
-  @override
-  Future<void> dispose() async {}
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+    expect(bluetoothController.disconnectCalls, 1);
+    expect(bluetoothController.startListScanSessionCalls, 1);
+    expect(find.text('去配对'), findsOneWidget);
+  });
 }

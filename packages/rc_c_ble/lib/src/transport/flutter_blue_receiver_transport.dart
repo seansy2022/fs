@@ -151,10 +151,12 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     if (characteristic == null) {
       throw StateError('bluetooth write characteristic is not ready');
     }
-    ReceiverLogging.phone(
-      'tx bytes(${bytes.length}) ${ReceiverLogging.hexBytes(bytes)}',
-      scope: 'FlutterBlueReceiverTransport',
-    );
+    if (_isFirmwareUpgradeFrame(bytes)) {
+      ReceiverLogging.phone(
+        'tx bytes(${bytes.length}) ${ReceiverLogging.hexBytes(bytes)}',
+        scope: 'FlutterBlueReceiverTransport',
+      );
+    }
     _lastSentBytes = List<int>.from(bytes, growable: false);
     final mtu = _activeDevice?.mtuNow ?? 23;
     final chunkSize = (mtu - 3).clamp(1, bytes.length);
@@ -258,11 +260,17 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
             _lastSentBytes != null &&
             _lastSentBytes!.length == value.length &&
             _sameBytes(_lastSentBytes!, value);
-        ReceiverLogging.device(
-          'rx bytes(${value.length}) ${ReceiverLogging.hexBytes(value)}'
-          '${possibleEcho ? ' [possible-write-echo]' : ''}',
-          scope: 'FlutterBlueReceiverTransport',
-        );
+        final useEchoAsLengthReply =
+            possibleEcho && _frameCommand(value) == 0x13;
+        if (possibleEcho && !useEchoAsLengthReply) {
+          return;
+        }
+        if (_isFirmwareUpgradeFrame(value)) {
+          ReceiverLogging.device(
+            'rx bytes(${value.length}) ${ReceiverLogging.hexBytes(value)}',
+            scope: 'FlutterBlueReceiverTransport',
+          );
+        }
         _incomingCtrl.add(value);
       }
     });
@@ -490,5 +498,20 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
       }
     }
     return true;
+  }
+
+  bool _isFirmwareUpgradeFrame(List<int> bytes) {
+    if (bytes.length < 3 || bytes.first != 0xFA) {
+      return false;
+    }
+    final command = bytes[2] & 0xFF;
+    return command == 0x12 || command == 0x13 || command == 0x14;
+  }
+
+  int? _frameCommand(List<int> bytes) {
+    if (bytes.length < 3 || bytes.first != 0xFA) {
+      return null;
+    }
+    return bytes[2] & 0xFF;
   }
 }

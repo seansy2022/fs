@@ -7,12 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_ui/rc_ui.dart';
 
-import 'package:rc_c_ble/rc_c_ble.dart';
-
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
-import '../../../provider/effective_bluetooth_provider.dart';
+import '../../../provider/receiver_ble_mode_provider.dart';
 import '../models/app_settings_state.dart';
 import '../widgets/settings_workspace.dart';
 import 'alarm_settings_page.dart';
@@ -302,51 +300,45 @@ class BasicSettingsContent extends ConsumerWidget {
 }
 
 Future<void> _onExitBleModeTap(BuildContext context, WidgetRef ref) async {
-  final connectionState = ref.read(effectiveReceiverConnectionProvider);
+  final controller = ref.read(receiverBleModeControllerProvider);
 
-  if (connectionState == ReceiverConnectionState.connected) {
-    final result = await AlertIconWidget.show(
-      context,
-      title: '退出蓝牙模式',
-      message: '确定退出蓝牙模式？\n退出后需要重新连接才能控制。',
-      cancelText: '否',
-      confirmText: '是',
-    );
-    if (result == true && context.mounted) {
-      try {
-        await ref.read(receiverRepositoryProvider).exitBleMode();
-        if (context.mounted) {
-          final disconnected = await ref
-              .read(bluetoothDomainControllerProvider.notifier)
-              .disconnect();
-          if (!disconnected) {
-            throw StateError('disconnect failed');
-          }
-          if (context.mounted) {
-            await AlertIconWidget.show(
-              context,
-              title: '已退出',
-              message: '接收机已退出蓝牙模式。',
-              confirmText: '确定',
-            );
-          }
-        }
-      } catch (_) {
-        if (context.mounted) {
-          await AlertIconWidget.show(
-            context,
-            title: '操作失败',
-            message: '退出蓝牙模式失败，请重试。',
-            confirmText: '确定',
-          );
-        }
-      }
+  if (!controller.isConnected) {
+    if (context.mounted) {
+      await AlertIconWidget.show(
+        context,
+        title: '退出蓝牙模式',
+        message: '当前未连接接收机，无需退出蓝牙模式。',
+        confirmText: '确定',
+      );
     }
-  } else {
+    return;
+  }
+
+  final result = await AlertIconWidget.show(
+    context,
+    title: '退出蓝牙模式',
+    message: '确定退出蓝牙模式？\n退出后需要重新连接才能控制。',
+    cancelText: '否',
+    confirmText: '是',
+  );
+  if (result == true && context.mounted) {
+    final exitResult = await controller.exitBleModeAndDisconnect();
+    if (!context.mounted) {
+      return;
+    }
+    if (exitResult == ReceiverBleModeExitResult.success) {
+      await AlertIconWidget.show(
+        context,
+        title: '已退出',
+        message: '接收机已退出蓝牙模式。',
+        confirmText: '确定',
+      );
+      return;
+    }
     await AlertIconWidget.show(
       context,
-      title: '退出蓝牙模式',
-      message: '当前未连接接收机，无需退出蓝牙模式。',
+      title: '操作失败',
+      message: '退出蓝牙模式失败，请重试。',
       confirmText: '确定',
     );
   }

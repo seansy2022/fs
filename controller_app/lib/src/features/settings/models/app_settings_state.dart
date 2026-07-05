@@ -199,7 +199,7 @@ class AppSettingsState {
       channels: const <ChannelSetting>[
         ChannelSetting(
           channelLabel: 'CH1',
-          title: '方向',
+          title: '油门',
           function: AuxiliaryFunction.none,
           displayName: 'CH1',
           controlType: AuxControlType.disabled,
@@ -213,7 +213,7 @@ class AppSettingsState {
         ),
         ChannelSetting(
           channelLabel: 'CH2',
-          title: '油门',
+          title: '方向',
           function: AuxiliaryFunction.none,
           displayName: 'CH2',
           controlType: AuxControlType.disabled,
@@ -364,6 +364,7 @@ class AppSettingsState {
       channels: (json['channels']! as List<dynamic>)
           .whereType<Map<String, dynamic>>()
           .map(ChannelSetting.fromJson)
+          .map(_normalizePrimaryChannel)
           .toList(growable: false),
       trackMixLeft: (json['trackMixLeft']! as num).toDouble(),
       trackMixRight: (json['trackMixRight']! as num).toDouble(),
@@ -446,6 +447,17 @@ String _defaultDisplayNameForChannelLabel(String channelLabel) {
       return '辅助2';
     default:
       return channelLabel;
+  }
+}
+
+ChannelSetting _normalizePrimaryChannel(ChannelSetting channel) {
+  switch (channel.channelLabel) {
+    case 'CH1':
+      return channel.copyWith(title: '油门');
+    case 'CH2':
+      return channel.copyWith(title: '方向');
+    default:
+      return channel;
   }
 }
 

@@ -37,7 +37,7 @@ class AlarmSettingsContent extends ConsumerWidget {
         children: [
           SettingsStrip(
             child: _LabeledRow(
-              title: '低模型电压报警',
+              title: '模型低电压报警',
               trailing: _AlarmToggleSwitch(
                 value: settings.lowVoltageEnabled,
                 onChanged: (value) =>

@@ -72,7 +72,7 @@ void main() {
     );
   });
 
-  test('mapThrottleInputToUs preserves forward/reverse direction', () {
+  test('mapThrottleInputToUs maps positive throttle to higher PWM', () {
     expect(
       mapThrottleInputToUs(
         throttle: 1,
@@ -80,7 +80,7 @@ void main() {
         centerPercent: -1,
         highPercent: 80,
       ),
-      1250,
+      1900,
     );
     expect(
       mapThrottleInputToUs(
@@ -98,7 +98,25 @@ void main() {
         centerPercent: -1,
         highPercent: 80,
       ),
-      1900,
+      1250,
     );
   });
+
+  test(
+    'mapThrottleInputToUs increments CH1 throttle trim upward by plus steps',
+    () {
+      final outputs = [0.0, 0.1, 0.2, 0.3]
+          .map(
+            (throttle) => mapThrottleInputToUs(
+              throttle: throttle,
+              lowPercent: -100,
+              centerPercent: 0,
+              highPercent: 100,
+            ),
+          )
+          .toList();
+
+      expect(outputs, <int>[1500, 1550, 1600, 1650]);
+    },
+  );
 }

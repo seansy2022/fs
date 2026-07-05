@@ -154,6 +154,9 @@ void main() {
       'backgroundMusicName': '默认背景音乐',
     });
 
+    expect(state.channels[0].title, '油门');
+    expect(state.channels[1].title, '方向');
+
     expect(state.channels[2].controlType, AuxControlType.multiState);
     expect(state.channels[2].displayName, '辅助1');
     expect(state.channels[3].controlType, AuxControlType.value);

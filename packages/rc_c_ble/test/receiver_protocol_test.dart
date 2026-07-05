@@ -117,6 +117,7 @@ void main() {
             data: const [0x11, 0x22, 0x33, 0x44, 1, 0, 0, 0],
           ).toBytes(),
         );
+        transport.emitConnectionState(ReceiverLinkConnectionState.disconnected);
       } else if (frame.command == ReceiverCommand.setUpgradeLength.id) {
         transport.emit(
           ReceiverFrame(
@@ -146,6 +147,65 @@ void main() {
           .toList();
       expect(progress.last.stage, ReceiverUpgradeStage.completed);
       expect(progress.last.sentChunks, 2);
+    } finally {
+      await client.dispose();
+    }
+  });
+
+  test('client upgrade continues when length state is not accepted', () async {
+    final transport = _FakeTransport();
+    final client = ReceiverBleClient(transport: transport);
+    transport.onSend = (bytes) {
+      final frame = ReceiverFrame.tryParse(bytes)!;
+      if (frame.command == ReceiverCommand.receiverInfo.id) {
+        transport.emit(
+          ReceiverFrame(
+            command: ReceiverCommand.receiverInfo.id,
+            data: const [0x11, 0x22, 0x33, 0x44, 0x01, 0x02, 95, 0],
+          ).toBytes(),
+        );
+      } else if (frame.command == ReceiverCommand.startUpgradeBoot.id) {
+        transport.emit(
+          ReceiverFrame(
+            command: ReceiverCommand.startUpgradeBoot.id,
+            data: const [0x11, 0x22, 0x33, 0x44, 1, 0, 0, 0],
+          ).toBytes(),
+        );
+        transport.emitConnectionState(ReceiverLinkConnectionState.disconnected);
+      } else if (frame.command == ReceiverCommand.setUpgradeLength.id) {
+        transport.emit(
+          ReceiverFrame(
+            command: ReceiverCommand.setUpgradeLength.id,
+            data: const [0, 0, 0, 23, 0, 0, 0, 0],
+          ).toBytes(),
+        );
+      } else if (frame.command == ReceiverCommand.sendUpgradeChunk.id) {
+        final seq = _decodeWord(frame.data, 0);
+        transport.emit(
+          ReceiverFrame(
+            command: ReceiverCommand.sendUpgradeChunk.id,
+            data: <int>[(seq >> 8) & 0xFF, seq & 0xFF, 2],
+          ).toBytes(),
+        );
+      }
+    };
+
+    try {
+      await client.connect('dev-1');
+      await client.readReceiverInfo();
+
+      final progress = await client
+          .startUpgrade(
+            Uint8List.fromList(List<int>.generate(23, (index) => index)),
+          )
+          .toList();
+      expect(progress.last.stage, ReceiverUpgradeStage.completed);
+      expect(
+        transport.sentFrames.any(
+          (frame) => frame.command == ReceiverCommand.sendUpgradeChunk.id,
+        ),
+        isTrue,
+      );
     } finally {
       await client.dispose();
     }
@@ -310,6 +370,14 @@ class _FakeTransport implements LinkTransport {
   void emitAdapterState(AdapterState state) {
     _adapterState = state;
     scheduleMicrotask(() => _adapterCtrl.add(state));
+  }
+
+  void emitConnectionState(ReceiverLinkConnectionState state) {
+    scheduleMicrotask(
+      () => _connectionCtrl.add(
+        ReceiverLinkConnectionEvent(remoteId: 'dev-1', state: state),
+      ),
+    );
   }
 
   @override

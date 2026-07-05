@@ -56,14 +56,14 @@ class _ChannelSettingsContentState
         children: [
           _buildChannelRow(
             channelIndex: 0,
-            label: '方向(CH1)',
+            label: '油门(CH1)',
             channel: ch1,
             controller: controller,
           ),
           const SizedBox(height: 8),
           _buildChannelRow(
             channelIndex: 1,
-            label: '油门(CH2)',
+            label: '方向(CH2)',
             channel: ch2,
             controller: controller,
           ),
