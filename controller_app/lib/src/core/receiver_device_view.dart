@@ -58,7 +58,7 @@ class ReceiverDeviceView {
 }
 
 bool shouldIncludeBluetoothDevice(ReceiverScanDevice device) {
-  return device.name.trim().startsWith('R4P');
+  return device.name.trim().startsWith('R4');
 }
 
 String preferredBluetoothDeviceName(

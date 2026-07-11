@@ -7,6 +7,8 @@ import '../widgets/numeric_input_dialog.dart';
 import '../widgets/settings_workspace.dart';
 import '../widgets/tank_mixing_panel.dart';
 
+const tankMixingEnabledSwitchKey = ValueKey<String>('tank-mixing-enabled');
+
 class TankMixingPage extends ConsumerWidget {
   const TankMixingPage({super.key});
 
@@ -34,12 +36,15 @@ class _TankMixingContentState extends ConsumerState<TankMixingContent> {
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
     final controller = ref.read(appSettingsProvider.notifier);
+    final enabled = settings.tankMixingEnabled;
     final left = settings.trackMixLeft.round().clamp(-100, 100);
     final right = settings.trackMixRight.round().clamp(-100, 100);
 
     return Column(
       children: [
         TankMixingPanel(
+          enabled: enabled,
+          onEnabledTap: () => controller.setTankMixingEnabled(!enabled),
           forwardValue: left > 0 ? left : 0,
           leftTurnValue: left < 0 ? -left : 0,
           rightTurnValue: right > 0 ? right : 0,
@@ -94,6 +99,9 @@ class _TankMixingContentState extends ConsumerState<TankMixingContent> {
     required int initialValue,
     required ValueChanged<int> onChanged,
   }) async {
+    if (!ref.read(appSettingsProvider).tankMixingEnabled) {
+      return;
+    }
     setState(() => _selectedDirection = direction);
     final raw = await NumericInputDialog.show(
       context,

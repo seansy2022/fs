@@ -43,6 +43,31 @@ void main() {
     expect(find.text('陀螺仪'), findsNothing);
   });
 
+  testWidgets('selecting multi state starts with three default values', (
+    tester,
+  ) async {
+    await _pumpPage(tester, AppSettingsState.defaults());
+
+    await tester.tap(find.text('开关').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('多状态'));
+    await tester.pumpAndSettle();
+
+    final card = _auxCardFor('辅助1');
+    expect(
+      find.descendant(of: card, matching: find.text('-100%')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('0%')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('100%')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('disabled type hides config area', (tester) async {
     await _pumpPage(
       tester,
@@ -97,12 +122,78 @@ void main() {
       find.descendant(of: card, matching: find.text('状态3')),
       findsOneWidget,
     );
+    expect(
+      find.descendant(of: card, matching: find.text('-100%')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('0%')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('100%')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.descendant(of: card, matching: find.text('新增')));
     await tester.pumpAndSettle();
 
     expect(
       find.descendant(of: card, matching: find.text('状态4')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('multi state keeps at most five items', (tester) async {
+    await _pumpPage(
+      tester,
+      _stateWithAux(
+        ch3Type: AuxControlType.multiState,
+        ch4Type: AuxControlType.disabled,
+      ),
+    );
+
+    final card = _auxCardFor('辅助1');
+    await tester.tap(find.descendant(of: card, matching: find.text('新增')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: card, matching: find.text('新增')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: card, matching: find.text('新增')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(of: card, matching: find.text('状态5')),
+      findsOneWidget,
+    );
+    expect(find.descendant(of: card, matching: find.text('状态6')), findsNothing);
+  });
+
+  testWidgets('aux value editor allows extended signed range', (tester) async {
+    final controller = _TestSettingsController(
+      _stateWithAux(
+        ch3Type: AuxControlType.value,
+        ch4Type: AuxControlType.disabled,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appSettingsProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: ChannelSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final card = _auxCardFor('辅助1');
+    await tester.tap(find.descendant(of: card, matching: find.text('0%')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '120');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(controller.state.channels[2].singleValue, 120);
+    expect(
+      find.descendant(of: card, matching: find.text('120%')),
       findsOneWidget,
     );
   });
@@ -229,12 +320,109 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('设置CH1低'), findsOneWidget);
-    await tester.enterText(find.byType(TextField).last, '-80');
+    expect(find.text('-'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).controller?.text,
+      '100',
+    );
+
+    await tester.enterText(find.byType(TextField).last, '80');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
     expect(controller.state.channels.first.lowPercent, -80);
     expect(find.text('-80%'), findsOneWidget);
+  });
+
+  testWidgets('CH1 low editor submits magnitude as negative value', (
+    tester,
+  ) async {
+    final defaults = AppSettingsState.defaults();
+    final channels = defaults.channels.toList(growable: true);
+    channels[0] = channels[0].copyWith(lowPercent: 0);
+    final controller = _TestSettingsController(
+      defaults.copyWith(channels: channels),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appSettingsProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: ChannelSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('0%').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置CH1低'), findsOneWidget);
+    expect(find.text('-'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, '50');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(controller.state.channels.first.lowPercent, -50);
+    expect(find.text('-50%'), findsOneWidget);
+  });
+
+  testWidgets('CH1 high editor blocks negative input', (tester) async {
+    final defaults = AppSettingsState.defaults();
+    final channels = defaults.channels.toList(growable: true);
+    channels[0] = channels[0].copyWith(highPercent: 0);
+    final controller = _TestSettingsController(
+      defaults.copyWith(channels: channels),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appSettingsProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: ChannelSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('0%').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置CH1高'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, '-50');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(controller.state.channels.first.highPercent, 50);
+    expect(find.text('-50%'), findsNothing);
+  });
+
+  testWidgets('CH1 high editor blocks values above 100', (tester) async {
+    final defaults = AppSettingsState.defaults();
+    final channels = defaults.channels.toList(growable: true);
+    channels[0] = channels[0].copyWith(highPercent: 99);
+    final controller = _TestSettingsController(
+      defaults.copyWith(channels: channels),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appSettingsProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: ChannelSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('99%').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置CH1高'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, '9999');
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).controller?.text,
+      '99',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(controller.state.channels.first.highPercent, 99);
+    expect(find.text('9999%'), findsNothing);
   });
 }
 

@@ -72,4 +72,33 @@ void main() {
 
     expect(container.read(controlPageAlertMessageProvider), '信号低！');
   });
+
+  test('control page message ignores missing rssi', () {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final settings = SettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        batteryAlertPercent: 10,
+        signalThreshold: 80,
+      );
+    final container = ProviderContainer(
+      overrides: [
+        appSettingsProvider.overrideWith((ref) => settings),
+        appSettingsLoadedProvider.overrideWith((ref) => true),
+        effectiveReceiverInfoProvider.overrideWith((ref) {
+          return ReceiverInfo(
+            rfmId: Uint8List(4),
+            productModelCode: 1,
+            batteryLevel: 80,
+          );
+        }),
+        effectiveReceiverConnectionProvider.overrideWith((ref) {
+          return ReceiverConnectionState.connected;
+        }),
+        effectiveConnectedRssiProvider.overrideWith((ref) => null),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    expect(container.read(controlPageAlertMessageProvider), isNull);
+  });
 }

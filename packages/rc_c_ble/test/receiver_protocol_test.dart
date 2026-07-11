@@ -79,6 +79,20 @@ void main() {
     expect(sanitized.auxChannels[7], 0);
   });
 
+  test('control values allow extended aux channel travel', () {
+    const values = ReceiverControlValues(
+      throttle: 2500,
+      steering: 500,
+      auxChannels: [2100, 900, 2500, 500, 0, 0, 0, 0],
+    );
+
+    final sanitized = values.sanitize();
+
+    expect(sanitized.throttle, 2000);
+    expect(sanitized.steering, 1000);
+    expect(sanitized.auxChannels.take(4), <int>[2100, 900, 2100, 900]);
+  });
+
   test('adapter off resets client connection state', () async {
     final transport = _FakeTransport();
     final client = ReceiverBleClient(transport: transport);
@@ -238,8 +252,8 @@ void main() {
             auxChannels: [1500, 1500, 1200, 1800, 1500, 1500, 1500, 1500],
           ),
         );
-        await client.queueAuxChannelPulse(0, 1700);
-        await client.queueAuxChannelPulse(0, 1300);
+        await client.queueAuxChannelPulse(0, 2100);
+        await client.queueAuxChannelPulse(0, 900);
 
         await client.startControlLoop();
         await Future<void>.delayed(const Duration(milliseconds: 95));
@@ -260,8 +274,8 @@ void main() {
         );
         expect(_decodeWord(heartbeatFrames[0].data, 4), 1600);
         expect(_decodeWord(heartbeatFrames[0].data, 6), 1400);
-        expect(_decodeWord(heartbeatFrames[0].data, 8), 1700);
-        expect(_decodeWord(heartbeatFrames[1].data, 8), 1300);
+        expect(_decodeWord(heartbeatFrames[0].data, 8), 2100);
+        expect(_decodeWord(heartbeatFrames[1].data, 8), 900);
         expect(_decodeWord(heartbeatFrames[2].data, 8), 1500);
         expect(_decodeWord(heartbeatFrames[2].data, 12), 1200);
         expect(_decodeWord(heartbeatFrames[2].data, 14), 1800);

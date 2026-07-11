@@ -42,6 +42,12 @@ class SettingsController extends StateNotifier<AppSettingsState> {
     _persist();
   }
 
+  /// 更新履带混控开关，并保存用户选择。
+  void setTankMixingEnabled(bool enabled) {
+    state = state.copyWith(tankMixingEnabled: enabled);
+    _persist();
+  }
+
   void updateBatterySettings({
     bool? enabled,
     BatteryType? batteryType,

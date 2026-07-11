@@ -8,6 +8,7 @@ class AuxControlButtonViewData {
     required this.key,
     required this.active,
     this.flashOnTap = false,
+    this.labelOnly = false,
   });
 
   final String label;
@@ -15,6 +16,7 @@ class AuxControlButtonViewData {
   final Key key;
   final bool active;
   final bool flashOnTap;
+  final bool labelOnly;
 }
 
 class ControlAuxActionPanel extends StatelessWidget {
@@ -45,15 +47,47 @@ class ControlAuxActionPanel extends StatelessWidget {
               itemIndex++
             ) ...[
               if (itemIndex > 0) const SizedBox(width: itemGap),
-              _AuxActionButton(
-                key: auxButtons[itemIndex].key,
-                label: auxButtons[itemIndex].label,
-                onTap: auxButtons[itemIndex].onTap,
-                active: auxButtons[itemIndex].active,
-                flashOnTap: auxButtons[itemIndex].flashOnTap,
-              ),
+              if (auxButtons[itemIndex].labelOnly)
+                _AuxActionLabel(
+                  key: auxButtons[itemIndex].key,
+                  label: auxButtons[itemIndex].label,
+                )
+              else
+                _AuxActionButton(
+                  key: auxButtons[itemIndex].key,
+                  label: auxButtons[itemIndex].label,
+                  onTap: auxButtons[itemIndex].onTap,
+                  active: auxButtons[itemIndex].active,
+                  flashOnTap: auxButtons[itemIndex].flashOnTap,
+                ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AuxActionLabel extends StatelessWidget {
+  const _AuxActionLabel({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: ControlAuxActionPanel.buttonHeight,
+      child: Align(
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: AppFonts.w600,
+            color: AppColors.text,
+          ),
         ),
       ),
     );

@@ -2,6 +2,11 @@ int channelPercentToUs(double percentSetting) {
   return (1500 + (percentSetting * 5)).round().clamp(1000, 2000);
 }
 
+/// 将辅助通道百分比转换为 PWM 输出，支持扩展到 ±120%。
+int auxChannelPercentToUs(double percentSetting) {
+  return (1500 + (percentSetting * 5)).round().clamp(900, 2100);
+}
+
 int mapControlInputToUs({
   required double input,
   required double lowPercent,

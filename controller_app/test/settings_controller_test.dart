@@ -92,6 +92,16 @@ void main() {
     expect(controller.state.handedness, Handedness.leftThrottle);
   });
 
+  test('settings controller persists tank mixing enabled state', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final controller = SettingsController();
+
+    await Future<void>.delayed(Duration.zero);
+    controller.setTankMixingEnabled(true);
+
+    expect(controller.state.tankMixingEnabled, isTrue);
+  });
+
   test('legacy auxiliary functions map to new aux control types', () {
     final state = AppSettingsState.fromJson(const <String, Object?>{
       'handedness': 'rightThrottle',

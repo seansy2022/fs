@@ -6,6 +6,7 @@ import 'package:rc_c_ble/rc_c_ble.dart';
 
 import '../../../provider/app_settings_provider.dart';
 import 'channel_output_mapper.dart';
+import 'control_aux_runtime_store.dart';
 import '../../settings/models/app_settings_state.dart';
 
 class AuxChannelRuntimeState {
@@ -79,7 +80,7 @@ List<String> auxChannelControlLabels(
     ],
     AuxControlType.multiState => List<String>.generate(
       setting.multiStateValues.isEmpty ? 1 : setting.multiStateValues.length,
-      (index) => '${setting.displayName} 状态${index + 1}',
+      (index) => '状态${index + 1}',
     ),
     AuxControlType.value => <String>[
       '${setting.displayName} ${setting.singleValue.round()}%',
@@ -159,11 +160,18 @@ class ControlController extends StateNotifier<ControlScreenState> {
   static const _gyroPromptFrameInterval = Duration(milliseconds: 30);
   static const _controlStateStep = 0.01;
 
-  ControlController(this._ref, this._repository)
-    : super(const ControlScreenState());
+  ControlController(
+    this._ref,
+    this._repository, {
+    ControlAuxRuntimeStore? auxRuntimeStore,
+  }) : _auxRuntimeStore = auxRuntimeStore ?? ControlAuxRuntimeStore(),
+       super(const ControlScreenState()) {
+    unawaited(_loadSavedAuxRuntime(_ref.read(appSettingsProvider)));
+  }
 
   final Ref _ref;
   final ReceiverRepository _repository;
+  final ControlAuxRuntimeStore _auxRuntimeStore;
   double _touchSteering = 0;
   double _touchThrottle = 0;
   double _gyroSteering = 0;
@@ -331,6 +339,11 @@ class ControlController extends StateNotifier<ControlScreenState> {
       AuxControlType.disabled => runtime,
     };
     _setRuntime(channelIndex, nextRuntime);
+    try {
+      await _saveAuxRuntime(channelIndex, nextRuntime);
+    } catch (_) {
+      // 本地状态保存失败不应阻断当前蓝牙控制输出。
+    }
     final pulseOutput = _pulseOutputForChannel(setting, nextRuntime);
     await _repository.queueAuxChannelPulse(channelIndex - 2, pulseOutput);
   }
@@ -473,7 +486,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
       )[runtime.selectedIndex],
       AuxControlType.value => setting.singleValue,
     };
-    return channelPercentToUs(percent);
+    return auxChannelPercentToUs(percent);
   }
 
   bool _usesPulseOnlyAuxOutput(int channelIndex) {
@@ -516,6 +529,49 @@ class ControlController extends StateNotifier<ControlScreenState> {
         : state.copyWith(ch4Runtime: runtime);
   }
 
+  Future<void> _loadSavedAuxRuntime(AppSettingsState settings) async {
+    final saved = await _auxRuntimeStore.load();
+    if (!mounted || saved.isEmpty) {
+      return;
+    }
+    final ch3 = _runtimeFromSaved(settings, 2, saved[2]);
+    final ch4 = _runtimeFromSaved(settings, 3, saved[3]);
+    state = state.copyWith(
+      ch3Runtime: ch3 ?? state.ch3Runtime,
+      ch4Runtime: ch4 ?? state.ch4Runtime,
+    );
+  }
+
+  AuxChannelRuntimeState? _runtimeFromSaved(
+    AppSettingsState settings,
+    int channelIndex,
+    StoredAuxChannelRuntime? saved,
+  ) {
+    if (saved == null) {
+      return null;
+    }
+    final setting = _channelSettingAt(settings.channels, channelIndex);
+    final values = _normalizedMultiStateValues(setting);
+    return AuxChannelRuntimeState(
+      controlType: setting.controlType,
+      selectedIndex: saved.selectedIndex.clamp(0, values.length - 1),
+      switchOn: saved.switchOn,
+    );
+  }
+
+  Future<void> _saveAuxRuntime(
+    int channelIndex,
+    AuxChannelRuntimeState runtime,
+  ) {
+    return _auxRuntimeStore.saveChannel(
+      channelIndex,
+      StoredAuxChannelRuntime(
+        selectedIndex: runtime.selectedIndex,
+        switchOn: runtime.switchOn,
+      ),
+    );
+  }
+
   List<double> _normalizedMultiStateValues(ChannelSetting setting) {
     return setting.multiStateValues.isEmpty
         ? const <double>[0]
@@ -533,7 +589,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
       displayName: '辅助${index - 1}',
       controlType: AuxControlType.disabled,
       switchValues: const <double>[100, -100],
-      multiStateValues: const <double>[0, 0, 0],
+      multiStateValues: const <double>[-100, 0, 100],
       singleValue: 0,
       lowPercent: -100,
       highPercent: 100,

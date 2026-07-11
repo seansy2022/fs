@@ -21,7 +21,6 @@ import '../widgets/control_status_warning_text.dart';
 import '../widgets/gyro_svg_toggle_button.dart';
 import '../widgets/steering_indicator_row.dart';
 import '../widgets/throttle_turn_signal_buttons.dart';
-import '../widgets/trim_svg_toggle_button.dart';
 
 const gyroHintUpArrowKey = gyroDirectionalThrottleUpArrowKey;
 const gyroHintDownArrowKey = gyroDirectionalThrottleDownArrowKey;
@@ -85,7 +84,7 @@ ChannelSetting channelSettingAt(List<ChannelSetting> channels, int index) {
     displayName: '辅助${index - 1}',
     controlType: AuxControlType.disabled,
     switchValues: const <double>[100, -100],
-    multiStateValues: const <double>[0, 0, 0],
+    multiStateValues: const <double>[-100, 0, 100],
     singleValue: 0,
     lowPercent: -100,
     highPercent: 100,
@@ -105,21 +104,29 @@ List<AuxControlButtonViewData> buildAuxButtons({
   }
   final labels = auxChannelControlLabels(setting, runtime);
   if (setting.controlType == AuxControlType.multiState) {
-    return List<AuxControlButtonViewData>.generate(labels.length, (index) {
-      return AuxControlButtonViewData(
-        key: ValueKey<String>(
-          'control-top-action-ch$channelIndex-state-$index',
-        ),
-        label: labels[index],
+    final resolved = resolveAuxChannelRuntime(setting, runtime);
+    return <AuxControlButtonViewData>[
+      AuxControlButtonViewData(
+        key: ValueKey<String>('control-top-action-ch$channelIndex-label'),
+        label: setting.displayName,
         active: false,
-        flashOnTap: true,
-        onTap: () {
-          unawaited(
-            controller.pressAuxChannel(channelIndex, selectedIndex: index),
-          );
-        },
-      );
-    });
+        labelOnly: true,
+        onTap: () {},
+      ),
+      for (var index = 0; index < labels.length; index++)
+        AuxControlButtonViewData(
+          key: ValueKey<String>(
+            'control-top-action-ch$channelIndex-state-$index',
+          ),
+          label: labels[index],
+          active: resolved.selectedIndex == index,
+          onTap: () {
+            unawaited(
+              controller.pressAuxChannel(channelIndex, selectedIndex: index),
+            );
+          },
+        ),
+    ];
   }
   return <AuxControlButtonViewData>[
     AuxControlButtonViewData(
@@ -127,8 +134,7 @@ List<AuxControlButtonViewData> buildAuxButtons({
       label: labels.first,
       active: setting.controlType == AuxControlType.switchControl
           ? runtime.switchOn
-          : false,
-      flashOnTap: setting.controlType == AuxControlType.value,
+          : setting.controlType == AuxControlType.value,
       onTap: () {
         unawaited(controller.pressAuxChannel(channelIndex));
       },
@@ -452,22 +458,6 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                       rightTurnOn: rightTurnActive,
                     ),
                     if (!connected) const SizedBox(height: 16),
-
-                    // Trim switch
-                    if (connected)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            const Spacer(),
-                            _TrimToggle(
-                              value: controlState.sliderButtonsVisible,
-                              onChanged: (_) =>
-                                  controlController.toggleSliderButtons(),
-                            ),
-                          ],
-                        ),
-                      ),
 
                     const SizedBox(height: 52),
 
@@ -876,22 +866,6 @@ class _ControlArea extends StatelessWidget {
           children: [leftArea, rightArea],
         ),
       ),
-    );
-  }
-}
-
-class _TrimToggle extends StatelessWidget {
-  const _TrimToggle({required this.value, required this.onChanged});
-
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return TrimSvgToggleButton(
-      value: value,
-      onTap: () => onChanged(!value),
-      size: 36,
     );
   }
 }

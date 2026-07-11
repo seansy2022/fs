@@ -4,6 +4,8 @@ import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
+import '../controllers/channel_value_constraints.dart';
+import '../models/aux_channel_value_rules.dart';
 import '../controllers/settings_controller.dart';
 import '../models/app_settings_state.dart';
 import '../widgets/numeric_input_dialog.dart';
@@ -34,8 +36,8 @@ class ChannelSettingsContent extends ConsumerStatefulWidget {
 
 class _ChannelSettingsContentState
     extends ConsumerState<ChannelSettingsContent> {
-  final Map<int, _ChannelValueField> _selectedFields =
-      <int, _ChannelValueField>{};
+  final Map<int, ChannelValueField> _selectedFields =
+      <int, ChannelValueField>{};
 
   @override
   Widget build(BuildContext context) {
@@ -273,6 +275,7 @@ class _ChannelSettingsContentState
       case AuxControlType.disabled:
         return null;
       case AuxControlType.switchControl:
+        final values = normalizeAuxSwitchValues(channel.switchValues);
         return Padding(
           padding: EdgeInsets.only(left: inset),
           child: Wrap(
@@ -281,7 +284,7 @@ class _ChannelSettingsContentState
             children: [
               _AuxValueEditor(
                 label: '开',
-                value: channel.switchValues[0].round(),
+                value: values[0].round(),
                 onChanged: (value) => _updateSwitchValue(
                   controller,
                   channelIndex,
@@ -292,7 +295,7 @@ class _ChannelSettingsContentState
               ),
               _AuxValueEditor(
                 label: '关',
-                value: channel.switchValues[1].round(),
+                value: values[1].round(),
                 onChanged: (value) => _updateSwitchValue(
                   controller,
                   channelIndex,
@@ -305,22 +308,19 @@ class _ChannelSettingsContentState
           ),
         );
       case AuxControlType.multiState:
+        final values = normalizeAuxMultiStateValues(channel.multiStateValues);
         return Padding(
           padding: EdgeInsets.only(left: inset),
           child: Wrap(
             spacing: 16,
             runSpacing: 12,
             children: [
-              for (
-                var index = 0;
-                index < channel.multiStateValues.length;
-                index++
-              )
+              for (var index = 0; index < values.length; index++)
                 _AuxValueEditor(
                   width: itemWidth,
                   inputWidth: (itemWidth - 48).clamp(0.0, double.infinity),
                   label: '状态${index + 1}',
-                  value: channel.multiStateValues[index].round(),
+                  value: values[index].round(),
                   onChanged: (value) => _updateMultiStateValue(
                     controller,
                     channelIndex,
@@ -331,7 +331,8 @@ class _ChannelSettingsContentState
                 ),
               _MultiStateActionButtons(
                 width: itemWidth,
-                showDelete: channel.multiStateValues.length > 3,
+                showDelete: values.length > auxMultiStateMinCount,
+                addEnabled: values.length < auxMultiStateMaxCount,
                 onDelete: () =>
                     _removeMultiStateValue(controller, channelIndex, channel),
                 onTap: () =>
@@ -349,11 +350,12 @@ class _ChannelSettingsContentState
             spacing: 16,
             value: channel.singleValue.round(),
             onChanged: (value) {
+              final normalized = normalizeAuxChannelPercent(value);
               controller.updateChannel(
                 channelIndex,
                 channel.copyWith(
-                  singleValue: value.toDouble(),
-                  trimPercent: value.toDouble(),
+                  singleValue: normalized,
+                  trimPercent: normalized,
                   function: _legacyFunctionForControlType(
                     channelIndex,
                     AuxControlType.value,
@@ -391,6 +393,11 @@ class _ChannelSettingsContentState
           channelIndex,
           channel.copyWith(
             controlType: selectedType,
+            multiStateValues:
+                selectedType == AuxControlType.multiState &&
+                    channel.controlType != AuxControlType.multiState
+                ? defaultAuxMultiStateValues
+                : normalizeAuxMultiStateValues(channel.multiStateValues),
             function: _legacyFunctionForControlType(
               channelIndex,
               selectedType,
@@ -409,8 +416,8 @@ class _ChannelSettingsContentState
     int valueIndex,
     double value,
   ) {
-    final next = List<double>.of(channel.switchValues);
-    next[valueIndex] = value;
+    final next = normalizeAuxSwitchValues(channel.switchValues);
+    next[valueIndex] = normalizeAuxChannelPercent(value);
     controller.updateChannel(
       channelIndex,
       channel.copyWith(
@@ -433,8 +440,11 @@ class _ChannelSettingsContentState
     int valueIndex,
     double value,
   ) {
-    final next = List<double>.of(channel.multiStateValues);
-    next[valueIndex] = value;
+    final next = updateAuxMultiStateValue(
+      channel.multiStateValues,
+      valueIndex,
+      value,
+    );
     controller.updateChannel(
       channelIndex,
       channel.copyWith(
@@ -453,7 +463,7 @@ class _ChannelSettingsContentState
     int channelIndex,
     ChannelSetting channel,
   ) {
-    final next = List<double>.of(channel.multiStateValues)..add(0);
+    final next = addAuxMultiStateValue(channel.multiStateValues);
     controller.updateChannel(
       channelIndex,
       channel.copyWith(
@@ -472,10 +482,10 @@ class _ChannelSettingsContentState
     int channelIndex,
     ChannelSetting channel,
   ) {
-    if (channel.multiStateValues.length <= 3) {
+    if (channel.multiStateValues.length <= auxMultiStateMinCount) {
       return;
     }
-    final next = List<double>.of(channel.multiStateValues)..removeLast();
+    final next = removeAuxMultiStateValue(channel.multiStateValues);
     controller.updateChannel(
       channelIndex,
       channel.copyWith(
@@ -489,13 +499,13 @@ class _ChannelSettingsContentState
     );
   }
 
-  double _valueForField(ChannelSetting channel, _ChannelValueField field) {
+  double _valueForField(ChannelSetting channel, ChannelValueField field) {
     switch (field) {
-      case _ChannelValueField.low:
+      case ChannelValueField.low:
         return channel.lowPercent;
-      case _ChannelValueField.high:
+      case ChannelValueField.high:
         return channel.highPercent;
-      case _ChannelValueField.trim:
+      case ChannelValueField.trim:
         return channel.trimPercent;
     }
   }
@@ -574,7 +584,7 @@ class _ChannelSettingsContentState
           : 'CH${index + 1}',
       controlType: AuxControlType.disabled,
       switchValues: const <double>[100, -100],
-      multiStateValues: const <double>[0, 0, 0],
+      multiStateValues: defaultAuxMultiStateValues,
       singleValue: 0,
       lowPercent: -100,
       highPercent: 100,
@@ -583,7 +593,7 @@ class _ChannelSettingsContentState
     );
   }
 
-  void _selectField(int channelIndex, _ChannelValueField field) {
+  void _selectField(int channelIndex, ChannelValueField field) {
     if (_selectedFields[channelIndex] == field) {
       return;
     }
@@ -596,17 +606,21 @@ class _ChannelSettingsContentState
     required BuildContext context,
     required int channelIndex,
     required ChannelSetting channel,
-    required _ChannelValueField field,
+    required ChannelValueField field,
     required SettingsController controller,
   }) async {
     _selectField(channelIndex, field);
+    final constraint = channelPercentConstraintFor(field);
     final raw = await NumericInputDialog.show(
       context,
       title: '设置${channel.channelLabel}${_fieldLabel(field)}',
       initialValue: _valueForField(channel, field).round().toString(),
       unit: '%',
-      allowSigned: true,
+      allowSigned: constraint.allowNegativeInput,
       allowDecimal: false,
+      allowPositive: constraint.allowPositiveInput,
+      fixedNegativePrefix: constraint.fixedNegativePrefix,
+      maxAbsValue: constraint.maxAbsValue,
       maxLength: 4,
     );
     final value = int.tryParse(raw?.trim() ?? '');
@@ -615,46 +629,48 @@ class _ChannelSettingsContentState
     }
     controller.updateChannel(
       channelIndex,
-      _updateChannelField(channel, field, value.clamp(-100, 100).toDouble()),
+      _updateChannelField(
+        channel,
+        field,
+        constraint.normalize(value).toDouble(),
+      ),
     );
   }
 
   ChannelSetting _updateChannelField(
     ChannelSetting channel,
-    _ChannelValueField field,
+    ChannelValueField field,
     double value,
   ) {
     switch (field) {
-      case _ChannelValueField.low:
+      case ChannelValueField.low:
         return channel.copyWith(lowPercent: value);
-      case _ChannelValueField.high:
+      case ChannelValueField.high:
         return channel.copyWith(highPercent: value);
-      case _ChannelValueField.trim:
+      case ChannelValueField.trim:
         return channel.copyWith(trimPercent: value);
     }
   }
 
-  String _fieldLabel(_ChannelValueField field) {
+  String _fieldLabel(ChannelValueField field) {
     switch (field) {
-      case _ChannelValueField.low:
+      case ChannelValueField.low:
         return '低';
-      case _ChannelValueField.high:
+      case ChannelValueField.high:
         return '高';
-      case _ChannelValueField.trim:
+      case ChannelValueField.trim:
         return '中';
     }
   }
 }
 
-enum _ChannelValueField { low, high, trim }
-
 class _ChannelDisplaySpec {
   const _ChannelDisplaySpec(this.fields);
 
   static const defaultSpec = _ChannelDisplaySpec(<_ChannelDisplayFieldSpec>[
-    _ChannelDisplayFieldSpec('低', _ChannelValueField.low),
-    _ChannelDisplayFieldSpec('高', _ChannelValueField.high),
-    _ChannelDisplayFieldSpec('中', _ChannelValueField.trim),
+    _ChannelDisplayFieldSpec('低', ChannelValueField.low),
+    _ChannelDisplayFieldSpec('高', ChannelValueField.high),
+    _ChannelDisplayFieldSpec('中', ChannelValueField.trim),
   ]);
 
   final List<_ChannelDisplayFieldSpec> fields;
@@ -664,7 +680,7 @@ class _ChannelDisplayFieldSpec {
   const _ChannelDisplayFieldSpec(this.label, this.field);
 
   final String label;
-  final _ChannelValueField field;
+  final ChannelValueField field;
 }
 
 class _AuxLabel extends StatelessWidget {
@@ -818,12 +834,14 @@ class _MultiStateActionButtons extends StatelessWidget {
   const _MultiStateActionButtons({
     required this.width,
     required this.showDelete,
+    required this.addEnabled,
     required this.onDelete,
     required this.onTap,
   });
 
   final double width;
   final bool showDelete;
+  final bool addEnabled;
   final VoidCallback onDelete;
   final VoidCallback onTap;
 
@@ -850,7 +868,7 @@ class _MultiStateActionButtons extends StatelessWidget {
             child: PrimaryButton(
               text: '新增',
               type: PrimaryButtonType.primary,
-              enabled: true,
+              enabled: addEnabled,
               padding: EdgeInsets.zero,
               onTap: onTap,
             ),
@@ -978,13 +996,14 @@ class _ChannelValueInput extends StatelessWidget {
       unit: '%',
       allowSigned: true,
       allowDecimal: false,
+      maxAbsValue: auxChannelPercentMax,
       maxLength: 4,
     );
     final parsed = int.tryParse(raw?.trim() ?? '');
     if (parsed == null) {
       return;
     }
-    onChanged(parsed.clamp(-100, 100));
+    onChanged(normalizeAuxChannelPercent(parsed).round());
   }
 
   @override

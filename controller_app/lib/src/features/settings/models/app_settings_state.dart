@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'aux_channel_value_rules.dart';
+
 enum Handedness { leftThrottle, rightThrottle }
 
 enum ControlMode { fixedPosition, floating }
@@ -114,18 +116,21 @@ class ChannelSetting {
       json['controlType'] as String?,
       legacyFunction: function,
     );
-    final switchValues = _doubleListFromJson(
-      json['switchValues'],
-      fallback: <double>[highPercent, lowPercent],
-      minLength: 2,
+    final switchValues = normalizeAuxSwitchValues(
+      _doubleListFromJson(
+        json['switchValues'],
+        fallback: <double>[highPercent, lowPercent],
+      ),
     );
-    final multiStateValues = _doubleListFromJson(
-      json['multiStateValues'],
-      fallback: <double>[0, 0, 0],
-      minLength: 3,
+    final multiStateValues = normalizeAuxMultiStateValues(
+      _doubleListFromJson(
+        json['multiStateValues'],
+        fallback: defaultAuxMultiStateValues,
+      ),
     );
-    final singleValue =
-        (json['singleValue'] as num?)?.toDouble() ?? trimPercent;
+    final singleValue = normalizeAuxChannelPercent(
+      (json['singleValue'] as num?)?.toDouble() ?? trimPercent,
+    );
 
     return ChannelSetting(
       channelLabel: json['channelLabel']! as String,
@@ -150,6 +155,7 @@ class AppSettingsState {
     required this.controlMode,
     required this.gyroMode,
     required this.channels,
+    required this.tankMixingEnabled,
     required this.trackMixLeft,
     required this.trackMixRight,
     required this.lowVoltageEnabled,
@@ -173,6 +179,7 @@ class AppSettingsState {
   final ControlMode controlMode;
   final GyroMode gyroMode;
   final List<ChannelSetting> channels;
+  final bool tankMixingEnabled;
   final double trackMixLeft;
   final double trackMixRight;
   final bool lowVoltageEnabled;
@@ -204,7 +211,7 @@ class AppSettingsState {
           displayName: 'CH1',
           controlType: AuxControlType.disabled,
           switchValues: <double>[100, -100],
-          multiStateValues: <double>[0, 0, 0],
+          multiStateValues: defaultAuxMultiStateValues,
           singleValue: 0,
           lowPercent: -100,
           highPercent: 100,
@@ -218,7 +225,7 @@ class AppSettingsState {
           displayName: 'CH2',
           controlType: AuxControlType.disabled,
           switchValues: <double>[100, -100],
-          multiStateValues: <double>[0, 0, 0],
+          multiStateValues: defaultAuxMultiStateValues,
           singleValue: 0,
           lowPercent: -100,
           highPercent: 100,
@@ -232,7 +239,7 @@ class AppSettingsState {
           displayName: '辅助1',
           controlType: AuxControlType.switchControl,
           switchValues: <double>[100, -100],
-          multiStateValues: <double>[0, 0, 0],
+          multiStateValues: defaultAuxMultiStateValues,
           singleValue: 0,
           lowPercent: -100,
           highPercent: 100,
@@ -246,7 +253,7 @@ class AppSettingsState {
           displayName: '辅助2',
           controlType: AuxControlType.switchControl,
           switchValues: <double>[100, -100],
-          multiStateValues: <double>[0, 0, 0],
+          multiStateValues: defaultAuxMultiStateValues,
           singleValue: 0,
           lowPercent: -100,
           highPercent: 100,
@@ -254,6 +261,7 @@ class AppSettingsState {
           reversed: false,
         ),
       ],
+      tankMixingEnabled: false,
       trackMixLeft: 100,
       trackMixRight: 100,
       lowVoltageEnabled: true,
@@ -279,6 +287,7 @@ class AppSettingsState {
     ControlMode? controlMode,
     GyroMode? gyroMode,
     List<ChannelSetting>? channels,
+    bool? tankMixingEnabled,
     double? trackMixLeft,
     double? trackMixRight,
     bool? lowVoltageEnabled,
@@ -302,6 +311,7 @@ class AppSettingsState {
       controlMode: controlMode ?? this.controlMode,
       gyroMode: gyroMode ?? this.gyroMode,
       channels: channels ?? this.channels,
+      tankMixingEnabled: tankMixingEnabled ?? this.tankMixingEnabled,
       trackMixLeft: trackMixLeft ?? this.trackMixLeft,
       trackMixRight: trackMixRight ?? this.trackMixRight,
       lowVoltageEnabled: lowVoltageEnabled ?? this.lowVoltageEnabled,
@@ -330,6 +340,7 @@ class AppSettingsState {
       'channels': channels
           .map((channel) => channel.toJson())
           .toList(growable: false),
+      'tankMixingEnabled': tankMixingEnabled,
       'trackMixLeft': trackMixLeft,
       'trackMixRight': trackMixRight,
       'lowVoltageEnabled': lowVoltageEnabled,
@@ -366,6 +377,7 @@ class AppSettingsState {
           .map(ChannelSetting.fromJson)
           .map(_normalizePrimaryChannel)
           .toList(growable: false),
+      tankMixingEnabled: json['tankMixingEnabled'] as bool? ?? false,
       trackMixLeft: (json['trackMixLeft']! as num).toDouble(),
       trackMixRight: (json['trackMixRight']! as num).toDouble(),
       lowVoltageEnabled: json['lowVoltageEnabled']! as bool,
@@ -424,7 +436,6 @@ AuxControlType _auxControlTypeFromJson(
 List<double> _doubleListFromJson(
   Object? raw, {
   required List<double> fallback,
-  int minLength = 0,
 }) {
   final values = (raw as List<dynamic>?)
       ?.whereType<num>()
@@ -432,9 +443,6 @@ List<double> _doubleListFromJson(
       .toList(growable: true);
   if (values == null || values.isEmpty) {
     return List<double>.of(fallback);
-  }
-  while (values.length < minLength) {
-    values.add(0);
   }
   return values;
 }

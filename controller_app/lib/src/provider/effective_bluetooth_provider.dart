@@ -32,13 +32,13 @@ final effectiveReceiverInfoProvider = Provider<ReceiverInfo?>((ref) {
 });
 
 final effectiveConnectedRssiProvider = Provider<int?>((ref) {
-  final real = ref.watch(connectedRssiProvider).valueOrNull;
-  if (real != null) {
-    return real;
-  }
   if (ref.watch(effectiveReceiverConnectionProvider) !=
       ReceiverConnectionState.connected) {
     return null;
+  }
+  final real = ref.watch(connectedRssiProvider).valueOrNull;
+  if (real != null) {
+    return real;
   }
   return ref.watch(simulatedConnectedRssiProvider).valueOrNull;
 });

@@ -12,12 +12,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('bluetooth scan filter only allows R4P devices', () {
+  test('bluetooth scan filter allows R4-prefixed devices', () {
     expect(
       shouldIncludeBluetoothDevice(
         const ReceiverScanDevice(
-          remoteId: 'r4p-device',
-          name: 'R4P Receiver',
+          remoteId: 'r4-device',
+          name: 'R4 Receiver',
           rssi: -48,
         ),
       ),

@@ -44,12 +44,15 @@ lib/src/provider/
 - `AGENTS.md`：协作规则。
 - `File.md`：本规范文件。
 - `assets/`：统一资源目录。
+- `assets/icons/reconnect_loading.svg`：断线自动重连的循环加载图标。
 - `assets/firmware/`：随 App 打包的接收机固件升级包。
 - `doc/`：需求、协议、问题记录。
 - `test/`：单元与 Widget 测试。
 - `test/fakes/`：测试用蓝牙仓库等替身对象，避免测试文件膨胀。
 - `test/home_reconnect_flow_test.dart`：首页自动扫描上次蓝牙设备的启动链路测试。
 - `test/global_reconnect_provider_test.dart`：全局断线自动重连与取消链路测试。
+- `test/reconnect_overlay_view_test.dart`：重连遮罩在小尺寸屏幕下的布局测试。
+- `test/tank_mixing_page_test.dart`：履带混控开关与数值输入禁用状态测试。
 
 ### lib/src 分层
 - `app/`：应用装配与路由。
@@ -65,13 +68,20 @@ lib/src/provider/
 - `features/control/view/`：控制页。
 - `features/control/controllers/`：控制页状态编排与通道输出映射。
 - `features/control/controllers/channel_output_mapper.dart`：CH1/CH2 百分比到 us 的分段映射工具。
+- `features/control/controllers/control_aux_runtime_store.dart`：控制页 CH3/CH4 辅助通道选择状态本地保存。
 - `features/control/widgets/`：控制页复用组件（转向按钮、顶部辅助按钮组等）。
 - `features/control/widgets/control_status_warning_text.dart`：控制页顶部居中报警提示文案。
 - `features/settings/view/`：设置主页与子页。
+- `features/settings/controllers/channel_value_constraints.dart`：通道设置低/高/中百分比输入范围约束。
+- `features/settings/models/aux_channel_value_rules.dart`：CH3/CH4 辅助通道状态数量和值域规则。
 - `features/settings/widgets/`：设置页复用组件（布局、切换项、数值弹窗、统一操作按钮）。
+- `features/settings/widgets/numeric_input_field.dart`：数值弹窗内的统一输入框。
+- `features/settings/widgets/numeric_input_value_formatter.dart`：数值弹窗固定负号显示与提交格式化工具。
 - `features/settings/widgets/firmware_upgrade_progress_dialog.dart`：固件升级真实进度弹窗。
 - `features/settings/widgets/firmware_upgrade_status_view.dart`：固件升级中/成功/失败统一状态视图。
 - `features/settings/widgets/tank_mixing_panel.dart`：履带混控布局与方向输入按钮。
+- `features/settings/widgets/tank_mixing_direction_controls.dart`：履带混控左右方向区与前后输入行组件。
+- `features/settings/widgets/tank_mixing_value_control.dart`：履带混控数值按钮的禁用灰化和标签组件。
 - `features/help/view/`：帮助页。
 
 ### provider（统一收口）

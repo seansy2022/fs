@@ -20,6 +20,12 @@ class ReceiverLogging {
     link('🚗 $message', scope: scope);
   }
 
+  /// 打印手机端发送的完整蓝牙字节数据。
+  static void transmittedBytes(Iterable<int> bytes, {String scope = 'Link'}) {
+    final values = bytes.toList(growable: false);
+    phone('tx bytes(${values.length}) ${hexBytes(values)}', scope: scope);
+  }
+
   static String hexBytes(Iterable<int> bytes) {
     return bytes
         .map((value) => value.toRadixString(16).padLeft(2, '0').toUpperCase())

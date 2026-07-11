@@ -11,12 +11,13 @@ class ReceiverControlBuffer {
     _baseValues = values.sanitize();
   }
 
+  /// 缓存一次辅助通道脉冲输出，供下一帧控制心跳消费。
   void queueAuxPulse(int auxChannelIndex, int value) {
     if (auxChannelIndex < 0 || auxChannelIndex >= 8) {
       throw RangeError.range(auxChannelIndex, 0, 7, 'auxChannelIndex');
     }
     _pendingAuxPulseFrames.addLast(
-      _AuxPulseFrame(auxChannelIndex, value.clamp(1000, 2000)),
+      _AuxPulseFrame(auxChannelIndex, value.clamp(900, 2100)),
     );
   }
 

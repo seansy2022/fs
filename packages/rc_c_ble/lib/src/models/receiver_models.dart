@@ -119,11 +119,12 @@ class ReceiverControlValues {
 
   static int _clampChannel(int value) => value.clamp(1000, 2000);
 
+  /// 辅助通道允许扩展行程，0 仍表示未定义通道。
   static int _clampAuxChannel(int value) {
     if (value == 0) {
       return 0;
     }
-    return _clampChannel(value);
+    return value.clamp(900, 2100);
   }
 }
 

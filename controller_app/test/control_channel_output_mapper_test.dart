@@ -8,6 +8,14 @@ void main() {
     expect(channelPercentToUs(100), 2000);
   });
 
+  test('auxChannelPercentToUs supports extended aux travel', () {
+    expect(auxChannelPercentToUs(-120), 900);
+    expect(auxChannelPercentToUs(-100), 1000);
+    expect(auxChannelPercentToUs(0), 1500);
+    expect(auxChannelPercentToUs(100), 2000);
+    expect(auxChannelPercentToUs(120), 2100);
+  });
+
   test('mapControlInputToUs keeps default mapping for default settings', () {
     expect(
       mapControlInputToUs(

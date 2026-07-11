@@ -151,12 +151,11 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     if (characteristic == null) {
       throw StateError('bluetooth write characteristic is not ready');
     }
-    if (_isFirmwareUpgradeFrame(bytes)) {
-      ReceiverLogging.phone(
-        'tx bytes(${bytes.length}) ${ReceiverLogging.hexBytes(bytes)}',
-        scope: 'FlutterBlueReceiverTransport',
-      );
-    }
+    // 在实际写入特征值前统一输出完整数据，便于排查通讯问题。
+    ReceiverLogging.transmittedBytes(
+      bytes,
+      scope: 'FlutterBlueReceiverTransport',
+    );
     _lastSentBytes = List<int>.from(bytes, growable: false);
     final mtu = _activeDevice?.mtuNow ?? 23;
     final chunkSize = (mtu - 3).clamp(1, bytes.length);
@@ -500,6 +499,7 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     return true;
   }
 
+  /// 判断接收数据是否为需要详细记录的固件升级帧。
   bool _isFirmwareUpgradeFrame(List<int> bytes) {
     if (bytes.length < 3 || bytes.first != 0xFA) {
       return false;

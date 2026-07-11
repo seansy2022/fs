@@ -22,6 +22,7 @@ final signalLowAlertVisibleProvider = Provider<bool>((ref) {
   final connection = ref.watch(effectiveReceiverConnectionProvider);
   final rssi = ref.watch(effectiveConnectedRssiProvider);
   return connection == ReceiverConnectionState.connected &&
+      rssi != null &&
       rssiToPercent(rssi) < settings.signalThreshold;
 });
 

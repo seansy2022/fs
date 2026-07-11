@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:rc_ui/rc_ui.dart';
+
+import 'numeric_input_field.dart';
+import 'numeric_input_value_formatter.dart';
 
 class NumericInputDialog extends StatefulWidget {
   const NumericInputDialog({
@@ -10,6 +12,9 @@ class NumericInputDialog extends StatefulWidget {
     required this.initialValue,
     this.allowSigned = false,
     this.allowDecimal = true,
+    this.allowPositive = true,
+    this.fixedNegativePrefix = false,
+    this.maxAbsValue,
     this.maxLength = 4,
   });
 
@@ -18,6 +23,9 @@ class NumericInputDialog extends StatefulWidget {
   final String initialValue;
   final bool allowSigned;
   final bool allowDecimal;
+  final bool allowPositive;
+  final bool fixedNegativePrefix;
+  final num? maxAbsValue;
   final int maxLength;
 
   static Future<String?> show(
@@ -27,6 +35,9 @@ class NumericInputDialog extends StatefulWidget {
     required String unit,
     bool allowSigned = false,
     bool allowDecimal = true,
+    bool allowPositive = true,
+    bool fixedNegativePrefix = false,
+    num? maxAbsValue,
     int maxLength = 4,
   }) {
     return showGeneralDialog<String>(
@@ -41,6 +52,9 @@ class NumericInputDialog extends StatefulWidget {
           initialValue: initialValue,
           allowSigned: allowSigned,
           allowDecimal: allowDecimal,
+          allowPositive: allowPositive,
+          fixedNegativePrefix: fixedNegativePrefix,
+          maxAbsValue: maxAbsValue,
           maxLength: maxLength,
         );
       },
@@ -57,7 +71,12 @@ class NumericInputDialog extends StatefulWidget {
 
 class _NumericInputDialogState extends State<NumericInputDialog> {
   late final TextEditingController _controller = TextEditingController(
-    text: widget.initialValue,
+    text: widget.fixedNegativePrefix
+        ? displayNumericInputValue(
+            widget.initialValue,
+            fixedNegativePrefix: widget.fixedNegativePrefix,
+          )
+        : widget.initialValue,
   );
 
   @override
@@ -81,6 +100,15 @@ class _NumericInputDialogState extends State<NumericInputDialog> {
   void _dismiss([String? value]) {
     FocusManager.instance.primaryFocus?.unfocus();
     Navigator.of(context).pop(value);
+  }
+
+  void _submit(String value) {
+    _dismiss(
+      submitNumericInputValue(
+        value,
+        fixedNegativePrefix: widget.fixedNegativePrefix,
+      ),
+    );
   }
 
   @override
@@ -123,68 +151,16 @@ class _NumericInputDialogState extends State<NumericInputDialog> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        Align(
-                          alignment: Alignment.center,
-                          child: Container(
-                            width: 263,
-                            height: 40,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: const Color(0x661B2D4D),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: const Color(0xFF00C6FF),
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _controller,
-                                    autofocus: true,
-                                    keyboardType:
-                                        TextInputType.numberWithOptions(
-                                          signed: widget.allowSigned,
-                                          decimal: widget.allowDecimal,
-                                        ),
-                                    textInputAction: TextInputAction.done,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.allow(
-                                        RegExp(
-                                          _allowedInputPattern(
-                                            allowSigned: widget.allowSigned,
-                                            allowDecimal: widget.allowDecimal,
-                                          ),
-                                        ),
-                                      ),
-                                      LengthLimitingTextInputFormatter(
-                                        widget.maxLength,
-                                      ),
-                                    ],
-                                    style: const TextStyle(
-                                      color: AppColors.text,
-                                      fontSize: 16,
-                                      fontWeight: AppFonts.w600,
-                                    ),
-                                    decoration: const InputDecoration(
-                                      border: InputBorder.none,
-                                      isDense: true,
-                                    ),
-                                    onSubmitted: _dismiss,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  widget.unit,
-                                  style: const TextStyle(
-                                    color: Color(0xFF465D7A),
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        NumericInputField(
+                          controller: _controller,
+                          unit: widget.unit,
+                          allowSigned: widget.allowSigned,
+                          allowDecimal: widget.allowDecimal,
+                          allowPositive: widget.allowPositive,
+                          fixedNegativePrefix: widget.fixedNegativePrefix,
+                          maxAbsValue: widget.maxAbsValue,
+                          maxLength: widget.maxLength,
+                          onSubmitted: _submit,
                         ),
                       ],
                     ),
@@ -197,13 +173,4 @@ class _NumericInputDialogState extends State<NumericInputDialog> {
       ),
     );
   }
-}
-
-String _allowedInputPattern({
-  required bool allowSigned,
-  required bool allowDecimal,
-}) {
-  final signs = allowSigned ? r'\-' : '';
-  final decimal = allowDecimal ? r'\.' : '';
-  return '[$signs${decimal}0-9]';
 }

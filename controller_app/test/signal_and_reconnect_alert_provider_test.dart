@@ -40,6 +40,9 @@ void main() {
         signalAlertIntervalProvider.overrideWith((ref) {
           return const Duration(milliseconds: 20);
         }),
+        signalAlertConnectionGraceProvider.overrideWith((ref) {
+          return Duration.zero;
+        }),
         signalAlertVibrationProvider.overrideWith((ref) {
           return () async => vibrateCount++;
         }),
@@ -53,12 +56,77 @@ void main() {
 
     container.read(signalAlertMonitorProvider);
     connection.add(ReceiverConnectionState.connected);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
     rssi.add(-80);
     await Future<void>.delayed(const Duration(milliseconds: 55));
 
     expect(player.assets.first, 'voice/signal_alert_en.mp3');
     expect(player.assets.length, greaterThanOrEqualTo(2));
     expect(vibrateCount, greaterThanOrEqualTo(2));
+  });
+
+  test('signal alert waits for rssi after connection changes', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final connection = StreamController<ReceiverConnectionState>.broadcast();
+    final rssi = StreamController<int?>.broadcast();
+    final player = _FakeAlertAudioPlayer();
+    var vibrateCount = 0;
+    final settings = SettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        lowSignalEnabled: true,
+        signalThreshold: 80,
+        signalVoice: true,
+        signalVibration: true,
+      );
+    final container = ProviderContainer(
+      overrides: [
+        appSettingsProvider.overrideWith((ref) => settings),
+        appSettingsLoadedProvider.overrideWith((ref) => true),
+        simulatedBluetoothEnabledProvider.overrideWith((ref) => false),
+        receiverConnectionProvider.overrideWith((ref) => connection.stream),
+        connectedRssiProvider.overrideWith((ref) => rssi.stream),
+        alertAudioPlayerProvider.overrideWithValue(player),
+        signalAlertLanguageCodeProvider.overrideWith((ref) => 'en'),
+        signalAlertIntervalProvider.overrideWith((ref) {
+          return const Duration(seconds: 1);
+        }),
+        signalAlertConnectionGraceProvider.overrideWith((ref) {
+          return const Duration(milliseconds: 30);
+        }),
+        signalAlertVibrationProvider.overrideWith((ref) {
+          return () async => vibrateCount++;
+        }),
+      ],
+    );
+    addTearDown(() async {
+      await connection.close();
+      await rssi.close();
+      container.dispose();
+    });
+
+    container.read(signalAlertMonitorProvider);
+    rssi.add(-90);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    connection.add(ReceiverConnectionState.connected);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    connection.add(ReceiverConnectionState.disconnected);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    connection.add(ReceiverConnectionState.connected);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+
+    expect(player.assets, isEmpty);
+    expect(vibrateCount, 0);
+
+    rssi.add(-90);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+
+    expect(player.assets, isEmpty);
+    expect(vibrateCount, 0);
+
+    await Future<void>.delayed(const Duration(milliseconds: 35));
+
+    expect(player.assets, <String>['voice/signal_alert_en.mp3']);
+    expect(vibrateCount, 1);
   });
 
   test('reconnect alert triggers once per state edge', () async {

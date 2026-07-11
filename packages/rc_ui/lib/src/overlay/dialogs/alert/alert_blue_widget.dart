@@ -177,18 +177,21 @@ class _Header extends StatelessWidget {
       height: 60,
       child: Row(
         children: [
-          _IconTapButton(
-            onTap: onRefresh,
-            child: SvgPicture.asset(
-              AppAssets.refresh,
-              width: 24,
-              height: 24,
-              colorFilter: const ColorFilter.mode(
-                AppColors.text,
-                BlendMode.srcIn,
+          if (onRefresh != null)
+            _IconTapButton(
+              onTap: onRefresh,
+              child: SvgPicture.asset(
+                AppAssets.refresh,
+                width: 24,
+                height: 24,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.text,
+                  BlendMode.srcIn,
+                ),
               ),
-            ),
-          ),
+            )
+          else
+            const SizedBox(width: 44),
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

@@ -597,6 +597,70 @@ void main() {
     expect(repository.lastPulseValue, 1000);
   });
 
+  test('pressAuxChannel persists CH3 switch selection', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final stateForTest = AppSettingsState.defaults().copyWith(
+      channels: [
+        ...AppSettingsState.defaults().channels.take(2),
+        AppSettingsState.defaults().channels[2].copyWith(
+          controlType: AuxControlType.switchControl,
+        ),
+        AppSettingsState.defaults().channels[3].copyWith(
+          controlType: AuxControlType.disabled,
+        ),
+      ],
+    );
+    final firstSettings = await _settingsControllerWith(stateForTest);
+    final firstContainer = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => firstSettings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    final firstSub = firstContainer.listen(
+      controlControllerProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
+    final firstController = firstContainer.read(
+      controlControllerProvider.notifier,
+    );
+
+    await firstController.pressAuxChannel(2);
+    await Future<void>.delayed(Duration.zero);
+    firstSub.close();
+    firstContainer.dispose();
+
+    final secondSettings = await _settingsControllerWith(stateForTest);
+    final secondContainer = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => secondSettings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    final secondSub = secondContainer.listen(
+      controlControllerProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
+    addTearDown(secondSub.close);
+    addTearDown(secondContainer.dispose);
+    secondContainer.read(controlControllerProvider.notifier);
+    await _waitForAuxRuntimeLoad();
+
+    expect(
+      secondContainer.read(controlControllerProvider).ch3Runtime.switchOn,
+      isTrue,
+    );
+  });
+
   test('pressAuxChannel cycles CH3 multi-state output', () async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     final repository = _FakeReceiverRepository();
@@ -641,6 +705,106 @@ void main() {
     );
     expect(repository.lastPulseChannelIndex, 0);
     expect(repository.lastPulseValue, 1550);
+  });
+
+  test('pressAuxChannel persists CH3 multi-state selection', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final stateForTest = AppSettingsState.defaults().copyWith(
+      channels: [
+        ...AppSettingsState.defaults().channels.take(2),
+        AppSettingsState.defaults().channels[2].copyWith(
+          controlType: AuxControlType.multiState,
+          multiStateValues: const <double>[-100, 0, 100],
+        ),
+        AppSettingsState.defaults().channels[3].copyWith(
+          controlType: AuxControlType.disabled,
+        ),
+      ],
+    );
+    final firstSettings = await _settingsControllerWith(stateForTest);
+    final firstContainer = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => firstSettings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    final firstSub = firstContainer.listen(
+      controlControllerProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
+    final firstController = firstContainer.read(
+      controlControllerProvider.notifier,
+    );
+
+    await firstController.pressAuxChannel(2, selectedIndex: 2);
+    await Future<void>.delayed(Duration.zero);
+    firstSub.close();
+    firstContainer.dispose();
+
+    final secondSettings = await _settingsControllerWith(stateForTest);
+    final secondContainer = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => secondSettings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    final secondSub = secondContainer.listen(
+      controlControllerProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
+    addTearDown(secondSub.close);
+    addTearDown(secondContainer.dispose);
+    secondContainer.read(controlControllerProvider.notifier);
+    await _waitForAuxRuntimeLoad();
+
+    expect(
+      secondContainer.read(controlControllerProvider).ch3Runtime.selectedIndex,
+      2,
+    );
+  });
+
+  test('pressAuxChannel sends extended CH3 multi-state output', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        channels: [
+          ...AppSettingsState.defaults().channels.take(2),
+          AppSettingsState.defaults().channels[2].copyWith(
+            displayName: '辅助',
+            controlType: AuxControlType.multiState,
+            multiStateValues: const <double>[-120, 0, 120],
+          ),
+          AppSettingsState.defaults().channels[3].copyWith(
+            controlType: AuxControlType.disabled,
+          ),
+        ],
+      );
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(controlControllerProvider.notifier);
+
+    await controller.pressAuxChannel(2, selectedIndex: 2);
+
+    expect(repository.lastPulseChannelIndex, 0);
+    expect(repository.lastPulseValue, 2100);
   });
 
   test('pressAuxChannel sends fixed CH4 value output', () async {
@@ -724,7 +888,7 @@ void main() {
     },
   );
 
-  testWidgets('value aux button flashes active for a single frame after tap', (
+  testWidgets('value aux button stays selected on control page', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
@@ -762,10 +926,7 @@ void main() {
       const ValueKey<String>('control-top-action-ch3'),
     );
     final labelFinder = find.text('辅助二 25%');
-    expect(
-      tester.widget<Text>(labelFinder).style?.color,
-      const Color(0xFF7DA2CE),
-    );
+    expect(tester.widget<Text>(labelFinder).style?.color, AppColors.onPrimary);
 
     await tester.tap(buttonFinder);
     await tester.pump();
@@ -776,73 +937,76 @@ void main() {
 
     await tester.pump();
 
+    expect(tester.widget<Text>(labelFinder).style?.color, AppColors.onPrimary);
+  });
+
+  testWidgets('multi-state aux button keeps the selected state active', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        channels: [
+          ...AppSettingsState.defaults().channels.take(2),
+          AppSettingsState.defaults().channels[2].copyWith(
+            displayName: '辅助',
+            controlType: AuxControlType.multiState,
+            multiStateValues: const <double>[10, 40],
+          ),
+          AppSettingsState.defaults().channels[3].copyWith(
+            controlType: AuxControlType.disabled,
+          ),
+        ],
+      );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          appSettingsProvider.overrideWith((ref) => settings),
+          gyroPromptProvider.overrideWith(
+            (ref) => Stream.value(const GyroPrompt.zero()),
+          ),
+        ],
+        child: const MaterialApp(home: ControlPage()),
+      ),
+    );
+    await tester.pump();
+
+    final buttonFinder = find.byKey(
+      const ValueKey<String>('control-top-action-ch2-state-1'),
+    );
+    final state1Finder = find.descendant(
+      of: find.byKey(const ValueKey<String>('control-top-action-ch2-state-0')),
+      matching: find.text('状态1'),
+    );
+    final labelFinder = find.descendant(
+      of: buttonFinder,
+      matching: find.text('状态2'),
+    );
+    expect(find.text('辅助'), findsOneWidget);
+    expect(tester.widget<Text>(state1Finder).style?.color, AppColors.onPrimary);
     expect(
       tester.widget<Text>(labelFinder).style?.color,
       const Color(0xFF7DA2CE),
     );
+
+    await tester.tap(buttonFinder);
+    await tester.pump();
+
+    expect(tester.widget<Text>(labelFinder).style?.color, AppColors.onPrimary);
+    expect(
+      tester.widget<Text>(state1Finder).style?.color,
+      const Color(0xFF7DA2CE),
+    );
+    expect(repository.lastPulseChannelIndex, 0);
+    expect(repository.lastPulseValue, 1700);
+
+    await tester.pump();
+
+    expect(tester.widget<Text>(labelFinder).style?.color, AppColors.onPrimary);
   });
-
-  testWidgets(
-    'multi-state aux button flashes for a single frame without staying selected',
-    (tester) async {
-      SharedPreferences.setMockInitialValues(const <String, Object>{});
-      final repository = _FakeReceiverRepository();
-      final settings = _TestSettingsController()
-        ..state = AppSettingsState.defaults().copyWith(
-          channels: [
-            ...AppSettingsState.defaults().channels.take(2),
-            AppSettingsState.defaults().channels[2].copyWith(
-              displayName: '辅助',
-              controlType: AuxControlType.multiState,
-              multiStateValues: const <double>[10, 40],
-            ),
-            AppSettingsState.defaults().channels[3].copyWith(
-              controlType: AuxControlType.disabled,
-            ),
-          ],
-        );
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            receiverRepositoryProvider.overrideWith((ref) => repository),
-            appSettingsProvider.overrideWith((ref) => settings),
-            gyroPromptProvider.overrideWith(
-              (ref) => Stream.value(const GyroPrompt.zero()),
-            ),
-          ],
-          child: const MaterialApp(home: ControlPage()),
-        ),
-      );
-      await tester.pump();
-
-      final buttonFinder = find.byKey(
-        const ValueKey<String>('control-top-action-ch2-state-1'),
-      );
-      final labelFinder = find.text('辅助 状态2');
-      expect(
-        tester.widget<Text>(labelFinder).style?.color,
-        const Color(0xFF7DA2CE),
-      );
-
-      await tester.tap(buttonFinder);
-      await tester.pump();
-
-      expect(
-        tester.widget<Text>(labelFinder).style?.color,
-        AppColors.onPrimary,
-      );
-      expect(repository.lastPulseChannelIndex, 0);
-      expect(repository.lastPulseValue, 1700);
-
-      await tester.pump();
-
-      expect(
-        tester.widget<Text>(labelFinder).style?.color,
-        const Color(0xFF7DA2CE),
-      );
-    },
-  );
 
   testWidgets('control page keeps CH3 and CH4 aux buttons on one row at left', (
     tester,
@@ -856,7 +1020,7 @@ void main() {
           AppSettingsState.defaults().channels[2].copyWith(
             displayName: '辅助',
             controlType: AuxControlType.multiState,
-            multiStateValues: const <double>[10, 40],
+            multiStateValues: const <double>[10, 20, 30, 40, 50],
           ),
           AppSettingsState.defaults().channels[3].copyWith(
             displayName: '辅助二',
@@ -880,9 +1044,14 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('辅助 状态1'), findsOneWidget);
-    expect(find.text('辅助 状态2'), findsOneWidget);
+    expect(find.text('辅助'), findsOneWidget);
+    expect(find.text('状态1'), findsOneWidget);
+    expect(find.text('状态2'), findsOneWidget);
+    expect(find.text('状态5'), findsOneWidget);
     expect(find.text('辅助二 0%'), findsOneWidget);
+    final ch3LabelTop = tester.getTopLeft(
+      find.byKey(const ValueKey<String>('control-top-action-ch2-label')),
+    );
     final ch3Top = tester.getTopLeft(
       find.byKey(const ValueKey<String>('control-top-action-ch2-state-0')),
     );
@@ -898,6 +1067,7 @@ void main() {
     );
     final driveSwitchCenter = tester.getCenter(find.byType(RcDriveModeSwitch));
 
+    expect(ch3LabelTop.dy, ch3Top.dy);
     expect(ch3Top.dy, ch3State2Top.dy);
     expect(ch4Top.dy, ch3Top.dy);
     expect((ch3Center.dy - driveSwitchCenter.dy).abs(), lessThanOrEqualTo(10));
@@ -941,6 +1111,19 @@ void main() {
 }
 
 class _TestSettingsController extends SettingsController {}
+
+Future<_TestSettingsController> _settingsControllerWith(
+  AppSettingsState state,
+) async {
+  final controller = _TestSettingsController();
+  await Future<void>.delayed(Duration.zero);
+  controller.state = state;
+  return controller;
+}
+
+Future<void> _waitForAuxRuntimeLoad() async {
+  await Future<void>.delayed(const Duration(milliseconds: 10));
+}
 
 class _FakeReceiverRepository implements ReceiverRepository {
   final List<String> callOrder = <String>[];
