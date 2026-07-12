@@ -151,8 +151,8 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     if (characteristic == null) {
       throw StateError('bluetooth write characteristic is not ready');
     }
-    // 仅记录失控保护命令，避免控制心跳和设备信息轮询刷屏。
-    if (_isFailsafeFrame(bytes)) {
+    // 常规调试仅记录失控保护；升级排查时额外记录升级命令原始帧。
+    if (_isLoggedProtocolFrame(bytes)) {
       ReceiverLogging.transmittedBytes(
         bytes,
         scope: 'FlutterBlueReceiverTransport',
@@ -266,7 +266,7 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
         if (possibleEcho && !useEchoAsLengthReply) {
           return;
         }
-        if (_isFailsafeFrame(value)) {
+        if (_isLoggedProtocolFrame(value)) {
           ReceiverLogging.device(
             'rx bytes(${value.length}) ${ReceiverLogging.hexBytes(value)}',
             scope: 'FlutterBlueReceiverTransport',
@@ -501,13 +501,16 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     return true;
   }
 
-  /// 判断数据是否为需要记录的失控保护读写帧。
-  bool _isFailsafeFrame(List<int> bytes) {
+  /// 判断数据是否属于当前调试开关要求记录的协议帧。
+  bool _isLoggedProtocolFrame(List<int> bytes) {
     if (bytes.length < 3 || bytes.first != 0xFA) {
       return false;
     }
     final command = bytes[2] & 0xFF;
-    return command == 0x07 || command == 0x08;
+    if (command == 0x07 || command == 0x08) {
+      return true;
+    }
+    return ReceiverLogging.upgradeEnabled && command >= 0x11 && command <= 0x14;
   }
 
   int? _frameCommand(List<int> bytes) {

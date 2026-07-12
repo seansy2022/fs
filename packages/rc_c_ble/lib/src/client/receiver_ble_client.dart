@@ -551,9 +551,20 @@ class ReceiverBleClient {
     final completer = Completer<ReceiverFrame>();
     _pendingResponse = completer;
     _pendingMatcher = matcher;
+    final isUpgradeCommand =
+        frame.command >= ReceiverCommand.firmwareInfo.id &&
+        frame.command <= ReceiverCommand.sendUpgradeChunk.id;
     try {
-      await _transport.send(frame.toBytes());
-      return completer.future.timeout(
+      final requestBytes = frame.toBytes();
+      if (isUpgradeCommand) {
+        ReceiverLogging.upgradePhone(
+          '[upgrade][tx] cmd=0x${frame.command.toRadixString(16).padLeft(2, '0').toUpperCase()} '
+          'bytes(${requestBytes.length})=${ReceiverLogging.hexBytes(requestBytes)}',
+          scope: 'ReceiverBleClient',
+        );
+      }
+      await _transport.send(requestBytes);
+      final response = await completer.future.timeout(
         requestTimeout,
         onTimeout: () {
           _pendingResponse = null;
@@ -561,7 +572,23 @@ class ReceiverBleClient {
           throw TimeoutException('Timed out waiting for receiver response.');
         },
       );
+      if (isUpgradeCommand) {
+        final responseBytes = response.toBytes();
+        ReceiverLogging.upgradeDevice(
+          '[upgrade][rx] cmd=0x${response.command.toRadixString(16).padLeft(2, '0').toUpperCase()} '
+          'bytes(${responseBytes.length})=${ReceiverLogging.hexBytes(responseBytes)}',
+          scope: 'ReceiverBleClient',
+        );
+      }
+      return response;
     } catch (error) {
+      if (isUpgradeCommand) {
+        ReceiverLogging.upgradeDevice(
+          '[upgrade][error] cmd=0x${frame.command.toRadixString(16).padLeft(2, '0').toUpperCase()} '
+          '$error',
+          scope: 'ReceiverBleClient',
+        );
+      }
       _pendingResponse = null;
       _pendingMatcher = null;
       rethrow;
