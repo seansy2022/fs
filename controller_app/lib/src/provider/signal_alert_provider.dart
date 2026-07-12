@@ -21,6 +21,10 @@ final signalAlertConnectionGraceProvider = Provider<Duration>((ref) {
   return const Duration(seconds: 1);
 });
 
+final signalAlertRequiredConsecutiveLowReadingsProvider = Provider<int>((ref) {
+  return 3;
+});
+
 final signalAlertLanguageCodeProvider = Provider<String>((ref) {
   return WidgetsBinding.instance.platformDispatcher.locale.languageCode;
 });
@@ -52,6 +56,7 @@ class SignalAlertMonitor {
   Timer? _graceTimer;
   ReceiverConnectionState _connection = ReceiverConnectionState.disconnected;
   int? _rssi;
+  int _consecutiveLowRssiCount = 0;
   bool _running = false;
   bool _connectionGraceActive = false;
 
@@ -59,6 +64,7 @@ class SignalAlertMonitor {
     _connection = connection;
     if (connection != ReceiverConnectionState.connected) {
       _rssi = null;
+      _consecutiveLowRssiCount = 0;
       _connectionGraceActive = false;
       _graceTimer?.cancel();
       _graceTimer = null;
@@ -71,10 +77,16 @@ class SignalAlertMonitor {
   void updateRssi(int? rssi) {
     if (_connection != ReceiverConnectionState.connected) {
       _rssi = null;
+      _consecutiveLowRssiCount = 0;
       sync();
       return;
     }
     _rssi = rssi;
+    if (!_isLowRssi(rssi)) {
+      _consecutiveLowRssiCount = 0;
+    } else {
+      _consecutiveLowRssiCount++;
+    }
     sync();
   }
 
@@ -88,6 +100,8 @@ class SignalAlertMonitor {
         _connection == ReceiverConnectionState.connected &&
         !_connectionGraceActive &&
         _rssi != null &&
+        _consecutiveLowRssiCount >=
+            _ref.read(signalAlertRequiredConsecutiveLowReadingsProvider) &&
         settings.lowSignalEnabled &&
         (settings.signalVoice || settings.signalVibration) &&
         rssiToPercent(_rssi) < settings.signalThreshold;
@@ -107,11 +121,17 @@ class SignalAlertMonitor {
 
   void _startConnectionGrace() {
     _connectionGraceActive = true;
+    _consecutiveLowRssiCount = 0;
     _graceTimer?.cancel();
     _graceTimer = Timer(_ref.read(signalAlertConnectionGraceProvider), () {
       _connectionGraceActive = false;
       sync();
     });
+  }
+
+  /// 判断当前 RSSI 是否已低于用户配置的信号阈值。
+  bool _isLowRssi(int? rssi) {
+    return rssiToPercent(rssi) < _ref.read(appSettingsProvider).signalThreshold;
   }
 
   Future<void> _notify() async {

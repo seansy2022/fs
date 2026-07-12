@@ -6,6 +6,7 @@ import 'package:rc_c_ble/rc_c_ble.dart';
 
 import '../../../provider/app_settings_provider.dart';
 import 'channel_output_mapper.dart';
+import 'tank_mixer.dart';
 import 'control_aux_runtime_store.dart';
 import '../../settings/models/app_settings_state.dart';
 
@@ -344,8 +345,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
     } catch (_) {
       // 本地状态保存失败不应阻断当前蓝牙控制输出。
     }
-    final pulseOutput = _pulseOutputForChannel(setting, nextRuntime);
-    await _repository.queueAuxChannelPulse(channelIndex - 2, pulseOutput);
+    await _push();
   }
 
   Future<void> setTurnSignal({
@@ -427,6 +427,28 @@ class ControlController extends StateNotifier<ControlScreenState> {
       centerPercent: throttleSetting.trimPercent,
       highPercent: throttleSetting.highPercent,
     );
+    final output = settings.tankMixingEnabled
+        ? mixTankOutputs(
+            throttleUs: throttleUs,
+            steeringUs: steeringUs,
+            ch1: calibratePrimaryChannel(
+              lowPercent: throttleSetting.lowPercent,
+              centerOffsetUs: throttleSetting.trimPercent,
+              highPercent: throttleSetting.highPercent,
+            ),
+            ch2: calibratePrimaryChannel(
+              lowPercent: steeringSetting.lowPercent,
+              centerOffsetUs: steeringSetting.trimPercent,
+              highPercent: steeringSetting.highPercent,
+            ),
+            ratios: TankMixRatios(
+              forward: settings.tankForwardPercent,
+              reverse: settings.tankReversePercent,
+              leftTurn: settings.tankLeftTurnPercent,
+              rightTurn: settings.tankRightTurnPercent,
+            ),
+          )
+        : null;
     final auxChannels = <int>[
       _auxOutputForChannel(settings, 2),
       _auxOutputForChannel(settings, 3),
@@ -438,8 +460,8 @@ class ControlController extends StateNotifier<ControlScreenState> {
       0,
     ];
     final values = ReceiverControlValues(
-      throttle: throttleUs,
-      steering: steeringUs,
+      throttle: output?.ch1Us ?? throttleUs,
+      steering: output?.ch2Us ?? steeringUs,
       auxChannels: auxChannels,
     );
     final lastPushedValues = _lastPushedValues;
@@ -465,9 +487,6 @@ class ControlController extends StateNotifier<ControlScreenState> {
   }
 
   int _auxOutputForChannel(AppSettingsState settings, int channelIndex) {
-    if (_usesPulseOnlyAuxOutput(channelIndex)) {
-      return _defaultPulseBaseOutput(channelIndex, settings);
-    }
     final setting = _channelSettingAt(settings.channels, channelIndex);
     final runtime = _alignedRuntime(channelIndex, setting);
     return _pulseOutputForChannel(setting, runtime);
@@ -477,6 +496,9 @@ class ControlController extends StateNotifier<ControlScreenState> {
     ChannelSetting setting,
     AuxChannelRuntimeState runtime,
   ) {
+    if (setting.controlType == AuxControlType.disabled) {
+      return 1000;
+    }
     final percent = switch (setting.controlType) {
       AuxControlType.disabled => 0.0,
       AuxControlType.switchControl =>
@@ -487,18 +509,6 @@ class ControlController extends StateNotifier<ControlScreenState> {
       AuxControlType.value => setting.singleValue,
     };
     return auxChannelPercentToUs(percent);
-  }
-
-  bool _usesPulseOnlyAuxOutput(int channelIndex) {
-    return channelIndex == 2 || channelIndex == 3;
-  }
-
-  int _defaultPulseBaseOutput(int channelIndex, AppSettingsState settings) {
-    final setting = _channelSettingAt(settings.channels, channelIndex);
-    return _pulseOutputForChannel(
-      setting,
-      AuxChannelRuntimeState(controlType: setting.controlType),
-    );
   }
 
   AuxChannelRuntimeState _alignedRuntime(

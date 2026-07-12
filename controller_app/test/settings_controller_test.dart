@@ -102,6 +102,23 @@ void main() {
     expect(controller.state.tankMixingEnabled, isTrue);
   });
 
+  test('settings defaults persist four tank mixing ratios', () async {
+    final settings = AppSettingsState.defaults();
+
+    expect(settings.tankForwardPercent, 100);
+    expect(settings.tankReversePercent, 100);
+    expect(settings.tankLeftTurnPercent, 100);
+    expect(settings.tankRightTurnPercent, 100);
+
+    final restored = AppSettingsState.fromStorageString(
+      settings.toStorageString(),
+    );
+    expect(restored.tankForwardPercent, 100);
+    expect(restored.tankReversePercent, 100);
+    expect(restored.tankLeftTurnPercent, 100);
+    expect(restored.tankRightTurnPercent, 100);
+  });
+
   test('legacy auxiliary functions map to new aux control types', () {
     final state = AppSettingsState.fromJson(const <String, Object?>{
       'handedness': 'rightThrottle',

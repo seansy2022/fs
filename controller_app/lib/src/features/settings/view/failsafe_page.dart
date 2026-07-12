@@ -7,6 +7,8 @@ import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
+import '../../../provider/bluetooth_domain_provider.dart';
+import '../../../provider/global_reconnect_provider.dart';
 import '../widgets/numeric_input_dialog.dart';
 import '../widgets/settings_workspace.dart';
 
@@ -81,15 +83,25 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
     }
   }
 
+  /// 断开蓝牙连接，触发接收机已保存的失控保护配置。
   Future<void> _startTest() async {
     try {
       setState(() => _testing = true);
+      final bluetooth = ref.read(bluetoothDomainControllerProvider.notifier);
+      // 停止重连和扫描任务，再使用受抑制的主动断开避免自动回连。
+      await ref.read(globalReconnectControllerProvider.notifier).cancel();
+      await bluetooth.cancelPendingAutoReconnect();
+      await bluetooth.ensureScanStopped();
       await ref.read(receiverRepositoryProvider).stopControlLoop();
+      final disconnected = await bluetooth.disconnect();
+      if (!disconnected) {
+        throw StateError('Bluetooth disconnect failed.');
+      }
       if (mounted) {
         await AlertIconWidget.show(
           context,
           title: '测试模式',
-          message: '已断开控制信号，接收机将进入失控保护状态。\n点击"恢复"按钮恢复控制。',
+          message: '蓝牙已断开，接收机将进入失控保护状态。\n点击“恢复”后将扫描并重新连接蓝牙。',
           confirmText: '恢复',
         );
         await _restoreControl();
@@ -101,14 +113,28 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
     }
   }
 
+  /// 扫描并连接最近使用的接收机，连接成功后恢复控制心跳。
   Future<void> _restoreControl() async {
     try {
       if (!mounted) return;
-      setState(() => _testing = false);
+      final connected = await ref
+          .read(bluetoothDomainControllerProvider.notifier)
+          .autoReconnectLastDevice();
+      if (!connected) {
+        throw StateError('Bluetooth reconnect failed.');
+      }
       await ref.read(receiverRepositoryProvider).startControlLoop();
-    } catch (_) {
       if (mounted) {
         setState(() => _testing = false);
+      }
+    } catch (_) {
+      if (mounted) {
+        await AlertIconWidget.show(
+          context,
+          title: '恢复失败',
+          message: '未能重新连接蓝牙，请确认接收机已上电后再次点击 TEST 恢复。',
+          confirmText: '知道了',
+        );
       }
     }
   }

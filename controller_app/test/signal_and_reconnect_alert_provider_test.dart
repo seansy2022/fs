@@ -43,6 +43,9 @@ void main() {
         signalAlertConnectionGraceProvider.overrideWith((ref) {
           return Duration.zero;
         }),
+        signalAlertRequiredConsecutiveLowReadingsProvider.overrideWith((ref) {
+          return 1;
+        }),
         signalAlertVibrationProvider.overrideWith((ref) {
           return () async => vibrateCount++;
         }),
@@ -93,6 +96,9 @@ void main() {
         signalAlertConnectionGraceProvider.overrideWith((ref) {
           return const Duration(milliseconds: 30);
         }),
+        signalAlertRequiredConsecutiveLowReadingsProvider.overrideWith((ref) {
+          return 1;
+        }),
         signalAlertVibrationProvider.overrideWith((ref) {
           return () async => vibrateCount++;
         }),
@@ -127,6 +133,55 @@ void main() {
 
     expect(player.assets, <String>['voice/signal_alert_en.mp3']);
     expect(vibrateCount, 1);
+  });
+
+  test('signal alert requires consecutive low RSSI readings', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final connection = StreamController<ReceiverConnectionState>.broadcast();
+    final rssi = StreamController<int?>.broadcast();
+    final player = _FakeAlertAudioPlayer();
+    final settings = SettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        lowSignalEnabled: true,
+        signalThreshold: 80,
+        signalVoice: true,
+      );
+    final container = ProviderContainer(
+      overrides: [
+        appSettingsProvider.overrideWith((ref) => settings),
+        appSettingsLoadedProvider.overrideWith((ref) => true),
+        simulatedBluetoothEnabledProvider.overrideWith((ref) => false),
+        receiverConnectionProvider.overrideWith((ref) => connection.stream),
+        connectedRssiProvider.overrideWith((ref) => rssi.stream),
+        alertAudioPlayerProvider.overrideWithValue(player),
+        signalAlertLanguageCodeProvider.overrideWith((ref) => 'en'),
+        signalAlertIntervalProvider.overrideWith((ref) {
+          return const Duration(seconds: 1);
+        }),
+        signalAlertConnectionGraceProvider.overrideWith((ref) {
+          return Duration.zero;
+        }),
+      ],
+    );
+    addTearDown(() async {
+      await connection.close();
+      await rssi.close();
+      container.dispose();
+    });
+
+    container.read(signalAlertMonitorProvider);
+    connection.add(ReceiverConnectionState.connected);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+
+    rssi.add(-80);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    rssi.add(-85);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    expect(player.assets, isEmpty);
+
+    rssi.add(-90);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    expect(player.assets, <String>['voice/signal_alert_en.mp3']);
   });
 
   test('reconnect alert triggers once per state edge', () async {

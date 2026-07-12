@@ -37,8 +37,18 @@ class SettingsController extends StateNotifier<AppSettingsState> {
     _persist();
   }
 
-  void updateTrackMix({double? left, double? right}) {
-    state = state.copyWith(trackMixLeft: left, trackMixRight: right);
+  void updateTankMixRatios({
+    double? forward,
+    double? reverse,
+    double? leftTurn,
+    double? rightTurn,
+  }) {
+    state = state.copyWith(
+      tankForwardPercent: forward?.clamp(0, 100).toDouble(),
+      tankReversePercent: reverse?.clamp(0, 100).toDouble(),
+      tankLeftTurnPercent: leftTurn?.clamp(0, 100).toDouble(),
+      tankRightTurnPercent: rightTurn?.clamp(0, 100).toDouble(),
+    );
     _persist();
   }
 

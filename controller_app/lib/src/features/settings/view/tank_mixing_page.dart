@@ -37,18 +37,20 @@ class _TankMixingContentState extends ConsumerState<TankMixingContent> {
     final settings = ref.watch(appSettingsProvider);
     final controller = ref.read(appSettingsProvider.notifier);
     final enabled = settings.tankMixingEnabled;
-    final left = settings.trackMixLeft.round().clamp(-100, 100);
-    final right = settings.trackMixRight.round().clamp(-100, 100);
+    final forward = settings.tankForwardPercent.round().clamp(0, 100);
+    final backward = settings.tankReversePercent.round().clamp(0, 100);
+    final left = settings.tankLeftTurnPercent.round().clamp(0, 100);
+    final right = settings.tankRightTurnPercent.round().clamp(0, 100);
 
     return Column(
       children: [
         TankMixingPanel(
           enabled: enabled,
           onEnabledTap: () => controller.setTankMixingEnabled(!enabled),
-          forwardValue: left > 0 ? left : 0,
-          leftTurnValue: left < 0 ? -left : 0,
-          rightTurnValue: right > 0 ? right : 0,
-          backwardValue: right < 0 ? -right : 0,
+          forwardValue: forward,
+          leftTurnValue: left,
+          rightTurnValue: right,
+          backwardValue: backward,
           forwardSelected: _selectedDirection == _TankMixDirection.forward,
           backwardSelected: _selectedDirection == _TankMixDirection.backward,
           leftTurnSelected: _selectedDirection == _TankMixDirection.left,
@@ -59,33 +61,33 @@ class _TankMixingContentState extends ConsumerState<TankMixingContent> {
             context,
             direction: _TankMixDirection.forward,
             title: '前进',
-            initialValue: left > 0 ? left : 0,
+            initialValue: forward,
             onChanged: (value) =>
-                controller.updateTrackMix(left: value.toDouble()),
+                controller.updateTankMixRatios(forward: value.toDouble()),
           ),
           onBackwardTap: () => _selectAndEdit(
             context,
             direction: _TankMixDirection.backward,
             title: '后退',
-            initialValue: right < 0 ? -right : 0,
+            initialValue: backward,
             onChanged: (value) =>
-                controller.updateTrackMix(right: -value.toDouble()),
+                controller.updateTankMixRatios(reverse: value.toDouble()),
           ),
           onLeftTap: () => _selectAndEdit(
             context,
             direction: _TankMixDirection.left,
             title: '左转',
-            initialValue: left < 0 ? -left : 0,
+            initialValue: left,
             onChanged: (value) =>
-                controller.updateTrackMix(left: -value.toDouble()),
+                controller.updateTankMixRatios(leftTurn: value.toDouble()),
           ),
           onRightTap: () => _selectAndEdit(
             context,
             direction: _TankMixDirection.right,
             title: '右转',
-            initialValue: right > 0 ? right : 0,
+            initialValue: right,
             onChanged: (value) =>
-                controller.updateTrackMix(right: value.toDouble()),
+                controller.updateTankMixRatios(rightTurn: value.toDouble()),
           ),
         ),
       ],

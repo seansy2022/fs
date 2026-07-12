@@ -68,6 +68,7 @@ lib/src/provider/
 - `features/control/view/`：控制页。
 - `features/control/controllers/`：控制页状态编排与通道输出映射。
 - `features/control/controllers/channel_output_mapper.dart`：CH1/CH2 百分比到 us 的分段映射工具。
+- `features/control/controllers/tank_mixer.dart`：履带混控 CH1/CH2 差速输出计算与通道范围限制。
 - `features/control/controllers/control_aux_runtime_store.dart`：控制页 CH3/CH4 辅助通道选择状态本地保存。
 - `features/control/widgets/`：控制页复用组件（转向按钮、顶部辅助按钮组等）。
 - `features/control/widgets/control_status_warning_text.dart`：控制页顶部居中报警提示文案。

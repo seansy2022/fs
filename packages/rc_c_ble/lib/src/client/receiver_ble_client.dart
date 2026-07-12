@@ -488,12 +488,6 @@ class ReceiverBleClient {
 
   void _onBytes(List<int> bytes) {
     for (final frame in _parser.addChunk(bytes)) {
-      if (_isFirmwareUpgradeCommand(frame.command)) {
-        ReceiverLogging.device(
-          'rx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
-          scope: 'ReceiverBleClient',
-        );
-      }
       _updateReceiverInfoFromHeartbeat(frame);
       _frameCtrl.add(frame);
       final completer = _pendingResponse;
@@ -550,12 +544,6 @@ class ReceiverBleClient {
     _pendingResponse = completer;
     _pendingMatcher = matcher;
     try {
-      if (_isFirmwareUpgradeCommand(frame.command)) {
-        ReceiverLogging.phone(
-          'tx frame cmd=${_describeCommand(frame.command)} len=${frame.length} data=${ReceiverLogging.hexBytes(frame.data)}',
-          scope: 'ReceiverBleClient',
-        );
-      }
       await _transport.send(frame.toBytes());
       return completer.future.timeout(
         requestTimeout,
@@ -924,23 +912,6 @@ class ReceiverBleClient {
     if (remaining > Duration.zero) {
       await Future<void>.delayed(remaining);
     }
-  }
-
-  String _describeCommand(int commandId) {
-    final command = ReceiverCommand.fromId(commandId);
-    final hex =
-        '0x${commandId.toRadixString(16).padLeft(2, '0').toUpperCase()}';
-    if (command == null) {
-      return hex;
-    }
-    return '${command.name}($hex)';
-  }
-
-  bool _isFirmwareUpgradeCommand(int commandId) {
-    final command = ReceiverCommand.fromId(commandId);
-    return command == ReceiverCommand.startUpgradeBoot ||
-        command == ReceiverCommand.setUpgradeLength ||
-        command == ReceiverCommand.sendUpgradeChunk;
   }
 }
 

@@ -151,11 +151,13 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     if (characteristic == null) {
       throw StateError('bluetooth write characteristic is not ready');
     }
-    // 在实际写入特征值前统一输出完整数据，便于排查通讯问题。
-    ReceiverLogging.transmittedBytes(
-      bytes,
-      scope: 'FlutterBlueReceiverTransport',
-    );
+    // 仅记录失控保护命令，避免控制心跳和设备信息轮询刷屏。
+    if (_isFailsafeFrame(bytes)) {
+      ReceiverLogging.transmittedBytes(
+        bytes,
+        scope: 'FlutterBlueReceiverTransport',
+      );
+    }
     _lastSentBytes = List<int>.from(bytes, growable: false);
     final mtu = _activeDevice?.mtuNow ?? 23;
     final chunkSize = (mtu - 3).clamp(1, bytes.length);
@@ -264,7 +266,7 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
         if (possibleEcho && !useEchoAsLengthReply) {
           return;
         }
-        if (_isFirmwareUpgradeFrame(value)) {
+        if (_isFailsafeFrame(value)) {
           ReceiverLogging.device(
             'rx bytes(${value.length}) ${ReceiverLogging.hexBytes(value)}',
             scope: 'FlutterBlueReceiverTransport',
@@ -499,13 +501,13 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     return true;
   }
 
-  /// 判断接收数据是否为需要详细记录的固件升级帧。
-  bool _isFirmwareUpgradeFrame(List<int> bytes) {
+  /// 判断数据是否为需要记录的失控保护读写帧。
+  bool _isFailsafeFrame(List<int> bytes) {
     if (bytes.length < 3 || bytes.first != 0xFA) {
       return false;
     }
     final command = bytes[2] & 0xFF;
-    return command == 0x12 || command == 0x13 || command == 0x14;
+    return command == 0x07 || command == 0x08;
   }
 
   int? _frameCommand(List<int> bytes) {

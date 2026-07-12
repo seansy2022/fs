@@ -12,7 +12,7 @@ class HelpCenterContent extends StatefulWidget {
 
 class _HelpCenterContentState extends State<HelpCenterContent> {
   static const _manualUrl =
-      'https://flyskydownload.flyskytech.com/s/pdf/shr_fzhngn8m';
+      'https://flyskydownload.flyskytech.com/s/pdf/shr_tqdetkrg';
 
   late final Future<PdfControllerPinch> _controllerFuture = _loadController();
 

@@ -43,6 +43,19 @@ void main() {
     expect(info.batteryLevel, 88);
   });
 
+  test('parses firmware info response', () {
+    final frame = ReceiverFrame(
+      command: ReceiverCommand.firmwareInfo.id,
+      data: const [0x01, 0x02, 0x03, 0x04, 0x10, 0x20, 0x01, 0x06],
+    );
+
+    final info = parseFirmwareInfoResponse(frame);
+
+    expect(info.productModelCode, 0x1020);
+    expect(info.firmwareVersionCode, 0x0106);
+    expect(info.versionLabel, '1.6');
+  });
+
   test('parses heartbeat receiver info from cmd 0x02 response', () {
     final frame = ReceiverFrame(
       command: ReceiverCommand.controlHeartbeat.id,
@@ -64,6 +77,21 @@ void main() {
     expect(config.throttleUs, 1500);
     expect(config.steeringUs, 0);
     expect(config.steeringHold, isTrue);
+  });
+
+  test('failsafe requests preserve the receiver RFM ID', () {
+    final rfmId = Uint8List.fromList(const [0x11, 0x22, 0x33, 0x44]);
+    final readRequest = buildReadFailsafeRequest(rfmId);
+    final writeRequest = buildWriteFailsafeRequest(
+      rfmId,
+      const ReceiverFailsafeConfig(throttleUs: 1500, steeringUs: 1600),
+    );
+
+    expect(readRequest.command, ReceiverCommand.readFailsafe.id);
+    expect(readRequest.data.take(4), rfmId);
+    expect(writeRequest.command, ReceiverCommand.writeFailsafe.id);
+    expect(writeRequest.data.take(4), rfmId);
+    expect(writeRequest.data.skip(4).take(4), [0x05, 0xDC, 0x06, 0x40]);
   });
 
   test('control values keep zero for undefined aux channels', () {
@@ -107,6 +135,79 @@ void main() {
       expect(client.connectionState, ReceiverConnectionState.disconnected);
       expect(client.receiverInfo, isNull);
       expect(client.connectedRssi, isNull);
+    } finally {
+      await client.dispose();
+    }
+  });
+
+  test('client reads firmware info from hardware response', () async {
+    final transport = _FakeTransport();
+    final client = ReceiverBleClient(transport: transport);
+    transport.onSend = (bytes) {
+      final frame = ReceiverFrame.tryParse(bytes)!;
+      if (frame.command == ReceiverCommand.receiverInfo.id) {
+        transport.emit(
+          ReceiverFrame(
+            command: ReceiverCommand.receiverInfo.id,
+            data: const [0x11, 0x22, 0x33, 0x44, 0x10, 0x20, 95, 0],
+          ).toBytes(),
+        );
+      } else if (frame.command == ReceiverCommand.firmwareInfo.id) {
+        transport.emit(
+          ReceiverFrame(
+            command: ReceiverCommand.firmwareInfo.id,
+            data: const [0x11, 0x22, 0x33, 0x44, 0x10, 0x20, 0x01, 0x06],
+          ).toBytes(),
+        );
+      }
+    };
+
+    try {
+      await client.connect('dev-1');
+      final receiverInfo = await client.readReceiverInfo();
+
+      final info = await client.readFirmwareInfo();
+
+      expect(receiverInfo.rfmIdHex, '11223344');
+      expect(receiverInfo.modelLabel, 'RFM-1020');
+      expect(info.modelLabel, 'RFM-1020');
+      expect(info.versionLabel, '1.6');
+    } finally {
+      await client.dispose();
+    }
+  });
+
+  test('client reads failsafe with the receiver RFM ID', () async {
+    final transport = _FakeTransport();
+    final client = ReceiverBleClient(transport: transport);
+    transport.onSend = (bytes) {
+      final frame = ReceiverFrame.tryParse(bytes)!;
+      if (frame.command == ReceiverCommand.receiverInfo.id) {
+        transport.emit(
+          ReceiverFrame(
+            command: ReceiverCommand.receiverInfo.id,
+            data: const [0x11, 0x22, 0x33, 0x44, 0x10, 0x20, 95, 0],
+          ).toBytes(),
+        );
+      } else if (frame.command == ReceiverCommand.readFailsafe.id) {
+        expect(frame.data.take(4), [0x11, 0x22, 0x33, 0x44]);
+        transport.emit(
+          ReceiverFrame(
+            command: ReceiverCommand.readFailsafe.id,
+            data: const [0x11, 0x22, 0x33, 0x44, 0x05, 0xDC, 0x06, 0x40],
+          ).toBytes(),
+        );
+      }
+    };
+
+    try {
+      await client.connect('dev-1');
+      await client.readReceiverInfo();
+
+      final config = await client.readFailsafe();
+
+      expect(config.throttleUs, 1500);
+      expect(config.steeringUs, 1600);
     } finally {
       await client.dispose();
     }

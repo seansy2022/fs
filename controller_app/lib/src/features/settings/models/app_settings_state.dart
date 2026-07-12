@@ -158,6 +158,10 @@ class AppSettingsState {
     required this.tankMixingEnabled,
     required this.trackMixLeft,
     required this.trackMixRight,
+    required this.tankForwardPercent,
+    required this.tankReversePercent,
+    required this.tankLeftTurnPercent,
+    required this.tankRightTurnPercent,
     required this.lowVoltageEnabled,
     required this.batteryType,
     required this.minimumVoltage,
@@ -182,6 +186,10 @@ class AppSettingsState {
   final bool tankMixingEnabled;
   final double trackMixLeft;
   final double trackMixRight;
+  final double tankForwardPercent;
+  final double tankReversePercent;
+  final double tankLeftTurnPercent;
+  final double tankRightTurnPercent;
   final bool lowVoltageEnabled;
   final BatteryType batteryType;
   final double minimumVoltage;
@@ -264,6 +272,10 @@ class AppSettingsState {
       tankMixingEnabled: false,
       trackMixLeft: 100,
       trackMixRight: 100,
+      tankForwardPercent: 100,
+      tankReversePercent: 100,
+      tankLeftTurnPercent: 100,
+      tankRightTurnPercent: 100,
       lowVoltageEnabled: true,
       batteryType: BatteryType.twoCell,
       minimumVoltage: 6.0,
@@ -290,6 +302,10 @@ class AppSettingsState {
     bool? tankMixingEnabled,
     double? trackMixLeft,
     double? trackMixRight,
+    double? tankForwardPercent,
+    double? tankReversePercent,
+    double? tankLeftTurnPercent,
+    double? tankRightTurnPercent,
     bool? lowVoltageEnabled,
     BatteryType? batteryType,
     double? minimumVoltage,
@@ -314,6 +330,10 @@ class AppSettingsState {
       tankMixingEnabled: tankMixingEnabled ?? this.tankMixingEnabled,
       trackMixLeft: trackMixLeft ?? this.trackMixLeft,
       trackMixRight: trackMixRight ?? this.trackMixRight,
+      tankForwardPercent: tankForwardPercent ?? this.tankForwardPercent,
+      tankReversePercent: tankReversePercent ?? this.tankReversePercent,
+      tankLeftTurnPercent: tankLeftTurnPercent ?? this.tankLeftTurnPercent,
+      tankRightTurnPercent: tankRightTurnPercent ?? this.tankRightTurnPercent,
       lowVoltageEnabled: lowVoltageEnabled ?? this.lowVoltageEnabled,
       batteryType: batteryType ?? this.batteryType,
       minimumVoltage: minimumVoltage ?? this.minimumVoltage,
@@ -343,6 +363,10 @@ class AppSettingsState {
       'tankMixingEnabled': tankMixingEnabled,
       'trackMixLeft': trackMixLeft,
       'trackMixRight': trackMixRight,
+      'tankForwardPercent': tankForwardPercent,
+      'tankReversePercent': tankReversePercent,
+      'tankLeftTurnPercent': tankLeftTurnPercent,
+      'tankRightTurnPercent': tankRightTurnPercent,
       'lowVoltageEnabled': lowVoltageEnabled,
       'batteryType': batteryType.name,
       'minimumVoltage': minimumVoltage,
@@ -378,8 +402,16 @@ class AppSettingsState {
           .map(_normalizePrimaryChannel)
           .toList(growable: false),
       tankMixingEnabled: json['tankMixingEnabled'] as bool? ?? false,
-      trackMixLeft: (json['trackMixLeft']! as num).toDouble(),
-      trackMixRight: (json['trackMixRight']! as num).toDouble(),
+      trackMixLeft: (json['trackMixLeft'] as num?)?.toDouble() ?? 100,
+      trackMixRight: (json['trackMixRight'] as num?)?.toDouble() ?? 100,
+      tankForwardPercent:
+          (json['tankForwardPercent'] as num?)?.toDouble() ?? 100,
+      tankReversePercent:
+          (json['tankReversePercent'] as num?)?.toDouble() ?? 100,
+      tankLeftTurnPercent:
+          (json['tankLeftTurnPercent'] as num?)?.toDouble() ?? 100,
+      tankRightTurnPercent:
+          (json['tankRightTurnPercent'] as num?)?.toDouble() ?? 100,
       lowVoltageEnabled: json['lowVoltageEnabled']! as bool,
       batteryType: _batteryTypeFromStorage(json['batteryType']! as String),
       minimumVoltage: (json['minimumVoltage']! as num).toDouble(),

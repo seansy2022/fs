@@ -76,7 +76,7 @@ void main() {
         highPercent: 100,
         trimStep: 2,
       ),
-      1554,
+      1514,
     );
   });
 
@@ -88,7 +88,7 @@ void main() {
         centerPercent: -1,
         highPercent: 80,
       ),
-      1900,
+      1899,
     );
     expect(
       mapThrottleInputToUs(
@@ -97,7 +97,7 @@ void main() {
         centerPercent: -1,
         highPercent: 80,
       ),
-      1495,
+      1499,
     );
     expect(
       mapThrottleInputToUs(
@@ -127,4 +127,28 @@ void main() {
       expect(outputs, <int>[1500, 1550, 1600, 1650]);
     },
   );
+
+  test('primary calibration supports extended endpoints', () {
+    final calibration = calibratePrimaryChannel(
+      lowPercent: -120,
+      centerOffsetUs: 0,
+      highPercent: 120,
+    );
+
+    expect(calibration.lowUs, 900);
+    expect(calibration.centerUs, 1500);
+    expect(calibration.highUs, 2100);
+  });
+
+  test('primary calibration bounds a positive center offset', () {
+    final calibration = calibratePrimaryChannel(
+      lowPercent: -100,
+      centerOffsetUs: 100,
+      highPercent: 100,
+    );
+
+    expect(calibration.lowUs, 1100);
+    expect(calibration.centerUs, 1600);
+    expect(calibration.highUs, 2000);
+  });
 }

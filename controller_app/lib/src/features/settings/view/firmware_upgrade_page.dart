@@ -107,9 +107,7 @@ class _FirmwareUpgradeContentState
     return Column(
       children: [
         _FirmwareRow(
-          label: _working
-              ? '$_firmwareVersionLabel 升级中'
-              : _firmwareVersionLabel,
+          label: _working ? '升级中' : '升级版本',
           enabled: !_working,
           onTap: () => unawaited(_startUpgrade(context)),
         ),

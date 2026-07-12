@@ -610,12 +610,15 @@ class _ChannelSettingsContentState
     required SettingsController controller,
   }) async {
     _selectField(channelIndex, field);
-    final constraint = channelPercentConstraintFor(field);
+    final constraint = channelPercentConstraintFor(
+      field,
+      isPrimary: channelIndex < 2,
+    );
     final raw = await NumericInputDialog.show(
       context,
       title: '设置${channel.channelLabel}${_fieldLabel(field)}',
       initialValue: _valueForField(channel, field).round().toString(),
-      unit: '%',
+      unit: field == ChannelValueField.trim && channelIndex < 2 ? 'us' : '%',
       allowSigned: constraint.allowNegativeInput,
       allowDecimal: false,
       allowPositive: constraint.allowPositiveInput,

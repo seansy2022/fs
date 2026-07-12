@@ -20,20 +20,23 @@ class ChannelPercentConstraint {
   int normalize(int value) => value.clamp(min, max).toInt();
 }
 
-ChannelPercentConstraint channelPercentConstraintFor(ChannelValueField field) {
+ChannelPercentConstraint channelPercentConstraintFor(
+  ChannelValueField field, {
+  required bool isPrimary,
+}) {
   switch (field) {
     case ChannelValueField.low:
-      return const ChannelPercentConstraint(
-        min: -100,
+      return ChannelPercentConstraint(
+        min: isPrimary ? -120 : -100,
         max: 0,
         allowNegativeInput: true,
         allowPositiveInput: false,
         fixedNegativePrefix: true,
       );
     case ChannelValueField.high:
-      return const ChannelPercentConstraint(
+      return ChannelPercentConstraint(
         min: 0,
-        max: 100,
+        max: isPrimary ? 120 : 100,
         allowNegativeInput: false,
         allowPositiveInput: true,
         fixedNegativePrefix: false,
