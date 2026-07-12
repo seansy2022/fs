@@ -78,6 +78,7 @@ class ReceiverBleClient {
   bool _receiverInfoPollingEnabled = false;
   bool _receiverInfoReadInFlight = false;
   DateTime? _lastScanStopAt;
+  DateTime? _lastControlLogAt;
   Completer<void>? _scanAndConnectCancelCompleter;
 
   ReceiverConnectionState get connectionState => _connectionState;
@@ -296,6 +297,13 @@ class ReceiverBleClient {
 
   Future<void> updateControlValues(ReceiverControlValues values) async {
     _controlBuffer.updateBase(values);
+    if (ReceiverLogging.controlEnabled) {
+      ReceiverLogging.phone(
+        '[control][base] ch1=${values.throttle} ch2=${values.steering} '
+        'ch3=${values.auxChannels[0]} ch4=${values.auxChannels[1]}',
+        scope: 'ReceiverBleClient',
+      );
+    }
   }
 
   Future<void> queueAuxChannelPulse(int auxChannelIndex, int value) async {
@@ -562,10 +570,19 @@ class ReceiverBleClient {
 
   Future<void> _sendControlHeartbeat() async {
     final rfmId = _receiverInfo?.rfmId ?? _zeroRfmId;
-    final frame = buildControlHeartbeatFrame(
-      rfmId,
-      _controlBuffer.consumeNextValues(),
-    );
+    final values = _controlBuffer.consumeNextValues();
+    final now = DateTime.now();
+    if (ReceiverLogging.controlEnabled &&
+        (_lastControlLogAt == null ||
+            now.difference(_lastControlLogAt!) >= const Duration(seconds: 1))) {
+      _lastControlLogAt = now;
+      ReceiverLogging.phone(
+        '[control][heartbeat] ch1=${values.throttle} ch2=${values.steering} '
+        'ch3=${values.auxChannels[0]} ch4=${values.auxChannels[1]}',
+        scope: 'ReceiverBleClient',
+      );
+    }
+    final frame = buildControlHeartbeatFrame(rfmId, values);
     await _transport.send(frame.toBytes(), preferWithoutResponse: true);
   }
 

@@ -160,6 +160,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
   ControlController? _controlController;
   ProviderSubscription<ControlScreenState>?
   _presentationControlStateSubscription;
+  ProviderSubscription<ReceiverConnectionState>? _connectionSubscription;
 
   ControlController _getControlController() {
     final cached = _controlController;
@@ -182,6 +183,16 @@ class _ControlPageState extends ConsumerState<ControlPage> {
         .listenManual<ControlScreenState>(controlControllerProvider, (_, next) {
           unawaited(presentationController.bindControlState(next));
         }, fireImmediately: false);
+    _connectionSubscription = ref.listenManual<ReceiverConnectionState>(
+      effectiveReceiverConnectionProvider,
+      (previous, next) {
+        // 蓝牙在控制页打开后才连接时，立即启动连续控制帧。
+        if (previous != next && next == ReceiverConnectionState.connected) {
+          unawaited(_activate());
+        }
+      },
+      fireImmediately: false,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -242,6 +253,8 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     _controlController = null;
     _presentationControlStateSubscription?.close();
     _presentationControlStateSubscription = null;
+    _connectionSubscription?.close();
+    _connectionSubscription = null;
     unawaited(backgroundVideoController?.dispose());
     super.dispose();
   }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:controller_app/src/features/control/view/control_page.dart';
 import 'package:controller_app/src/provider/control_presentation_provider.dart';
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
@@ -388,6 +390,41 @@ void main() {
     ]);
   });
 
+  testWidgets('control page starts the loop after a delayed connection', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final connectionStates = StreamController<ReceiverConnectionState>();
+    addTearDown(connectionStates.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          receiverConnectionProvider.overrideWith(
+            (ref) => connectionStates.stream,
+          ),
+          appSettingsProvider.overrideWith((ref) => _TestSettingsController()),
+          gyroPromptProvider.overrideWith(
+            (ref) => Stream.value(const GyroPrompt.zero()),
+          ),
+        ],
+        child: const MaterialApp(home: ControlPage()),
+      ),
+    );
+    connectionStates.add(ReceiverConnectionState.disconnected);
+    await tester.pump();
+
+    connectionStates.add(ReceiverConnectionState.connected);
+    await tester.pump();
+
+    expect(repository.callOrder, <String>[
+      'updateControlValues',
+      'startControlLoop',
+    ]);
+  });
+
   test(
     'low gear halves forward throttle output while high gear keeps full',
     () async {
@@ -585,16 +622,16 @@ void main() {
       container.read(controlControllerProvider).ch3Runtime.switchOn,
       isTrue,
     );
-    expect(repository.lastPulseChannelIndex, 0);
-    expect(repository.lastPulseValue, 2000);
+    expect(repository.lastPulseChannelIndex, isNull);
+    expect(repository.lastControlValues?.auxChannels[0], 2000);
 
     await controller.pressAuxChannel(2);
     expect(
       container.read(controlControllerProvider).ch3Runtime.switchOn,
       isFalse,
     );
-    expect(repository.lastPulseChannelIndex, 0);
-    expect(repository.lastPulseValue, 1000);
+    expect(repository.lastPulseChannelIndex, isNull);
+    expect(repository.lastControlValues?.auxChannels[0], 1000);
   });
 
   test('pressAuxChannel persists CH3 switch selection', () async {
@@ -695,16 +732,16 @@ void main() {
       container.read(controlControllerProvider).ch3Runtime.selectedIndex,
       1,
     );
-    expect(repository.lastPulseChannelIndex, 0);
-    expect(repository.lastPulseValue, 1700);
+    expect(repository.lastPulseChannelIndex, isNull);
+    expect(repository.lastControlValues?.auxChannels[0], 1700);
 
     await controller.pressAuxChannel(2);
     expect(
       container.read(controlControllerProvider).ch3Runtime.selectedIndex,
       0,
     );
-    expect(repository.lastPulseChannelIndex, 0);
-    expect(repository.lastPulseValue, 1550);
+    expect(repository.lastPulseChannelIndex, isNull);
+    expect(repository.lastControlValues?.auxChannels[0], 1550);
   });
 
   test('pressAuxChannel persists CH3 multi-state selection', () async {
@@ -803,8 +840,8 @@ void main() {
 
     await controller.pressAuxChannel(2, selectedIndex: 2);
 
-    expect(repository.lastPulseChannelIndex, 0);
-    expect(repository.lastPulseValue, 2100);
+    expect(repository.lastPulseChannelIndex, isNull);
+    expect(repository.lastControlValues?.auxChannels[0], 2100);
   });
 
   test('pressAuxChannel sends fixed CH4 value output', () async {
@@ -842,8 +879,8 @@ void main() {
       container.read(controlControllerProvider).ch4Runtime.selectedIndex,
       0,
     );
-    expect(repository.lastPulseChannelIndex, 1);
-    expect(repository.lastPulseValue, 1625);
+    expect(repository.lastPulseChannelIndex, isNull);
+    expect(repository.lastControlValues?.auxChannels[1], 1625);
   });
 
   test(
@@ -932,8 +969,8 @@ void main() {
     await tester.pump();
 
     expect(tester.widget<Text>(labelFinder).style?.color, AppColors.onPrimary);
-    expect(repository.lastPulseChannelIndex, 1);
-    expect(repository.lastPulseValue, 1625);
+    expect(repository.lastPulseChannelIndex, isNull);
+    expect(repository.lastControlValues?.auxChannels[1], 1625);
 
     await tester.pump();
 
@@ -1000,8 +1037,8 @@ void main() {
       tester.widget<Text>(state1Finder).style?.color,
       const Color(0xFF7DA2CE),
     );
-    expect(repository.lastPulseChannelIndex, 0);
-    expect(repository.lastPulseValue, 1700);
+    expect(repository.lastPulseChannelIndex, isNull);
+    expect(repository.lastControlValues?.auxChannels[0], 1700);
 
     await tester.pump();
 

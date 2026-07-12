@@ -4,6 +4,11 @@ class ReceiverLogging {
     defaultValue: !bool.fromEnvironment('dart.vm.product'),
   );
 
+  static const bool controlEnabled = bool.fromEnvironment(
+    'RC_CONTROL_LOG',
+    defaultValue: false,
+  );
+
   static void link(String message, {String scope = 'Link'}) {
     if (!linkEnabled) {
       return;
