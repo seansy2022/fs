@@ -17,6 +17,7 @@ class ReceiverBleClient {
   ReceiverBleClient({
     LinkTransport? transport,
     this.requestTimeout = const Duration(milliseconds: 900),
+    this.bootRequestRetryDelay = _defaultBootRequestRetryDelay,
   }) : _transport = transport ?? FlutterBlueReceiverTransport() {
     _incomingSub = _transport.incomingBytes.listen(_onBytes);
     _scanSub = _transport.scanResults.listen(
@@ -31,8 +32,12 @@ class ReceiverBleClient {
 
   final LinkTransport _transport;
   final Duration requestTimeout;
+  final Duration bootRequestRetryDelay;
   final ReceiverFrameParser _parser = ReceiverFrameParser();
   static const Duration _scanRestartCooldown = Duration(milliseconds: 700);
+  static const Duration _defaultBootRequestRetryDelay = Duration(
+    milliseconds: 100,
+  );
   static const Duration _bootDisconnectTimeout = Duration(seconds: 5);
   static const Duration _bootReconnectTimeout = Duration(seconds: 20);
   static const Duration _bootReconnectRetryDelay = Duration(milliseconds: 700);
@@ -370,20 +375,7 @@ class ReceiverBleClient {
         '[upgrade][0x12] request boot mode',
         scope: 'ReceiverBleClient',
       );
-      final bootFrame = await _sendRequest(
-        buildUpgradeBootRequest(rfmId),
-        matcher: (response) =>
-            response.command == ReceiverCommand.startUpgradeBoot.id,
-      );
-      final bootState = parseUpgradeState(bootFrame, stateIndex: 4);
-      ReceiverLogging.device(
-        '[upgrade][0x12] response state=$bootState '
-        'data=${ReceiverLogging.hexBytes(bootFrame.data)}',
-        scope: 'ReceiverBleClient',
-      );
-      if (bootState != 1) {
-        throw StateError('Receiver rejected boot mode.');
-      }
+      await _waitForBootReady(rfmId);
 
       yield ReceiverUpgradeProgress(
         stage: ReceiverUpgradeStage.waitingBootReconnect,
@@ -496,6 +488,15 @@ class ReceiverBleClient {
 
   void _onBytes(List<int> bytes) {
     for (final frame in _parser.addChunk(bytes)) {
+      if (ReceiverLogging.controlEnabled &&
+          frame.command == ReceiverCommand.controlHeartbeat.id) {
+        final frameBytes = frame.toBytes();
+        ReceiverLogging.device(
+          '[control][rx][0x02] bytes(${frameBytes.length})='
+          '${ReceiverLogging.hexBytes(frameBytes)}',
+          scope: 'ReceiverBleClient',
+        );
+      }
       _updateReceiverInfoFromHeartbeat(frame);
       _frameCtrl.add(frame);
       final completer = _pendingResponse;
@@ -610,7 +611,15 @@ class ReceiverBleClient {
       );
     }
     final frame = buildControlHeartbeatFrame(rfmId, values);
-    await _transport.send(frame.toBytes(), preferWithoutResponse: true);
+    final frameBytes = frame.toBytes();
+    if (ReceiverLogging.controlEnabled) {
+      ReceiverLogging.phone(
+        '[control][tx][0x02] bytes(${frameBytes.length})='
+        '${ReceiverLogging.hexBytes(frameBytes)}',
+        scope: 'ReceiverBleClient',
+      );
+    }
+    await _transport.send(frameBytes, preferWithoutResponse: true);
   }
 
   Future<void> _reconnectForBootUpgrade(String remoteId) async {
@@ -636,6 +645,41 @@ class ReceiverBleClient {
       '[upgrade] boot BLE reconnected',
       scope: 'ReceiverBleClient',
     );
+  }
+
+  /// 持续发送 0x12，直到接收器回传 data[4] = 3 表示 Boot 已就绪。
+  Future<void> _waitForBootReady(Uint8List rfmId) async {
+    var attempt = 0;
+
+    while (true) {
+      attempt++;
+      try {
+        final bootFrame = await _sendRequest(
+          buildUpgradeBootRequest(rfmId),
+          matcher: (response) =>
+              response.command == ReceiverCommand.startUpgradeBoot.id,
+        );
+        final bootState = parseUpgradeState(bootFrame, stateIndex: 4);
+        ReceiverLogging.device(
+          '[upgrade][0x12] attempt=$attempt state=$bootState '
+          'data=${ReceiverLogging.hexBytes(bootFrame.data)}',
+          scope: 'ReceiverBleClient',
+        );
+        if (bootState == 3) {
+          return;
+        }
+        if (bootState < 0 || bootState > 2) {
+          throw StateError('Unexpected boot upgrade state: $bootState');
+        }
+      } on TimeoutException {
+        ReceiverLogging.device(
+          '[upgrade][0x12] attempt=$attempt response timeout, retrying',
+          scope: 'ReceiverBleClient',
+        );
+      }
+
+      await Future<void>.delayed(bootRequestRetryDelay);
+    }
   }
 
   Future<bool> _waitForDisconnected({required Duration timeout}) async {

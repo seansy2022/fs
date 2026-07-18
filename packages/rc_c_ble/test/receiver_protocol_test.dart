@@ -68,6 +68,18 @@ void main() {
     expect(info.batteryLevel, 0);
   });
 
+  test('builds cmd 0x02 with steering before throttle', () {
+    final frame = buildControlHeartbeatFrame(
+      Uint8List.fromList(const [0x11, 0x22, 0x33, 0x44]),
+      const ReceiverControlValues(throttle: 1400, steering: 1600),
+    );
+
+    expect(frame.command, ReceiverCommand.controlHeartbeat.id);
+    expect(frame.data.sublist(0, 4), const [0x11, 0x22, 0x33, 0x44]);
+    expect(_decodeWord(frame.data, 4), 1600);
+    expect(_decodeWord(frame.data, 6), 1400);
+  });
+
   test('parses failsafe response', () {
     final frame = ReceiverFrame(
       command: ReceiverCommand.readFailsafe.id,
@@ -216,6 +228,8 @@ void main() {
   test('client upgrade flow yields progress until completion', () async {
     final transport = _FakeTransport();
     final client = ReceiverBleClient(transport: transport);
+    var bootResponseIndex = 0;
+    const bootStates = [0, 1, 2, 3];
     transport.onSend = (bytes) {
       final frame = ReceiverFrame.tryParse(bytes)!;
       if (frame.command == ReceiverCommand.receiverInfo.id) {
@@ -226,13 +240,18 @@ void main() {
           ).toBytes(),
         );
       } else if (frame.command == ReceiverCommand.startUpgradeBoot.id) {
+        final bootState = bootStates[bootResponseIndex++];
         transport.emit(
           ReceiverFrame(
             command: ReceiverCommand.startUpgradeBoot.id,
-            data: const [0x11, 0x22, 0x33, 0x44, 1, 0, 0, 0],
+            data: [0x11, 0x22, 0x33, 0x44, bootState, 0, 0, 0],
           ).toBytes(),
         );
-        transport.emitConnectionState(ReceiverLinkConnectionState.disconnected);
+        if (bootState == 3) {
+          transport.emitConnectionState(
+            ReceiverLinkConnectionState.disconnected,
+          );
+        }
       } else if (frame.command == ReceiverCommand.setUpgradeLength.id) {
         transport.emit(
           ReceiverFrame(
@@ -262,6 +281,15 @@ void main() {
           .toList();
       expect(progress.last.stage, ReceiverUpgradeStage.completed);
       expect(progress.last.sentChunks, 2);
+      expect(bootResponseIndex, 4);
+      expect(
+        transport.sentFrames
+            .where(
+              (frame) => frame.command == ReceiverCommand.startUpgradeBoot.id,
+            )
+            .length,
+        4,
+      );
     } finally {
       await client.dispose();
     }
@@ -283,7 +311,7 @@ void main() {
         transport.emit(
           ReceiverFrame(
             command: ReceiverCommand.startUpgradeBoot.id,
-            data: const [0x11, 0x22, 0x33, 0x44, 1, 0, 0, 0],
+            data: const [0x11, 0x22, 0x33, 0x44, 3, 0, 0, 0],
           ).toBytes(),
         );
         transport.emitConnectionState(ReceiverLinkConnectionState.disconnected);
