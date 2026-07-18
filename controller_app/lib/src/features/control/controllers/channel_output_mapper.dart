@@ -88,3 +88,8 @@ int mapThrottleInputToUs({
     highPercent: highPercent,
   );
 }
+
+/// 将最终主通道 PWM 围绕 1500 us 对称反向，并保持在硬件输出范围内。
+int reversePrimaryOutputAroundCenter(int valueUs) {
+  return (3000 - valueUs).clamp(900, 2100).toInt();
+}

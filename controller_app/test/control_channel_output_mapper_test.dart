@@ -151,4 +151,12 @@ void main() {
     expect(calibration.centerUs, 1600);
     expect(calibration.highUs, 2000);
   });
+
+  test('reverses final primary PWM around 1500 us', () {
+    expect(reversePrimaryOutputAroundCenter(900), 2100);
+    expect(reversePrimaryOutputAroundCenter(1000), 2000);
+    expect(reversePrimaryOutputAroundCenter(1500), 1500);
+    expect(reversePrimaryOutputAroundCenter(2000), 1000);
+    expect(reversePrimaryOutputAroundCenter(2100), 900);
+  });
 }

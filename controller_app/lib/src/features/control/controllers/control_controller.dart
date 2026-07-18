@@ -459,9 +459,16 @@ class ControlController extends StateNotifier<ControlScreenState> {
       0,
       0,
     ];
+    // 反向必须作用在校准、Trim 和履带混控之后的最终硬件输出值。
+    final finalThrottleUs = output?.ch1Us ?? throttleUs;
+    final finalSteeringUs = output?.ch2Us ?? steeringUs;
     final values = ReceiverControlValues(
-      throttle: output?.ch1Us ?? throttleUs,
-      steering: output?.ch2Us ?? steeringUs,
+      throttle: throttleSetting.reversed
+          ? reversePrimaryOutputAroundCenter(finalThrottleUs)
+          : finalThrottleUs,
+      steering: steeringSetting.reversed
+          ? reversePrimaryOutputAroundCenter(finalSteeringUs)
+          : finalSteeringUs,
       auxChannels: auxChannels,
     );
     final lastPushedValues = _lastPushedValues;

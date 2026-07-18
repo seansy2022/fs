@@ -152,7 +152,7 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     if (characteristic == null) {
       throw StateError('bluetooth write characteristic is not ready');
     }
-    // 常规调试仅记录失控保护；升级排查时额外记录升级命令原始帧。
+    // 常规调试记录失控保护和退出蓝牙模式；升级排查时额外记录升级命令原始帧。
     if (_isLoggedProtocolFrame(bytes)) {
       ReceiverLogging.transmittedBytes(
         bytes,
@@ -510,7 +510,7 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
       return false;
     }
     final command = bytes[2] & 0xFF;
-    if (command == 0x07 || command == 0x08) {
+    if (command == 0x07 || command == 0x08 || command == 0x20) {
       return true;
     }
     return ReceiverLogging.upgradeEnabled && command >= 0x11 && command <= 0x13;

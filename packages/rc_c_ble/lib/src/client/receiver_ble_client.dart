@@ -328,6 +328,10 @@ class ReceiverBleClient {
       matcher: (response) => response.command == ReceiverCommand.exitBleMode.id,
     );
     final state = parseExitBleModeState(frame);
+    ReceiverLogging.device(
+      '[exit-ble][0x20] state=$state',
+      scope: 'ReceiverBleClient',
+    );
     if (state != 1) {
       throw StateError('Receiver rejected exit BLE mode: state=$state');
     }
