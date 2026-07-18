@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:controller_app/src/core/providers.dart';
+import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
+import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
 import 'package:controller_app/src/features/settings/view/failsafe_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,20 +36,20 @@ void main() {
     await tester.tap(find.text('1500').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('固定值'), findsNWidgets(3));
+    expect(find.text('固定值'), findsNWidgets(4));
     expect(
       find.byKey(const ValueKey('numeric-input-dialog-padding')),
       findsOne,
     );
     expect(find.byType(TextField), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), '2200');
+    await tester.enterText(find.byType(TextField), '800');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
-    expect(find.text('2000'), findsOneWidget);
+    expect(find.text('900'), findsOneWidget);
     expect(repository.writtenConfigs.last.throttleUs, 1500);
-    expect(repository.writtenConfigs.last.steeringUs, 2000);
+    expect(repository.writtenConfigs.last.steeringUs, 900);
   });
 
   testWidgets('toggling failsafe hold writes bluetooth config', (tester) async {
@@ -66,12 +68,48 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.writtenConfigs.last.throttleUs, 1500);
-    expect(repository.writtenConfigs.last.steeringUs, 0);
+    expect(repository.writtenConfigs.last.steeringUs, 1500);
+    expect(repository.writtenConfigs.last.steeringHold, isTrue);
+  });
+
+  testWidgets('disabled CH3 is fixed at 1500 and cannot be edited', (
+    tester,
+  ) async {
+    final repository = _FakeReceiverRepository();
+    final settingsController = SettingsController();
+    final ch3 = settingsController.state.channels[2];
+    settingsController.updateChannel(
+      2,
+      ch3.copyWith(controlType: AuxControlType.disabled),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          appSettingsProvider.overrideWith((ref) => settingsController),
+        ],
+        child: const MaterialApp(home: FailsafePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final valueButton = tester.widget<ItemButton>(
+      find.byKey(const ValueKey<String>('failsafe-CH3-value')),
+    );
+    final disabledButton = tester.widget<ItemButton>(
+      find.byKey(const ValueKey<String>('failsafe-CH3-mode')),
+    );
+
+    expect(valueButton.onTap, isNull);
+    expect(disabledButton.onTap, isNull);
+    expect(repository.writtenConfigs, isEmpty);
   });
 }
 
 class _FakeReceiverRepository implements ReceiverRepository {
-  final List<ReceiverFailsafeConfig> writtenConfigs = <ReceiverFailsafeConfig>[];
+  final List<ReceiverFailsafeConfig> writtenConfigs =
+      <ReceiverFailsafeConfig>[];
   final ReceiverInfo _receiverInfo = ReceiverInfo(
     rfmId: Uint8List.fromList(const [0x01, 0x02, 0x03, 0x04]),
     productModelCode: 0,

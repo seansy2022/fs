@@ -60,11 +60,19 @@ ReceiverFrame buildControlHeartbeatFrame(
   );
 }
 
-ReceiverFrame buildExitBleModeRequest(Uint8List rfmId) {
+/// 构建退出接收机蓝牙模式指令，协议不携带接收机 ID 或业务数据。
+ReceiverFrame buildExitBleModeRequest() {
   return ReceiverFrame(
     command: ReceiverCommand.exitBleMode.id,
-    data: <int>[...rfmId, 0, 0, 0, 0],
+    data: const <int>[],
   );
+}
+
+/// 解析退出蓝牙模式应答中的状态码，1 表示接收机已成功处理指令。
+int parseExitBleModeState(ReceiverFrame frame) {
+  _requireCommand(frame, ReceiverCommand.exitBleMode);
+  _requireDataLength(frame, 1);
+  return frame.data.first & 0xFF;
 }
 
 ReceiverFrame buildReadFailsafeRequest(Uint8List rfmId) {
@@ -74,6 +82,12 @@ ReceiverFrame buildReadFailsafeRequest(Uint8List rfmId) {
   );
 }
 
+const _failsafeSteeringHoldFlag = 0x01;
+const _failsafeThrottleHoldFlag = 0x02;
+const _failsafeCh3HoldFlag = 0x04;
+const _failsafeCh4HoldFlag = 0x08;
+const _failsafeHoldFlagDataIndex = 23;
+
 ReceiverFailsafeConfig parseFailsafeResponse(ReceiverFrame frame) {
   final cmd = ReceiverCommand.fromId(frame.command);
   if (cmd != ReceiverCommand.readFailsafe &&
@@ -82,10 +96,18 @@ ReceiverFailsafeConfig parseFailsafeResponse(ReceiverFrame frame) {
       'Unexpected failsafe command: 0x${frame.command.toRadixString(16)}',
     );
   }
-  _requireDataLength(frame, 8);
+  _requireDataLength(frame, _failsafeHoldFlagDataIndex + 1);
+  final holdFlags = frame.data[_failsafeHoldFlagDataIndex];
   return ReceiverFailsafeConfig(
-    throttleUs: decodeWord(frame.data[4], frame.data[5]),
-    steeringUs: decodeWord(frame.data[6], frame.data[7]),
+    // 0x07/0x08 协议中 CH2 方向在前，CH1 油门在后。
+    steeringUs: decodeWord(frame.data[4], frame.data[5]),
+    throttleUs: decodeWord(frame.data[6], frame.data[7]),
+    ch3Us: decodeWord(frame.data[8], frame.data[9]),
+    ch4Us: decodeWord(frame.data[10], frame.data[11]),
+    steeringHold: holdFlags & _failsafeSteeringHoldFlag != 0,
+    throttleHold: holdFlags & _failsafeThrottleHoldFlag != 0,
+    ch3Hold: holdFlags & _failsafeCh3HoldFlag != 0,
+    ch4Hold: holdFlags & _failsafeCh4HoldFlag != 0,
   );
 }
 
@@ -97,11 +119,25 @@ ReceiverFrame buildWriteFailsafeRequest(
     command: ReceiverCommand.writeFailsafe.id,
     data: <int>[
       ...rfmId,
-      ...encodeWord(config.throttleUs),
       ...encodeWord(config.steeringUs),
-      ...List<int>.filled(16, 0, growable: false),
+      ...encodeWord(config.throttleUs),
+      // 0x08 的 CH3、CH4 紧随 CH2 方向和 CH1 油门。
+      ...encodeWord(config.ch3Us),
+      ...encodeWord(config.ch4Us),
+      ...List<int>.filled(11, 0, growable: false),
+      _buildFailsafeHoldFlags(config),
     ],
   );
+}
+
+/// 将四路保持状态编码到失控保护 Data[23] 的低四位。
+int _buildFailsafeHoldFlags(ReceiverFailsafeConfig config) {
+  var flags = 0;
+  if (config.steeringHold) flags |= _failsafeSteeringHoldFlag;
+  if (config.throttleHold) flags |= _failsafeThrottleHoldFlag;
+  if (config.ch3Hold) flags |= _failsafeCh3HoldFlag;
+  if (config.ch4Hold) flags |= _failsafeCh4HoldFlag;
+  return flags;
 }
 
 ReceiverFrame buildFirmwareInfoRequest(Uint8List rfmId) {

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
+import '../controllers/aux_failsafe_sync.dart';
 import '../controllers/channel_value_constraints.dart';
 import '../models/aux_channel_value_rules.dart';
 import '../controllers/settings_controller.dart';
@@ -389,6 +392,9 @@ class _ChannelSettingsContentState
         final selectedType = AuxControlType.values.firstWhere(
           (value) => _controlTypeLabel(value) == selection,
         );
+        final becameDisabled =
+            selectedType == AuxControlType.disabled &&
+            channel.controlType != AuxControlType.disabled;
         controller.updateChannel(
           channelIndex,
           channel.copyWith(
@@ -405,8 +411,34 @@ class _ChannelSettingsContentState
             ),
           ),
         );
+        if (becameDisabled) {
+          unawaited(_syncDisabledAuxFailsafe(channelIndex));
+        }
       },
     );
+  }
+
+  /// 禁用 CH3/CH4 时，读取当前完整失控保护配置后仅改该路为 1500 us。
+  Future<void> _syncDisabledAuxFailsafe(int channelIndex) async {
+    if (channelIndex < 2 || channelIndex > 3) {
+      return;
+    }
+    try {
+      await syncDisabledAuxFailsafe(
+        repository: ref.read(receiverRepositoryProvider),
+        channelIndex: channelIndex,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      await AlertIconWidget.show(
+        context,
+        title: '同步失败',
+        message: '通道已设为禁用，但失控保护参数未能同步到接收机，请检查蓝牙连接后重试。',
+        confirmText: '知道了',
+      );
+    }
   }
 
   void _updateSwitchValue(

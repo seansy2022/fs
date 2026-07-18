@@ -15,8 +15,9 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
   }
 
   final Map<String, BluetoothDevice> _known = <String, BluetoothDevice>{};
+  // 通知帧必须同步交给请求匹配器，避免末包成功应答与超时竞争。
   final StreamController<List<int>> _incomingCtrl =
-      StreamController<List<int>>.broadcast();
+      StreamController<List<int>>.broadcast(sync: true);
   StreamSubscription<List<int>>? _notifySub;
   BluetoothDevice? _activeDevice;
   BluetoothCharacteristic? _writeCharacteristic;
@@ -261,9 +262,11 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
             _lastSentBytes != null &&
             _lastSentBytes!.length == value.length &&
             _sameBytes(_lastSentBytes!, value);
-        final useEchoAsLengthReply =
-            possibleEcho && _frameCommand(value) == 0x13;
-        if (possibleEcho && !useEchoAsLengthReply) {
+        final command = _frameCommand(value);
+        // 0x08 的设备应答可能与请求帧完全相同，不能按写入回显丢弃。
+        final useEchoAsProtocolReply =
+            possibleEcho && (command == 0x08 || command == 0x13);
+        if (possibleEcho && !useEchoAsProtocolReply) {
           return;
         }
         if (_isLoggedProtocolFrame(value)) {
@@ -510,7 +513,7 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     if (command == 0x07 || command == 0x08) {
       return true;
     }
-    return ReceiverLogging.upgradeEnabled && command >= 0x11 && command <= 0x14;
+    return ReceiverLogging.upgradeEnabled && command >= 0x11 && command <= 0x13;
   }
 
   int? _frameCommand(List<int> bytes) {

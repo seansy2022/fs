@@ -58,4 +58,22 @@ void main() {
     expect(output.ch1Us, 2000);
     expect(output.ch2Us, 1500);
   });
+
+  test('applies negative tank mixing ratios', () {
+    final output = mixTankOutputs(
+      throttleUs: 1700,
+      steeringUs: 1500,
+      ch1: channel,
+      ch2: channel,
+      ratios: const TankMixRatios(
+        forward: -50,
+        reverse: 100,
+        leftTurn: 100,
+        rightTurn: 100,
+      ),
+    );
+
+    expect(output.ch1Us, 1400);
+    expect(output.ch2Us, 1400);
+  });
 }

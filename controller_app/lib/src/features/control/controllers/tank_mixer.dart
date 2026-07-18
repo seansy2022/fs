@@ -33,8 +33,9 @@ TankMixOutput mixTankOutputs({
   final steeringDelta = ch2.centerUs - steeringUs;
   final driveRatio = throttleDelta >= 0 ? ratios.forward : ratios.reverse;
   final turnRatio = steeringDelta >= 0 ? ratios.leftTurn : ratios.rightTurn;
-  final drive = throttleDelta * (driveRatio.clamp(0, 100) / 100);
-  final turn = steeringDelta * (turnRatio.clamp(0, 100) / 100);
+  // 负比例表示反向混控，不能截断为 0。
+  final drive = throttleDelta * (driveRatio.clamp(-100, 100) / 100);
+  final turn = steeringDelta * (turnRatio.clamp(-100, 100) / 100);
   return TankMixOutput(
     ch1Us: ch1.clamp((ch1.centerUs + drive + turn).round()),
     ch2Us: ch2.clamp((ch2.centerUs + drive - turn).round()),

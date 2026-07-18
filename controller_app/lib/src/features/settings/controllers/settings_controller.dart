@@ -44,10 +44,10 @@ class SettingsController extends StateNotifier<AppSettingsState> {
     double? rightTurn,
   }) {
     state = state.copyWith(
-      tankForwardPercent: forward?.clamp(0, 100).toDouble(),
-      tankReversePercent: reverse?.clamp(0, 100).toDouble(),
-      tankLeftTurnPercent: leftTurn?.clamp(0, 100).toDouble(),
-      tankRightTurnPercent: rightTurn?.clamp(0, 100).toDouble(),
+      tankForwardPercent: forward?.clamp(-100, 100).toDouble(),
+      tankReversePercent: reverse?.clamp(-100, 100).toDouble(),
+      tankLeftTurnPercent: leftTurn?.clamp(-100, 100).toDouble(),
+      tankRightTurnPercent: rightTurn?.clamp(-100, 100).toDouble(),
     );
     _persist();
   }

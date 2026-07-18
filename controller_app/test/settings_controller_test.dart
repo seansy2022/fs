@@ -119,6 +119,27 @@ void main() {
     expect(restored.tankRightTurnPercent, 100);
   });
 
+  test(
+    'settings controller clamps tank mixing ratios to signed range',
+    () async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final controller = SettingsController();
+
+      await Future<void>.delayed(Duration.zero);
+      controller.updateTankMixRatios(
+        forward: -120,
+        reverse: 120,
+        leftTurn: -100,
+        rightTurn: 100,
+      );
+
+      expect(controller.state.tankForwardPercent, -100);
+      expect(controller.state.tankReversePercent, 100);
+      expect(controller.state.tankLeftTurnPercent, -100);
+      expect(controller.state.tankRightTurnPercent, 100);
+    },
+  );
+
   test('legacy auxiliary functions map to new aux control types', () {
     final state = AppSettingsState.fromJson(const <String, Object?>{
       'handedness': 'rightThrottle',

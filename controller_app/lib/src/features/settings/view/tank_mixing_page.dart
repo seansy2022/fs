@@ -37,10 +37,10 @@ class _TankMixingContentState extends ConsumerState<TankMixingContent> {
     final settings = ref.watch(appSettingsProvider);
     final controller = ref.read(appSettingsProvider.notifier);
     final enabled = settings.tankMixingEnabled;
-    final forward = settings.tankForwardPercent.round().clamp(0, 100);
-    final backward = settings.tankReversePercent.round().clamp(0, 100);
-    final left = settings.tankLeftTurnPercent.round().clamp(0, 100);
-    final right = settings.tankRightTurnPercent.round().clamp(0, 100);
+    final forward = settings.tankForwardPercent.round().clamp(-100, 100);
+    final backward = settings.tankReversePercent.round().clamp(-100, 100);
+    final left = settings.tankLeftTurnPercent.round().clamp(-100, 100);
+    final right = settings.tankRightTurnPercent.round().clamp(-100, 100);
 
     return Column(
       children: [
@@ -110,12 +110,15 @@ class _TankMixingContentState extends ConsumerState<TankMixingContent> {
       title: title,
       initialValue: initialValue.toString(),
       unit: '%',
+      allowSigned: true,
       allowDecimal: false,
-      maxLength: 3,
+      maxAbsValue: 100,
+      maxLength: 4,
     );
     final parsed = int.tryParse(raw?.trim() ?? '');
     if (parsed == null) return;
-    onChanged(parsed.clamp(0, 100));
+    // 履带混控支持正反向比例，统一限制为 -100%–100%。
+    onChanged(parsed.clamp(-100, 100));
   }
 }
 

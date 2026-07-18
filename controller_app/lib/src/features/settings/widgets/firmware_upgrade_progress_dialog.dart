@@ -113,6 +113,7 @@ class _FirmwareProgressDialogState extends State<FirmwareProgressDialog> {
       elevation: 0,
       insetPadding: EdgeInsets.zero,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: _tryClose,
         child: FirmwareUpgradeStatusView(
           state: _state,

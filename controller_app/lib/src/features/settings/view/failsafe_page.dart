@@ -9,6 +9,7 @@ import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
 import '../../../provider/global_reconnect_provider.dart';
+import '../models/app_settings_state.dart';
 import '../widgets/numeric_input_dialog.dart';
 import '../widgets/settings_workspace.dart';
 
@@ -40,8 +41,12 @@ class FailsafeContent extends ConsumerStatefulWidget {
 class _FailsafeContentState extends ConsumerState<FailsafeContent> {
   int _steeringUs = 1500;
   int _throttleUs = 1500;
+  int _ch3Us = 1500;
+  int _ch4Us = 1500;
   bool _steeringHold = true;
   bool _throttleHold = true;
+  bool _ch3Hold = true;
+  bool _ch4Hold = true;
   bool _testing = false;
   bool _loading = false;
 
@@ -71,8 +76,12 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
       setState(() {
         _steeringUs = config.steeringUs;
         _throttleUs = config.throttleUs;
+        _ch3Us = config.ch3Us;
+        _ch4Us = config.ch4Us;
         _steeringHold = config.steeringHold;
         _throttleHold = config.throttleHold;
+        _ch3Hold = config.ch3Hold;
+        _ch4Hold = config.ch4Hold;
       });
     } catch (_) {
       // Use defaults
@@ -139,10 +148,21 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
     }
   }
 
-  ReceiverFailsafeConfig get _currentConfig => ReceiverFailsafeConfig(
-    throttleUs: _throttleHold ? 0 : _throttleUs,
-    steeringUs: _steeringHold ? 0 : _steeringUs,
-  );
+  /// 组装失控保护全量写入参数；保持状态由 Data[23] 位标志表达。
+  ReceiverFailsafeConfig get _currentConfig {
+    final channels = ref.read(appSettingsProvider).channels;
+    return ReceiverFailsafeConfig(
+      throttleUs: _throttleUs,
+      steeringUs: _steeringUs,
+      throttleHold: _throttleHold,
+      steeringHold: _steeringHold,
+      // 辅助通道被禁用时，强制写入中位值，避免保留旧的失控保护输出。
+      ch3Us: _isAuxChannelDisabled(channels, 2) ? 1500 : _ch3Us,
+      ch4Us: _isAuxChannelDisabled(channels, 3) ? 1500 : _ch4Us,
+      ch3Hold: _isAuxChannelDisabled(channels, 2) ? false : _ch3Hold,
+      ch4Hold: _isAuxChannelDisabled(channels, 3) ? false : _ch4Hold,
+    );
+  }
 
   Future<bool> _ensureReceiverReady() async {
     final repository = ref.read(receiverRepositoryProvider);
@@ -221,50 +241,134 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
     }
   }
 
+  /// 切换 CH3 的保持状态；失败时恢复页面中的原有选择。
+  Future<void> _setCh3Hold(bool hold) async {
+    final previous = _ch3Hold;
+    setState(() => _ch3Hold = hold);
+    try {
+      await _saveConfig();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _ch3Hold = previous);
+      }
+    }
+  }
+
+  /// 切换 CH4 的保持状态；失败时恢复页面中的原有选择。
+  Future<void> _setCh4Hold(bool hold) async {
+    final previous = _ch4Hold;
+    setState(() => _ch4Hold = hold);
+    try {
+      await _saveConfig();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _ch4Hold = previous);
+      }
+    }
+  }
+
+  /// 更新 CH3 固定值；写入失败后回退为修改前的数值。
+  Future<void> _setCh3Value(int valueUs) async {
+    final previous = _ch3Us;
+    setState(() => _ch3Us = valueUs);
+    try {
+      await _saveConfig();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _ch3Us = previous);
+      }
+    }
+  }
+
+  /// 更新 CH4 固定值；写入失败后回退为修改前的数值。
+  Future<void> _setCh4Value(int valueUs) async {
+    final previous = _ch4Us;
+    setState(() => _ch4Us = valueUs);
+    try {
+      await _saveConfig();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _ch4Us = previous);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) => SizedBox(
-        height: constraints.maxHeight,
-        child: Column(
-          children: [
-            _FailsafeChannelStrip(
-              title: '方向',
-              valueUs: _steeringUs,
-              hold: _steeringHold,
-              onHoldChanged: (v) => unawaited(_setSteeringHold(v)),
-              onValueChanged: (v) => unawaited(_setSteeringValue(v)),
-              enabled: !_loading,
-            ),
-            const SizedBox(height: 8),
-            _FailsafeChannelStrip(
-              title: '油门',
-              valueUs: _throttleUs,
-              hold: _throttleHold,
-              onHoldChanged: (v) => unawaited(_setThrottleHold(v)),
-              onValueChanged: (v) => unawaited(_setThrottleValue(v)),
-              enabled: !_loading,
-            ),
-            const Spacer(),
-            Center(
-              child: SizedBox(
-                width: 174,
-                height: 44,
-                child: PrimaryButton(
-                  text: 'TEST',
-                  type: PrimaryButtonType.primary,
-                  enabled: true,
-                  padding: EdgeInsets.zero,
-                  onTap: _testing ? _restoreControl : _startTest,
+    final channels = ref.watch(appSettingsProvider).channels;
+    final ch3Disabled = _isAuxChannelDisabled(channels, 2);
+    final ch4Disabled = _isAuxChannelDisabled(channels, 3);
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                _FailsafeChannelStrip(
+                  title: '方向',
+                  valueUs: _steeringUs,
+                  hold: _steeringHold,
+                  onHoldChanged: (v) => unawaited(_setSteeringHold(v)),
+                  onValueChanged: (v) => unawaited(_setSteeringValue(v)),
+                  enabled: !_loading,
                 ),
-              ),
+                const SizedBox(height: 8),
+                _FailsafeChannelStrip(
+                  title: '油门',
+                  valueUs: _throttleUs,
+                  hold: _throttleHold,
+                  onHoldChanged: (v) => unawaited(_setThrottleHold(v)),
+                  onValueChanged: (v) => unawaited(_setThrottleValue(v)),
+                  enabled: !_loading,
+                ),
+                const SizedBox(height: 8),
+                _FailsafeChannelStrip(
+                  title: 'CH3',
+                  valueUs: _ch3Us,
+                  hold: _ch3Hold,
+                  disabled: ch3Disabled,
+                  onHoldChanged: (v) => unawaited(_setCh3Hold(v)),
+                  onValueChanged: (v) => unawaited(_setCh3Value(v)),
+                  enabled: !_loading,
+                ),
+                const SizedBox(height: 8),
+                _FailsafeChannelStrip(
+                  title: 'CH4',
+                  valueUs: _ch4Us,
+                  hold: _ch4Hold,
+                  disabled: ch4Disabled,
+                  onHoldChanged: (v) => unawaited(_setCh4Hold(v)),
+                  onValueChanged: (v) => unawaited(_setCh4Value(v)),
+                  enabled: !_loading,
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 10),
+        Center(
+          child: SizedBox(
+            width: 174,
+            height: 44,
+            child: PrimaryButton(
+              text: 'TEST',
+              type: PrimaryButtonType.primary,
+              enabled: true,
+              padding: EdgeInsets.zero,
+              onTap: _testing ? _restoreControl : _startTest,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+      ],
     );
   }
+}
+
+/// 判断 CH3/CH4 是否在通道设置中被明确禁用。
+bool _isAuxChannelDisabled(List<ChannelSetting> channels, int channelIndex) {
+  return channelIndex >= channels.length ||
+      channels[channelIndex].controlType == AuxControlType.disabled;
 }
 
 class _FailsafeChannelStrip extends StatefulWidget {
@@ -275,6 +379,7 @@ class _FailsafeChannelStrip extends StatefulWidget {
     required this.onHoldChanged,
     required this.onValueChanged,
     required this.enabled,
+    this.disabled = false,
   });
 
   final String title;
@@ -283,6 +388,7 @@ class _FailsafeChannelStrip extends StatefulWidget {
   final ValueChanged<bool> onHoldChanged;
   final ValueChanged<int> onValueChanged;
   final bool enabled;
+  final bool disabled;
 
   @override
   State<_FailsafeChannelStrip> createState() => _FailsafeChannelStripState();
@@ -291,6 +397,9 @@ class _FailsafeChannelStrip extends StatefulWidget {
 class _FailsafeChannelStripState extends State<_FailsafeChannelStrip> {
   @override
   Widget build(BuildContext context) {
+    final showValueInput = !widget.hold || widget.disabled;
+    final valueUs = widget.disabled ? 1500 : widget.valueUs;
+    final canEdit = widget.enabled && !widget.disabled;
     return SettingsStrip(
       child: Row(
         children: [
@@ -302,26 +411,32 @@ class _FailsafeChannelStripState extends State<_FailsafeChannelStrip> {
             ),
           ),
           const Spacer(),
-          if (!widget.hold) ...[
-            ItemButton(
-              text: '${widget.valueUs}',
-              selected: true,
-              fontSize: 14,
-              width: 88,
-              height: 28,
-              onTap: widget.enabled ? () => _editValue(context) : null,
+          if (showValueInput) ...[
+            Opacity(
+              opacity: widget.disabled ? 0.4 : 1,
+              child: ItemButton(
+                key: ValueKey<String>('failsafe-${widget.title}-value'),
+                text: '$valueUs',
+                selected: true,
+                fontSize: 14,
+                width: 88,
+                height: 28,
+                onTap: canEdit ? () => _editValue(context) : null,
+              ),
             ),
             const SizedBox(width: 12),
           ],
-          ItemButton(
-            text: widget.hold ? '保持' : '固定值',
-            selected: true,
-            fontSize: 14,
-            width: 74,
-            height: 28,
-            onTap: widget.enabled
-                ? () => widget.onHoldChanged(!widget.hold)
-                : null,
+          Opacity(
+            opacity: widget.disabled ? 0.4 : 1,
+            child: ItemButton(
+              key: ValueKey<String>('failsafe-${widget.title}-mode'),
+              text: widget.disabled ? '禁用' : (widget.hold ? '保持' : '固定值'),
+              selected: true,
+              fontSize: 14,
+              width: 74,
+              height: 28,
+              onTap: canEdit ? () => widget.onHoldChanged(!widget.hold) : null,
+            ),
           ),
         ],
       ),
@@ -335,10 +450,12 @@ class _FailsafeChannelStripState extends State<_FailsafeChannelStrip> {
       initialValue: widget.valueUs.toString(),
       unit: 'us',
       allowDecimal: false,
+      maxAbsValue: 2100,
       maxLength: 4,
     );
     final parsed = int.tryParse(raw?.trim() ?? '');
     if (parsed == null) return;
-    widget.onValueChanged(parsed.clamp(1000, 2000));
+    // 失控保护四路固定值统一限制为 900–2100 us。
+    widget.onValueChanged(parsed.clamp(900, 2100));
   }
 }

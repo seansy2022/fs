@@ -68,6 +68,23 @@ void main() {
     expect(info.batteryLevel, 0);
   });
 
+  test('builds the cmd 0x20 exit BLE mode request without payload', () {
+    final frame = buildExitBleModeRequest();
+
+    expect(frame.command, ReceiverCommand.exitBleMode.id);
+    expect(frame.data, isEmpty);
+    expect(frame.toBytes(), const [0xFA, 0x05, 0x20, 0x01, 0x1F]);
+  });
+
+  test('parses cmd 0x20 exit BLE mode success state', () {
+    final frame = ReceiverFrame(
+      command: ReceiverCommand.exitBleMode.id,
+      data: const [1],
+    );
+
+    expect(parseExitBleModeState(frame), 1);
+  });
+
   test('builds cmd 0x02 with steering before throttle', () {
     final frame = buildControlHeartbeatFrame(
       Uint8List.fromList(const [0x11, 0x22, 0x33, 0x44]),
@@ -83,12 +100,42 @@ void main() {
   test('parses failsafe response', () {
     final frame = ReceiverFrame(
       command: ReceiverCommand.readFailsafe.id,
-      data: const [0xAA, 0xBB, 0xCC, 0xDD, 0x05, 0xDC, 0x00, 0x00],
+      data: const [
+        0xAA,
+        0xBB,
+        0xCC,
+        0xDD,
+        0x00,
+        0x00,
+        0x05,
+        0xDC,
+        0x06,
+        0x40,
+        0x03,
+        0xE8,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x0D,
+      ],
     );
     final config = parseFailsafeResponse(frame);
     expect(config.throttleUs, 1500);
     expect(config.steeringUs, 0);
     expect(config.steeringHold, isTrue);
+    expect(config.throttleHold, isFalse);
+    expect(config.ch3Us, 1600);
+    expect(config.ch3Hold, isTrue);
+    expect(config.ch4Us, 1000);
+    expect(config.ch4Hold, isTrue);
   });
 
   test('failsafe requests preserve the receiver RFM ID', () {
@@ -96,14 +143,32 @@ void main() {
     final readRequest = buildReadFailsafeRequest(rfmId);
     final writeRequest = buildWriteFailsafeRequest(
       rfmId,
-      const ReceiverFailsafeConfig(throttleUs: 1500, steeringUs: 1600),
+      const ReceiverFailsafeConfig(
+        throttleUs: 1500,
+        steeringUs: 1600,
+        ch3Us: 1700,
+        ch4Us: 1300,
+        steeringHold: true,
+        ch3Hold: true,
+      ),
     );
 
     expect(readRequest.command, ReceiverCommand.readFailsafe.id);
     expect(readRequest.data.take(4), rfmId);
     expect(writeRequest.command, ReceiverCommand.writeFailsafe.id);
     expect(writeRequest.data.take(4), rfmId);
-    expect(writeRequest.data.skip(4).take(4), [0x05, 0xDC, 0x06, 0x40]);
+    expect(writeRequest.data.skip(4).take(8), [
+      0x06,
+      0x40,
+      0x05,
+      0xDC,
+      0x06,
+      0xA4,
+      0x05,
+      0x14,
+    ]);
+    expect(writeRequest.data, hasLength(24));
+    expect(writeRequest.data[23], 0x05);
   });
 
   test('control values keep zero for undefined aux channels', () {
@@ -206,7 +271,22 @@ void main() {
         transport.emit(
           ReceiverFrame(
             command: ReceiverCommand.readFailsafe.id,
-            data: const [0x11, 0x22, 0x33, 0x44, 0x05, 0xDC, 0x06, 0x40],
+            data: <int>[
+              0x11,
+              0x22,
+              0x33,
+              0x44,
+              0x06,
+              0x40,
+              0x05,
+              0xDC,
+              0x05,
+              0xDC,
+              0x05,
+              0xDC,
+              ...List<int>.filled(11, 0, growable: false),
+              0x00,
+            ],
           ).toBytes(),
         );
       }
@@ -229,6 +309,7 @@ void main() {
     final transport = _FakeTransport();
     final client = ReceiverBleClient(transport: transport);
     var bootResponseIndex = 0;
+    var finalChunkResponseCount = 0;
     const bootStates = [0, 1, 2, 3];
     transport.onSend = (bytes) {
       final frame = ReceiverFrame.tryParse(bytes)!;
@@ -261,10 +342,14 @@ void main() {
         );
       } else if (frame.command == ReceiverCommand.sendUpgradeChunk.id) {
         final seq = _decodeWord(frame.data, 0);
+        if (seq == 1) {
+          finalChunkResponseCount++;
+        }
+        final state = seq == 1 && finalChunkResponseCount >= 3 ? 2 : 1;
         transport.emit(
           ReceiverFrame(
             command: ReceiverCommand.sendUpgradeChunk.id,
-            data: <int>[(seq >> 8) & 0xFF, seq & 0xFF, seq == 1 ? 2 : 1],
+            data: <int>[(seq >> 8) & 0xFF, seq & 0xFF, state],
           ).toBytes(),
         );
       }
@@ -281,6 +366,7 @@ void main() {
           .toList();
       expect(progress.last.stage, ReceiverUpgradeStage.completed);
       expect(progress.last.sentChunks, 2);
+      expect(finalChunkResponseCount, 3);
       expect(bootResponseIndex, 4);
       expect(
         transport.sentFrames
@@ -295,64 +381,71 @@ void main() {
     }
   });
 
-  test('client upgrade continues when length state is not accepted', () async {
-    final transport = _FakeTransport();
-    final client = ReceiverBleClient(transport: transport);
-    transport.onSend = (bytes) {
-      final frame = ReceiverFrame.tryParse(bytes)!;
-      if (frame.command == ReceiverCommand.receiverInfo.id) {
-        transport.emit(
-          ReceiverFrame(
-            command: ReceiverCommand.receiverInfo.id,
-            data: const [0x11, 0x22, 0x33, 0x44, 0x01, 0x02, 95, 0],
-          ).toBytes(),
-        );
-      } else if (frame.command == ReceiverCommand.startUpgradeBoot.id) {
-        transport.emit(
-          ReceiverFrame(
-            command: ReceiverCommand.startUpgradeBoot.id,
-            data: const [0x11, 0x22, 0x33, 0x44, 3, 0, 0, 0],
-          ).toBytes(),
-        );
-        transport.emitConnectionState(ReceiverLinkConnectionState.disconnected);
-      } else if (frame.command == ReceiverCommand.setUpgradeLength.id) {
-        transport.emit(
-          ReceiverFrame(
-            command: ReceiverCommand.setUpgradeLength.id,
-            data: const [0, 0, 0, 23, 0, 0, 0, 0],
-          ).toBytes(),
-        );
-      } else if (frame.command == ReceiverCommand.sendUpgradeChunk.id) {
-        final seq = _decodeWord(frame.data, 0);
-        transport.emit(
-          ReceiverFrame(
-            command: ReceiverCommand.sendUpgradeChunk.id,
-            data: <int>[(seq >> 8) & 0xFF, seq & 0xFF, 2],
-          ).toBytes(),
-        );
-      }
-    };
-
-    try {
-      await client.connect('dev-1');
-      await client.readReceiverInfo();
-
-      final progress = await client
-          .startUpgrade(
-            Uint8List.fromList(List<int>.generate(23, (index) => index)),
-          )
-          .toList();
-      expect(progress.last.stage, ReceiverUpgradeStage.completed);
-      expect(
-        transport.sentFrames.any(
-          (frame) => frame.command == ReceiverCommand.sendUpgradeChunk.id,
-        ),
-        isTrue,
+  test(
+    'debug upgrade skips boot switch and continues on length state',
+    () async {
+      final transport = _FakeTransport();
+      final client = ReceiverBleClient(
+        transport: transport,
+        skipBootUpgradeForDebug: true,
       );
-    } finally {
-      await client.dispose();
-    }
-  });
+      var lengthResponseCount = 0;
+      transport.onSend = (bytes) {
+        final frame = ReceiverFrame.tryParse(bytes)!;
+        if (frame.command == ReceiverCommand.receiverInfo.id) {
+          transport.emit(
+            ReceiverFrame(
+              command: ReceiverCommand.receiverInfo.id,
+              data: const [0x11, 0x22, 0x33, 0x44, 0x01, 0x02, 95, 0],
+            ).toBytes(),
+          );
+        } else if (frame.command == ReceiverCommand.setUpgradeLength.id) {
+          final state = ++lengthResponseCount >= 2 ? 1 : 0;
+          transport.emit(
+            ReceiverFrame(
+              command: ReceiverCommand.setUpgradeLength.id,
+              data: [0, 0, 0, 23, state, 0, 0, 0],
+            ).toBytes(),
+          );
+        } else if (frame.command == ReceiverCommand.sendUpgradeChunk.id) {
+          final seq = _decodeWord(frame.data, 0);
+          transport.emit(
+            ReceiverFrame(
+              command: ReceiverCommand.sendUpgradeChunk.id,
+              data: <int>[(seq >> 8) & 0xFF, seq & 0xFF, 2],
+            ).toBytes(),
+          );
+        }
+      };
+
+      try {
+        await client.connect('dev-1');
+        await client.readReceiverInfo();
+
+        final progress = await client
+            .startUpgrade(
+              Uint8List.fromList(List<int>.generate(23, (index) => index)),
+            )
+            .toList();
+        expect(progress.last.stage, ReceiverUpgradeStage.completed);
+        expect(lengthResponseCount, 2);
+        expect(
+          transport.sentFrames.any(
+            (frame) => frame.command == ReceiverCommand.sendUpgradeChunk.id,
+          ),
+          isTrue,
+        );
+        expect(
+          transport.sentFrames.any(
+            (frame) => frame.command == ReceiverCommand.startUpgradeBoot.id,
+          ),
+          isFalse,
+        );
+      } finally {
+        await client.dispose();
+      }
+    },
+  );
 
   test(
     'control heartbeat applies queued aux pulse for one frame at a time',

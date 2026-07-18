@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
@@ -21,6 +23,7 @@ class ReceiverBleModeController {
       ref.read(receiverRepositoryProvider).connectionState ==
       ReceiverConnectionState.connected;
 
+  /// 退出接收机蓝牙模式；仅在设备无应答超时时按退出成功继续断开连接。
   Future<ReceiverBleModeExitResult> exitBleModeAndDisconnect() async {
     if (!isConnected) {
       return ReceiverBleModeExitResult.notConnected;
@@ -28,9 +31,10 @@ class ReceiverBleModeController {
 
     try {
       await ref.read(receiverRepositoryProvider).exitBleMode();
+    } on TimeoutException {
+      // 接收机可能先离开蓝牙模式再回包，超时按退出成功继续断开连接。
     } catch (_) {
-      // The receiver may leave BLE mode before replying, so a timeout here
-      // does not necessarily mean the operation failed.
+      return ReceiverBleModeExitResult.failed;
     }
 
     final disconnected = await ref

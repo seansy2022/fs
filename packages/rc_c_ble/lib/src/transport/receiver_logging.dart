@@ -14,6 +14,9 @@ class ReceiverLogging {
     defaultValue: false,
   );
 
+  /// 正常升级流程不跳过 0x12；仅测试或显式注入时才可开启跳过逻辑。
+  static const bool skipBootUpgradeForDebug = false;
+
   static void link(String message, {String scope = 'Link'}) {
     if (!linkEnabled) {
       return;

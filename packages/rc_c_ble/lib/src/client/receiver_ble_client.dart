@@ -16,8 +16,9 @@ class ReceiverBleClient {
 
   ReceiverBleClient({
     LinkTransport? transport,
-    this.requestTimeout = const Duration(milliseconds: 900),
+    this.requestTimeout = const Duration(seconds: 2),
     this.bootRequestRetryDelay = _defaultBootRequestRetryDelay,
+    this.skipBootUpgradeForDebug = ReceiverLogging.skipBootUpgradeForDebug,
   }) : _transport = transport ?? FlutterBlueReceiverTransport() {
     _incomingSub = _transport.incomingBytes.listen(_onBytes);
     _scanSub = _transport.scanResults.listen(
@@ -33,6 +34,7 @@ class ReceiverBleClient {
   final LinkTransport _transport;
   final Duration requestTimeout;
   final Duration bootRequestRetryDelay;
+  final bool skipBootUpgradeForDebug;
   final ReceiverFrameParser _parser = ReceiverFrameParser();
   static const Duration _scanRestartCooldown = Duration(milliseconds: 700);
   static const Duration _defaultBootRequestRetryDelay = Duration(
@@ -41,6 +43,8 @@ class ReceiverBleClient {
   static const Duration _bootDisconnectTimeout = Duration(seconds: 5);
   static const Duration _bootReconnectTimeout = Duration(seconds: 20);
   static const Duration _bootReconnectRetryDelay = Duration(milliseconds: 700);
+  static const Duration _upgradeLengthRetryDelay = Duration(milliseconds: 100);
+  static const int _maxFinalUpgradeChunkAttempts = 10;
 
   StreamSubscription<AdapterState>? _adapterSub;
   StreamSubscription<ReceiverLinkConnectionEvent>? _transportConnectionSub;
@@ -315,13 +319,18 @@ class ReceiverBleClient {
     _controlBuffer.queueAuxPulse(auxChannelIndex, value);
   }
 
+  /// 发送退出蓝牙模式指令，并确认接收机回传 state=1。
   Future<void> exitBleMode() async {
     _controlLoop?.cancel();
     _controlLoop = null;
-    await _sendRequest(
-      buildExitBleModeRequest(_requireRfmId()),
+    final frame = await _sendRequest(
+      buildExitBleModeRequest(),
       matcher: (response) => response.command == ReceiverCommand.exitBleMode.id,
     );
+    final state = parseExitBleModeState(frame);
+    if (state != 1) {
+      throw StateError('Receiver rejected exit BLE mode: state=$state');
+    }
   }
 
   Future<void> startControlLoop() async {
@@ -366,23 +375,30 @@ class ReceiverBleClient {
         'bytes=${firmwareBytes.length} chunks=$totalChunks chunkSize=23',
         scope: 'ReceiverBleClient',
       );
-      yield ReceiverUpgradeProgress(
-        stage: ReceiverUpgradeStage.enteringBoot,
-        sentChunks: 0,
-        totalChunks: totalChunks,
-      );
-      ReceiverLogging.phone(
-        '[upgrade][0x12] request boot mode',
-        scope: 'ReceiverBleClient',
-      );
-      await _waitForBootReady(rfmId);
+      if (skipBootUpgradeForDebug) {
+        ReceiverLogging.phone(
+          '[upgrade][debug] skip 0x12 Boot switch and reconnect',
+          scope: 'ReceiverBleClient',
+        );
+      } else {
+        yield ReceiverUpgradeProgress(
+          stage: ReceiverUpgradeStage.enteringBoot,
+          sentChunks: 0,
+          totalChunks: totalChunks,
+        );
+        ReceiverLogging.phone(
+          '[upgrade][0x12] request boot mode',
+          scope: 'ReceiverBleClient',
+        );
+        await _waitForBootReady(rfmId);
 
-      yield ReceiverUpgradeProgress(
-        stage: ReceiverUpgradeStage.waitingBootReconnect,
-        sentChunks: 0,
-        totalChunks: totalChunks,
-      );
-      await _reconnectForBootUpgrade(remoteId);
+        yield ReceiverUpgradeProgress(
+          stage: ReceiverUpgradeStage.waitingBootReconnect,
+          sentChunks: 0,
+          totalChunks: totalChunks,
+        );
+        await _reconnectForBootUpgrade(remoteId);
+      }
 
       yield ReceiverUpgradeProgress(
         stage: ReceiverUpgradeStage.sendingLength,
@@ -393,23 +409,7 @@ class ReceiverBleClient {
         '[upgrade][0x13] send firmware length=${firmwareBytes.length}',
         scope: 'ReceiverBleClient',
       );
-      final lengthFrame = await _sendRequest(
-        buildUpgradeLengthRequest(firmwareBytes.length),
-        matcher: (response) =>
-            response.command == ReceiverCommand.setUpgradeLength.id,
-      );
-      final lengthState = parseUpgradeState(lengthFrame, stateIndex: 4);
-      ReceiverLogging.device(
-        '[upgrade][0x13] response state=$lengthState '
-        'data=${ReceiverLogging.hexBytes(lengthFrame.data)}',
-        scope: 'ReceiverBleClient',
-      );
-      if (lengthState != 1) {
-        ReceiverLogging.device(
-          '[upgrade][0x13] ignore state=$lengthState and continue',
-          scope: 'ReceiverBleClient',
-        );
-      }
+      await _sendUpgradeLengthUntilAccepted(firmwareBytes.length);
 
       for (var index = 0; index < totalChunks; index++) {
         final start = index * 23;
@@ -417,31 +417,12 @@ class ReceiverBleClient {
             ? firmwareBytes.length
             : start + 23;
         final chunk = firmwareBytes.sublist(start, end);
-        ReceiverLogging.phone(
-          '[upgrade][0x14] send seq=$index/${totalChunks - 1} '
-          'offset=$start size=${chunk.length}',
-          scope: 'ReceiverBleClient',
+        final response = await _sendUpgradeChunk(
+          sequence: index,
+          chunk: chunk,
+          isLastChunk: index == totalChunks - 1,
         );
-        final response = await _sendRequest(
-          buildUpgradeChunkRequest(index, chunk),
-          matcher: (frame) =>
-              frame.command == ReceiverCommand.sendUpgradeChunk.id &&
-              frame.data.length == 3 &&
-              parseUpgradeChunkSequence(frame) == index,
-        );
-        final responseSeq = parseUpgradeChunkSequence(response);
         final responseState = parseUpgradeChunkState(response);
-        ReceiverLogging.device(
-          '[upgrade][0x14] ack seq=$responseSeq state=$responseState '
-          'data=${ReceiverLogging.hexBytes(response.data)}',
-          scope: 'ReceiverBleClient',
-        );
-        if (responseSeq != index) {
-          throw StateError('Upgrade sequence mismatch.');
-        }
-        if (responseState != 1 && responseState != 2) {
-          throw StateError('Unexpected upgrade state: $responseState');
-        }
         yield ReceiverUpgradeProgress(
           stage: responseState == 2
               ? ReceiverUpgradeStage.completed
@@ -449,11 +430,15 @@ class ReceiverBleClient {
           sentChunks: index + 1,
           totalChunks: totalChunks,
         );
+        if (responseState == 2) {
+          ReceiverLogging.device(
+            '[upgrade] completed sentChunks=${index + 1} '
+            'totalChunks=$totalChunks bytes=${firmwareBytes.length}',
+            scope: 'ReceiverBleClient',
+          );
+          return;
+        }
       }
-      ReceiverLogging.device(
-        '[upgrade] completed totalChunks=$totalChunks bytes=${firmwareBytes.length}',
-        scope: 'ReceiverBleClient',
-      );
     } catch (error) {
       ReceiverLogging.device(
         '[upgrade] failed error=$error',
@@ -465,6 +450,103 @@ class ReceiverBleClient {
         totalChunks: totalChunks,
         message: error.toString(),
       );
+    }
+  }
+
+  /// 发送升级分包；最后一包收到 state=1 时最多发送 10 次直到成功。
+  Future<ReceiverFrame> _sendUpgradeChunk({
+    required int sequence,
+    required List<int> chunk,
+    required bool isLastChunk,
+  }) async {
+    final maxAttempts = isLastChunk ? _maxFinalUpgradeChunkAttempts : 1;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      ReceiverFrame response;
+      try {
+        final request = buildUpgradeChunkRequest(sequence, chunk);
+        final requestBytes = request.toBytes();
+        ReceiverLogging.upgradePhone(
+          '[upgrade][0x14][tx] seq=$sequence attempt=$attempt '
+          'bytes(${requestBytes.length})=${ReceiverLogging.hexBytes(requestBytes)}',
+          scope: 'ReceiverBleClient',
+        );
+        response = await _sendRequest(
+          request,
+          matcher: (frame) =>
+              frame.command == ReceiverCommand.sendUpgradeChunk.id &&
+              frame.data.length == 3 &&
+              parseUpgradeChunkSequence(frame) == sequence,
+        );
+      } catch (error) {
+        ReceiverLogging.device(
+          '[upgrade][0x14] failed seq=$sequence attempt=$attempt error=$error',
+          scope: 'ReceiverBleClient',
+        );
+        rethrow;
+      }
+
+      final responseSeq = parseUpgradeChunkSequence(response);
+      final responseState = parseUpgradeChunkState(response);
+      if (responseSeq != sequence) {
+        ReceiverLogging.device(
+          '[upgrade][0x14] failed seq=$sequence responseSeq=$responseSeq '
+          'data=${ReceiverLogging.hexBytes(response.data)}',
+          scope: 'ReceiverBleClient',
+        );
+        throw StateError('Upgrade sequence mismatch.');
+      }
+      if (responseState != 1 && responseState != 2) {
+        ReceiverLogging.device(
+          '[upgrade][0x14] failed seq=$sequence state=$responseState '
+          'data=${ReceiverLogging.hexBytes(response.data)}',
+          scope: 'ReceiverBleClient',
+        );
+        throw StateError('Unexpected upgrade state: $responseState');
+      }
+      if (responseState == 2) {
+        ReceiverLogging.device(
+          '[upgrade][0x14] success seq=$responseSeq attempt=$attempt '
+          'data=${ReceiverLogging.hexBytes(response.data)}',
+          scope: 'ReceiverBleClient',
+        );
+        return response;
+      }
+      if (!isLastChunk) {
+        return response;
+      }
+    }
+
+    ReceiverLogging.device(
+      '[upgrade][0x14] failed seq=$sequence state=1 '
+      'after $_maxFinalUpgradeChunkAttempts attempts',
+      scope: 'ReceiverBleClient',
+    );
+    throw StateError('Final upgrade chunk did not reach success state.');
+  }
+
+  /// 循环发送 0x13 固件长度，直到接收器以 data[4] = 1 确认。
+  Future<void> _sendUpgradeLengthUntilAccepted(int length) async {
+    var attempt = 0;
+    while (true) {
+      attempt++;
+      final lengthFrame = await _sendRequest(
+        buildUpgradeLengthRequest(length),
+        matcher: (response) =>
+            response.command == ReceiverCommand.setUpgradeLength.id,
+      );
+      final lengthState = parseUpgradeState(lengthFrame, stateIndex: 4);
+      ReceiverLogging.device(
+        '[upgrade][0x13] attempt=$attempt state=$lengthState '
+        'data=${ReceiverLogging.hexBytes(lengthFrame.data)}',
+        scope: 'ReceiverBleClient',
+      );
+      if (lengthState == 1) {
+        return;
+      }
+      if (lengthState != 0) {
+        throw StateError('Unexpected upgrade length state: $lengthState');
+      }
+      await Future<void>.delayed(_upgradeLengthRetryDelay);
     }
   }
 
@@ -494,6 +576,17 @@ class ReceiverBleClient {
         ReceiverLogging.device(
           '[control][rx][0x02] bytes(${frameBytes.length})='
           '${ReceiverLogging.hexBytes(frameBytes)}',
+          scope: 'ReceiverBleClient',
+        );
+      }
+      if (frame.command == ReceiverCommand.sendUpgradeChunk.id &&
+          frame.data.length == 3) {
+        final sequence = parseUpgradeChunkSequence(frame);
+        final state = parseUpgradeChunkState(frame);
+        final frameBytes = frame.toBytes();
+        ReceiverLogging.upgradeDevice(
+          '[upgrade][0x14][rx] seq=$sequence state=$state '
+          'bytes(${frameBytes.length})=${ReceiverLogging.hexBytes(frameBytes)}',
           scope: 'ReceiverBleClient',
         );
       }
@@ -555,9 +648,12 @@ class ReceiverBleClient {
     final isUpgradeCommand =
         frame.command >= ReceiverCommand.firmwareInfo.id &&
         frame.command <= ReceiverCommand.sendUpgradeChunk.id;
+    final shouldLogUpgradeFrame =
+        isUpgradeCommand &&
+        frame.command != ReceiverCommand.sendUpgradeChunk.id;
     try {
       final requestBytes = frame.toBytes();
-      if (isUpgradeCommand) {
+      if (shouldLogUpgradeFrame) {
         ReceiverLogging.upgradePhone(
           '[upgrade][tx] cmd=0x${frame.command.toRadixString(16).padLeft(2, '0').toUpperCase()} '
           'bytes(${requestBytes.length})=${ReceiverLogging.hexBytes(requestBytes)}',
@@ -573,7 +669,7 @@ class ReceiverBleClient {
           throw TimeoutException('Timed out waiting for receiver response.');
         },
       );
-      if (isUpgradeCommand) {
+      if (shouldLogUpgradeFrame) {
         final responseBytes = response.toBytes();
         ReceiverLogging.upgradeDevice(
           '[upgrade][rx] cmd=0x${response.command.toRadixString(16).padLeft(2, '0').toUpperCase()} '
@@ -583,7 +679,7 @@ class ReceiverBleClient {
       }
       return response;
     } catch (error) {
-      if (isUpgradeCommand) {
+      if (shouldLogUpgradeFrame) {
         ReceiverLogging.upgradeDevice(
           '[upgrade][error] cmd=0x${frame.command.toRadixString(16).padLeft(2, '0').toUpperCase()} '
           '$error',
