@@ -545,6 +545,9 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
     return _enqueue(() => _connectInternal(remoteId));
   }
 
+  /// 取消尚未完成的连接，供连接反馈弹窗超时后立即释放 GATT 操作。
+  Future<void> cancelPendingConnection() => _repository.disconnect();
+
   Future<bool> _autoReconnectLastDeviceInternal({
     required Duration timeout,
     required bool queueUnavailablePrompt,

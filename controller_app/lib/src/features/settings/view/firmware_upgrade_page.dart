@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 import 'package:rc_ui/rc_ui.dart';
 
@@ -11,9 +14,9 @@ import '../../../core/providers.dart';
 import '../widgets/firmware_upgrade_progress_dialog.dart';
 import '../widgets/settings_workspace.dart';
 
-const _firmwareVersionLabel = '1.0.6';
-const _firmwareVersionCode = 0x0106;
-const _firmwareAssetPath = 'assets/firmware/APP.bin';
+const _firmwareDownloadUrl =
+    'https://flyskydownload.flyskytech.com/s/bin/shr_jt2dky5h';
+const _firmwareLocalFileName = 'receiver_upgrade_firmware.bin';
 
 class FirmwareUpgradePage extends StatelessWidget {
   const FirmwareUpgradePage({super.key});
@@ -39,6 +42,7 @@ class FirmwareUpgradeContent extends ConsumerStatefulWidget {
 class _FirmwareUpgradeContentState
     extends ConsumerState<FirmwareUpgradeContent> {
   bool _working = false;
+  bool _downloading = false;
 
   Future<void> _startUpgrade(BuildContext context) async {
     if (_working) return;
@@ -56,14 +60,18 @@ class _FirmwareUpgradeContentState
         title: '固件升级',
         message:
             '当前固件版本：${info.versionLabel}\n'
-            '目标版本：$_firmwareVersionLabel ${_versionNote(info)}\n\n'
-            '确定开始升级？升级过程中请勿断开连接。',
+            '\n'
+            '将下载最新固件包并开始升级。升级过程中请勿断开连接。',
         cancelText: '取消',
         confirmText: '确定',
       );
       if (result != true || !context.mounted) return;
 
-      final data = await rootBundle.load(_firmwareAssetPath);
+      setState(() => _downloading = true);
+      final data = await _downloadFirmwareToLocal();
+      if (mounted) {
+        setState(() => _downloading = false);
+      }
       await repository.stopControlLoop();
       if (!context.mounted) return;
       await _showUpgradeDialog(
@@ -85,10 +93,40 @@ class _FirmwareUpgradeContentState
     }
   }
 
-  String _versionNote(ReceiverFirmwareInfo info) {
-    if (_firmwareVersionCode > info.firmwareVersionCode) return '（最新版本）';
-    if (_firmwareVersionCode < info.firmwareVersionCode) return '（旧版本）';
-    return '（当前版本）';
+  /// 下载固件到 App 缓存目录；仅在完整写入非空 BIN 后返回升级数据。
+  Future<Uint8List> _downloadFirmwareToLocal() async {
+    final cacheDirectory = await getApplicationCacheDirectory();
+    final firmwareFile = File(
+      '${cacheDirectory.path}${Platform.pathSeparator}$_firmwareLocalFileName',
+    );
+    final client = http.Client();
+    try {
+      final response = await client.send(
+        http.Request('GET', Uri.parse(_firmwareDownloadUrl)),
+      );
+      if (response.statusCode != HttpStatus.ok) {
+        throw HttpException('固件下载失败，状态码：${response.statusCode}');
+      }
+
+      final bytes = await response.stream.toBytes();
+      if (bytes.isEmpty) {
+        throw const FileSystemException('下载的固件包为空');
+      }
+
+      // 先完整写入本地文件，再读取该文件参与升级，避免使用旧的内置固件。
+      await firmwareFile.writeAsBytes(bytes, flush: true);
+      final localBytes = await firmwareFile.readAsBytes();
+      if (localBytes.isEmpty) {
+        throw const FileSystemException('本地固件包读取失败');
+      }
+      debugPrint(
+        '[FirmwareUpgrade] 下载完成 path=${firmwareFile.path} '
+        'bytes=${localBytes.length}',
+      );
+      return localBytes;
+    } finally {
+      client.close();
+    }
   }
 
   Future<void> _showUpgradeDialog(
@@ -107,7 +145,7 @@ class _FirmwareUpgradeContentState
     return Column(
       children: [
         _FirmwareRow(
-          label: _working ? '升级中' : '升级版本',
+          label: _working ? (_downloading ? '下载固件中' : '升级中') : '升级版本',
           enabled: !_working,
           onTap: () => unawaited(_startUpgrade(context)),
         ),

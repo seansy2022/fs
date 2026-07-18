@@ -2,14 +2,11 @@ import 'dart:async';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+import 'ble_gatt_support.dart';
 import 'receiver_link_transport.dart';
 import 'receiver_logging.dart';
 
 class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
-  static const String _customIoServiceUuidSuffix = '0a0b0c0d1910';
-  static const String _customNotifyUuidSuffix = '0a0b0c0d2b10';
-  static const String _customWriteUuidSuffix = '0a0b0c0d2b11';
-
   FlutterBlueReceiverTransport({LogLevel logLevel = LogLevel.none}) {
     unawaited(FlutterBluePlus.setLogLevel(logLevel));
   }
@@ -117,7 +114,42 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     if (!device.isConnected) {
       await device.connect(timeout: const Duration(seconds: 12));
     }
-    await _bindIoCharacteristic(device);
+    ReceiverLogging.link(
+      'gatt connected; bind io remoteId=${device.remoteId.str}',
+      scope: 'FlutterBlueReceiverTransport',
+    );
+    try {
+      await _bindIoCharacteristic(device);
+    } catch (error, stackTrace) {
+      if (!isGattInvalidHandleError(error)) {
+        rethrow;
+      }
+      ReceiverLogging.link(
+        'invalid gatt handle; clear cache and retry once '
+        'remoteId=${device.remoteId.str}',
+        scope: 'FlutterBlueReceiverTransport',
+      );
+      try {
+        await refreshReceiverGattConnection(device);
+        ReceiverLogging.link(
+          'gatt cache retry connected; rediscover services '
+          'remoteId=${device.remoteId.str}',
+          scope: 'FlutterBlueReceiverTransport',
+        );
+      } catch (recoveryError, recoveryStackTrace) {
+        ReceiverLogging.link(
+          'gatt cache recovery failed remoteId=${device.remoteId.str} '
+          'error=$recoveryError\n$recoveryStackTrace',
+          scope: 'FlutterBlueReceiverTransport',
+        );
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+      ReceiverLogging.link(
+        'gatt cache retry; bind io remoteId=${device.remoteId.str}',
+        scope: 'FlutterBlueReceiverTransport',
+      );
+      await _bindIoCharacteristic(device);
+    }
   }
 
   @override
@@ -190,7 +222,7 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
       scope: 'FlutterBlueReceiverTransport',
     );
     final services = await device.discoverServices();
-    final customPair = _findCustomIoPair(services);
+    final customPair = findCustomReceiverIoPair(services);
     final writeCandidates = <BluetoothCharacteristic>[];
     final notifyCandidates = <BluetoothCharacteristic>[];
     BluetoothCharacteristic? duplex;
@@ -223,17 +255,19 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
         }
         if (canNotify &&
             canWrite &&
-            !_isSystemService(characteristic.serviceUuid.str)) {
+            !isSystemBleService(characteristic.serviceUuid.str)) {
           duplex ??= characteristic;
         }
       }
     }
     final writeTarget =
-        customPair?.$1 ?? duplex ?? _pickIoCharacteristic(writeCandidates);
-    final notifyTarget =
-        customPair?.$2 ??
+        customPair?.write ??
         duplex ??
-        _pickIoCharacteristic(
+        pickReceiverIoCharacteristic(writeCandidates);
+    final notifyTarget =
+        customPair?.notify ??
+        duplex ??
+        pickReceiverIoCharacteristic(
           notifyCandidates,
           preferredService: writeTarget?.serviceUuid.str,
           preferCccd: true,
@@ -250,7 +284,17 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
         scope: 'FlutterBlueReceiverTransport',
       );
     }
-    await notifyTarget.setNotifyValue(true);
+    try {
+      await notifyTarget.setNotifyValue(true);
+    } catch (error, stackTrace) {
+      ReceiverLogging.link(
+        'enable notify failed remoteId=${device.remoteId.str} '
+        'char=${notifyTarget.characteristicUuid.str} '
+        'error=$error\n$stackTrace',
+        scope: 'FlutterBlueReceiverTransport',
+      );
+      rethrow;
+    }
     ReceiverLogging.link(
       'notify enabled=${notifyTarget.isNotifying}',
       scope: 'FlutterBlueReceiverTransport',
@@ -284,101 +328,6 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
     );
     _activeDevice = device;
     _writeCharacteristic = writeTarget;
-  }
-
-  (BluetoothCharacteristic, BluetoothCharacteristic)? _findCustomIoPair(
-    List<BluetoothService> services,
-  ) {
-    for (final service in services) {
-      ReceiverLogging.link(
-        'custom pair service=${service.serviceUuid.str} '
-        'serviceMatch=${_uuidSuffixMatches(service.serviceUuid.str, _customIoServiceUuidSuffix)}',
-        scope: 'FlutterBlueReceiverTransport',
-      );
-      if (!_uuidSuffixMatches(
-        service.serviceUuid.str,
-        _customIoServiceUuidSuffix,
-      )) {
-        continue;
-      }
-      BluetoothCharacteristic? writeCharacteristic;
-      BluetoothCharacteristic? notifyCharacteristic;
-      for (final characteristic in service.characteristics) {
-        final uuid = characteristic.characteristicUuid.str;
-        ReceiverLogging.link(
-          'custom pair char=$uuid '
-          'writeMatch=${_uuidSuffixMatches(uuid, _customWriteUuidSuffix)} '
-          'notifyMatch=${_uuidSuffixMatches(uuid, _customNotifyUuidSuffix)}',
-          scope: 'FlutterBlueReceiverTransport',
-        );
-        if (_uuidSuffixMatches(uuid, _customWriteUuidSuffix)) {
-          writeCharacteristic = characteristic;
-        }
-        if (_uuidSuffixMatches(uuid, _customNotifyUuidSuffix)) {
-          notifyCharacteristic = characteristic;
-        }
-      }
-      ReceiverLogging.link(
-        'custom pair resolved '
-        'write=${writeCharacteristic?.characteristicUuid.str} '
-        'notify=${notifyCharacteristic?.characteristicUuid.str}',
-        scope: 'FlutterBlueReceiverTransport',
-      );
-      if (writeCharacteristic != null && notifyCharacteristic != null) {
-        return (writeCharacteristic, notifyCharacteristic);
-      }
-    }
-    return null;
-  }
-
-  bool _uuidSuffixMatches(String uuid, String suffix) {
-    final normalized = uuid.toLowerCase().replaceAll('-', '');
-    return normalized.endsWith(suffix);
-  }
-
-  BluetoothCharacteristic? _pickIoCharacteristic(
-    List<BluetoothCharacteristic> candidates, {
-    String? preferredService,
-    bool preferCccd = false,
-  }) {
-    if (candidates.isEmpty) {
-      return null;
-    }
-    BluetoothCharacteristic? best;
-    var bestScore = -1;
-    for (final c in candidates) {
-      var score = 0;
-      if (!_isSystemService(c.serviceUuid.str)) {
-        score += 100;
-      }
-      if (preferredService != null && c.serviceUuid.str == preferredService) {
-        score += 50;
-      }
-      if (preferCccd && _hasCccd(c)) {
-        score += 20;
-      }
-      if (score > bestScore) {
-        best = c;
-        bestScore = score;
-      }
-    }
-    return best;
-  }
-
-  bool _isSystemService(String uuid) {
-    final v = uuid.toLowerCase();
-    return v == '00001800-0000-1000-8000-00805f9b34fb' ||
-        v == '00001801-0000-1000-8000-00805f9b34fb';
-  }
-
-  bool _hasCccd(BluetoothCharacteristic characteristic) {
-    for (final d in characteristic.descriptors) {
-      if (d.descriptorUuid.str.toLowerCase() ==
-          '00002902-0000-1000-8000-00805f9b34fb') {
-        return true;
-      }
-    }
-    return false;
   }
 
   AdapterState _mapAdapterState(BluetoothAdapterState state) {

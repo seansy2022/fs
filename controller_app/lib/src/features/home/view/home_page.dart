@@ -588,6 +588,7 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
         final result = await showBluetoothConnectFeedback(
           context,
           connect: () => bluetoothController.connect(target.remoteId),
+          cancelPendingConnection: bluetoothController.cancelPendingConnection,
         );
         if (context.mounted &&
             result == BluetoothConnectFeedbackResult.success) {
@@ -736,6 +737,9 @@ class _ScanDevicesDialogContentState
       connect: () => ref
           .read(bluetoothDomainControllerProvider.notifier)
           .connect(target.remoteId),
+      cancelPendingConnection: () => ref
+          .read(bluetoothDomainControllerProvider.notifier)
+          .cancelPendingConnection(),
     );
     if (!_sessionActive || !mounted) {
       return;

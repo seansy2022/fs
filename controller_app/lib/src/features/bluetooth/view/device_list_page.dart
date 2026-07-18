@@ -43,6 +43,8 @@ class DeviceListPage extends ConsumerWidget {
           await showBluetoothConnectFeedback(
             context,
             connect: () => bluetoothController.connect(target.remoteId),
+            cancelPendingConnection:
+                bluetoothController.cancelPendingConnection,
           );
         },
         onDelete: (item) async {

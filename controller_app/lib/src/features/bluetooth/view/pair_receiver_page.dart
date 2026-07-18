@@ -110,6 +110,9 @@ class _PairReceiverPageState extends ConsumerState<PairReceiverPage> {
       connect: () => ref
           .read(bluetoothDomainControllerProvider.notifier)
           .connect(device.remoteId),
+      cancelPendingConnection: () => ref
+          .read(bluetoothDomainControllerProvider.notifier)
+          .cancelPendingConnection(),
     );
     if (!_sessionActive || !mounted) {
       return;

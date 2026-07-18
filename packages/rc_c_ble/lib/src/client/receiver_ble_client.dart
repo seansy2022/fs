@@ -191,12 +191,13 @@ class ReceiverBleClient {
       await disconnect();
     }
     _setConnectionState(ReceiverConnectionState.connecting);
+    // 连接尚未完成时也记录目标，才能响应界面的超时取消请求。
+    _connectedRemoteId = remoteId;
     try {
       await _transport.connect(remoteId);
       _isScanning = false;
       _lastScanStopAt = DateTime.now();
       _controlBuffer.clear();
-      _connectedRemoteId = remoteId;
       _markScanDeviceConnection(remoteId: remoteId);
       _setConnectionState(ReceiverConnectionState.connected);
       _seedConnectedRssiFromScan(remoteId);

@@ -5,9 +5,12 @@ import 'package:rc_ui/rc_ui.dart';
 
 enum BluetoothConnectFeedbackResult { success, failure }
 
+const _overallConnectTimeout = Duration(seconds: 25);
+
 Future<BluetoothConnectFeedbackResult> showBluetoothConnectFeedback(
   BuildContext context, {
   required Future<bool> Function() connect,
+  Future<void> Function()? cancelPendingConnection,
 }) async {
   final notifier = ValueNotifier<_BluetoothConnectStage>(
     _BluetoothConnectStage.connecting,
@@ -48,7 +51,7 @@ Future<BluetoothConnectFeedbackResult> showBluetoothConnectFeedback(
   await Future<void>.delayed(const Duration(milliseconds: 80));
 
   try {
-    final connected = await connect();
+    final connected = await connect().timeout(_overallConnectTimeout);
     if (!connected) {
       throw StateError('connect failed');
     }
@@ -56,6 +59,12 @@ Future<BluetoothConnectFeedbackResult> showBluetoothConnectFeedback(
     await _waitForStage(notifier, _BluetoothConnectStage.success);
     await Future<void>.delayed(const Duration(seconds: 2));
     return BluetoothConnectFeedbackResult.success;
+  } on TimeoutException {
+    // 超时时主动断开，避免底层配对或 GATT 操作继续占用连接。
+    unawaited(cancelPendingConnection?.call());
+    notifier.value = _BluetoothConnectStage.failure;
+    await Future<void>.delayed(const Duration(seconds: 2));
+    return BluetoothConnectFeedbackResult.failure;
   } catch (_) {
     notifier.value = _BluetoothConnectStage.failure;
     await Future<void>.delayed(const Duration(seconds: 2));
