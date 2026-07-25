@@ -478,6 +478,10 @@ class ControlController extends StateNotifier<ControlScreenState> {
         listEquals(lastPushedValues.auxChannels, values.auxChannels)) {
       return;
     }
+    if (settings.tankMixingEnabled) {
+      // 输出最终发送给接收机的两路履带 PWM，便于核对混控、限幅和反向结果。
+      debugPrint('🚀ch1：${values.throttle}  🚀ch2：${values.steering}');
+    }
     _lastPushedValues = values;
     await _repository.updateControlValues(values);
   }

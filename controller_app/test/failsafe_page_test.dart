@@ -36,7 +36,8 @@ void main() {
     await tester.tap(find.text('1500').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('固定值'), findsNWidgets(4));
+    // 弹窗标题也会显示“固定值”，这里只验证四个通道标签仍存在。
+    expect(find.text('固定值'), findsAtLeastNWidgets(4));
     expect(
       find.byKey(const ValueKey('numeric-input-dialog-padding')),
       findsOne,

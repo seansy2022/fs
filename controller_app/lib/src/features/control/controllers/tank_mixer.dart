@@ -30,9 +30,10 @@ TankMixOutput mixTankOutputs({
   required TankMixRatios ratios,
 }) {
   final throttleDelta = throttleUs - ch1.centerUs;
-  final steeringDelta = ch2.centerUs - steeringUs;
+  // 方向正负直接表示手轮方向：负值为左转，正值为右转。
+  final steeringDelta = steeringUs - ch2.centerUs;
   final driveRatio = throttleDelta >= 0 ? ratios.forward : ratios.reverse;
-  final turnRatio = steeringDelta >= 0 ? ratios.leftTurn : ratios.rightTurn;
+  final turnRatio = steeringDelta <= 0 ? ratios.leftTurn : ratios.rightTurn;
   // 负比例表示反向混控，不能截断为 0。
   final drive = throttleDelta * (driveRatio.clamp(-100, 100) / 100);
   final turn = steeringDelta * (turnRatio.clamp(-100, 100) / 100);

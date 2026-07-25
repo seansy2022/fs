@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 import 'package:rc_c_ble/src/protocol/receiver_checksum16.dart';
+import 'package:rc_c_ble/src/protocol/receiver_failsafe_codec.dart';
 import 'package:rc_c_ble/src/protocol/receiver_frame_parser.dart';
 import 'package:rc_c_ble/src/protocol/receiver_protocol_codec.dart';
 
@@ -105,37 +106,38 @@ void main() {
         0xBB,
         0xCC,
         0xDD,
-        0x00,
-        0x00,
+        0xFF,
+        0xFF,
         0x05,
         0xDC,
         0x06,
         0x40,
         0x03,
         0xE8,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x0D,
+        0x03,
+        0x84,
+        0x03,
+        0xE8,
+        0x04,
+        0x4C,
+        0x04,
+        0xB0,
+        0x05,
+        0x14,
+        0xFF,
+        0xFF,
       ],
     );
     final config = parseFailsafeResponse(frame);
     expect(config.throttleUs, 1500);
-    expect(config.steeringUs, 0);
+    expect(config.steeringUs, 1500);
     expect(config.steeringHold, isTrue);
     expect(config.throttleHold, isFalse);
     expect(config.ch3Us, 1600);
-    expect(config.ch3Hold, isTrue);
+    expect(config.ch3Hold, isFalse);
     expect(config.ch4Us, 1000);
-    expect(config.ch4Hold, isTrue);
+    expect(config.ch4Hold, isFalse);
+    expect(config.ch5ToCh10Raw, const [900, 1000, 1100, 1200, 1300, 0xFFFF]);
   });
 
   test('failsafe requests preserve the receiver RFM ID', () {
@@ -150,6 +152,7 @@ void main() {
         ch4Us: 1300,
         steeringHold: true,
         ch3Hold: true,
+        ch5ToCh10Raw: [900, 1000, 1100, 1200, 1300, 2100],
       ),
     );
 
@@ -157,18 +160,49 @@ void main() {
     expect(readRequest.data.take(4), rfmId);
     expect(writeRequest.command, ReceiverCommand.writeFailsafe.id);
     expect(writeRequest.data.take(4), rfmId);
-    expect(writeRequest.data.skip(4).take(8), [
-      0x06,
-      0x40,
+    expect(writeRequest.data.skip(4).take(8), const [
+      0xFF,
+      0xFF,
       0x05,
       0xDC,
-      0x06,
-      0xA4,
+      0xFF,
+      0xFF,
       0x05,
       0x14,
     ]);
     expect(writeRequest.data, hasLength(24));
-    expect(writeRequest.data[23], 0x05);
+    expect(writeRequest.data.skip(12), const [
+      0x03,
+      0x84,
+      0x03,
+      0xE8,
+      0x04,
+      0x4C,
+      0x04,
+      0xB0,
+      0x05,
+      0x14,
+      0x08,
+      0x34,
+    ]);
+  });
+
+  test('rejects missing or zero unmanaged failsafe channels', () {
+    final rfmId = Uint8List.fromList(const [0x11, 0x22, 0x33, 0x44]);
+    const config = ReceiverFailsafeConfig(
+      throttleUs: 1500,
+      steeringUs: 1500,
+      ch5ToCh10Raw: [900, 1000, 1100, 1200, 1300, 0],
+    );
+
+    expect(
+      () => buildWriteFailsafeRequest(
+        rfmId,
+        const ReceiverFailsafeConfig(throttleUs: 1500, steeringUs: 1500),
+      ),
+      throwsArgumentError,
+    );
+    expect(() => buildWriteFailsafeRequest(rfmId, config), throwsArgumentError);
   });
 
   test('control values keep zero for undefined aux channels', () {
@@ -284,8 +318,18 @@ void main() {
               0xDC,
               0x05,
               0xDC,
-              ...List<int>.filled(11, 0, growable: false),
-              0x00,
+              0x03,
+              0x84,
+              0x03,
+              0xE8,
+              0x04,
+              0x4C,
+              0x04,
+              0xB0,
+              0x05,
+              0x14,
+              0x08,
+              0x34,
             ],
           ).toBytes(),
         );
@@ -494,8 +538,8 @@ void main() {
           transport.sendWithoutResponseFlags.skip(1).contains(true),
           isTrue,
         );
-        expect(_decodeWord(heartbeatFrames[0].data, 4), 1600);
-        expect(_decodeWord(heartbeatFrames[0].data, 6), 1400);
+        expect(_decodeWord(heartbeatFrames[0].data, 4), 1400);
+        expect(_decodeWord(heartbeatFrames[0].data, 6), 1600);
         expect(_decodeWord(heartbeatFrames[0].data, 8), 2100);
         expect(_decodeWord(heartbeatFrames[1].data, 8), 900);
         expect(_decodeWord(heartbeatFrames[2].data, 8), 1500);

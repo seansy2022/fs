@@ -53,6 +53,7 @@ lib/src/provider/
 - `test/global_reconnect_provider_test.dart`：全局断线自动重连与取消链路测试。
 - `test/reconnect_overlay_view_test.dart`：重连遮罩在小尺寸屏幕下的布局测试。
 - `test/tank_mixing_page_test.dart`：履带混控开关与数值输入禁用状态测试。
+- `../packages/rc_c_ble/lib/src/models/receiver_failsafe_config.dart`、`../packages/rc_c_ble/lib/src/protocol/receiver_failsafe_codec.dart`：失控保护配置与 0x07/0x08 编解码，使用 `0xFFFF` 表示保持，并原样保留 CH5–CH10。
 
 ### lib/src 分层
 - `app/`：应用装配与路由。
@@ -68,7 +69,7 @@ lib/src/provider/
 - `features/control/view/`：控制页。
 - `features/control/controllers/`：控制页状态编排与通道输出映射。
 - `features/control/controllers/channel_output_mapper.dart`：CH1/CH2 百分比到 us 的分段映射工具。
-- `features/control/controllers/tank_mixer.dart`：履带混控 CH1/CH2 差速输出计算与通道范围限制。
+- `features/control/controllers/tank_mixer.dart`：履带混控的油门、方向差速合成与 CH1/CH2 独立范围限制。
 - `features/control/controllers/control_aux_runtime_store.dart`：控制页 CH3/CH4 辅助通道选择状态本地保存。
 - `features/control/widgets/`：控制页复用组件（转向按钮、顶部辅助按钮组等）。
 - `features/control/widgets/control_status_warning_text.dart`：控制页顶部居中报警提示文案。

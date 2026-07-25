@@ -29,8 +29,8 @@ void main() {
       ),
     );
 
-    expect(output.ch1Us, 1800);
-    expect(output.ch2Us, 1600);
+    expect(output.ch1Us, 1600);
+    expect(output.ch2Us, 1800);
   });
 
   test('mixes reverse and right turn', () {
@@ -42,8 +42,8 @@ void main() {
       ratios: ratios,
     );
 
-    expect(output.ch1Us, 1100);
-    expect(output.ch2Us, 1500);
+    expect(output.ch1Us, 1500);
+    expect(output.ch2Us, 1100);
   });
 
   test('bounds each track independently', () {
@@ -55,8 +55,35 @@ void main() {
       ratios: ratios,
     );
 
-    expect(output.ch1Us, 2000);
-    expect(output.ch2Us, 1500);
+    expect(output.ch1Us, 1500);
+    expect(output.ch2Us, 2000);
+  });
+
+  test('uses the matching ratio for pure left and right turns', () {
+    const turnRatios = TankMixRatios(
+      forward: 100,
+      reverse: 100,
+      leftTurn: 50,
+      rightTurn: 25,
+    );
+
+    final left = mixTankOutputs(
+      throttleUs: 1500,
+      steeringUs: 1300,
+      ch1: channel,
+      ch2: channel,
+      ratios: turnRatios,
+    );
+    final right = mixTankOutputs(
+      throttleUs: 1500,
+      steeringUs: 1700,
+      ch1: channel,
+      ch2: channel,
+      ratios: turnRatios,
+    );
+
+    expect((left.ch1Us, left.ch2Us), (1400, 1600));
+    expect((right.ch1Us, right.ch2Us), (1550, 1450));
   });
 
   test('applies negative tank mixing ratios', () {

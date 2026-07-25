@@ -148,8 +148,8 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
     }
   }
 
-  /// 组装失控保护全量写入参数；保持状态由 Data[23] 位标志表达。
-  ReceiverFailsafeConfig get _currentConfig {
+  /// 组装失控保护全量写入参数；保持状态由通道值 0xFFFF 表达。
+  ReceiverFailsafeConfig _currentConfig(ReceiverFailsafeConfig current) {
     final channels = ref.read(appSettingsProvider).channels;
     return ReceiverFailsafeConfig(
       throttleUs: _throttleUs,
@@ -161,6 +161,8 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
       ch4Us: _isAuxChannelDisabled(channels, 3) ? 1500 : _ch4Us,
       ch3Hold: _isAuxChannelDisabled(channels, 2) ? false : _ch3Hold,
       ch4Hold: _isAuxChannelDisabled(channels, 3) ? false : _ch4Hold,
+      // 页面未提供 CH5–CH10 的编辑入口，必须使用刚读取到的原始值回写。
+      ch5ToCh10Raw: current.ch5ToCh10Raw,
     );
   }
 
@@ -190,7 +192,10 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
     if (!ready) {
       return;
     }
-    await ref.read(receiverRepositoryProvider).writeFailsafe(_currentConfig);
+    final repository = ref.read(receiverRepositoryProvider);
+    // 每次保存前读取完整配置，防止未展示的 CH5–CH10 被错误覆写。
+    final current = await repository.readFailsafe();
+    await repository.writeFailsafe(_currentConfig(current));
   }
 
   Future<void> _setSteeringHold(bool hold) async {

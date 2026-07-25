@@ -12,7 +12,7 @@ Future<void> syncDisabledAuxFailsafe({
     await repository.readReceiverInfo();
   }
   final current = await repository.readFailsafe();
-  // writeFailsafe 会按 0x08 协议全量发送方向、油门、CH3、CH4。
+  // writeFailsafe 会全量发送，并保留当前 CH5–CH10 的原始协议值。
   final next = channelIndex == 2
       ? current.copyWith(ch3Us: 1500, ch3Hold: false)
       : current.copyWith(ch4Us: 1500, ch4Hold: false);

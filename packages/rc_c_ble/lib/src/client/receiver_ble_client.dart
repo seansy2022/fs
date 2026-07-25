@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'receiver_control_buffer.dart';
 import '../models/receiver_models.dart';
 import '../protocol/receiver_command.dart';
+import '../protocol/receiver_failsafe_codec.dart';
 import '../protocol/receiver_frame.dart';
 import '../protocol/receiver_frame_parser.dart';
 import '../protocol/receiver_protocol_codec.dart';
