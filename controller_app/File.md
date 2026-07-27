@@ -53,7 +53,8 @@ lib/src/provider/
 - `test/global_reconnect_provider_test.dart`：全局断线自动重连与取消链路测试。
 - `test/reconnect_overlay_view_test.dart`：重连遮罩在小尺寸屏幕下的布局测试。
 - `test/tank_mixing_page_test.dart`：履带混控开关与数值输入禁用状态测试。
-- `../packages/rc_c_ble/lib/src/models/receiver_failsafe_config.dart`、`../packages/rc_c_ble/lib/src/protocol/receiver_failsafe_codec.dart`：失控保护配置与 0x07/0x08 编解码，使用 `0xFFFF` 表示保持，并原样保留 CH5–CH10。
+- `../packages/rc_c_ble/lib/src/models/receiver_failsafe_config.dart`、`../packages/rc_c_ble/lib/src/protocol/receiver_failsafe_codec.dart`：失控保护配置与 0x07/0x08 编解码，使用 `0xFFFF` 表示保持；无效通道值规范化为 1500us 后全量回写。
+- `../packages/rc_c_ble/lib/src/transport/flutter_blue_receiver_transport.dart`、`../packages/rc_c_ble/test/flutter_blue_receiver_transport_test.dart`：BLE 接收帧转发；0x07、0x08、0x13 同帧回显也交由协议层处理。
 
 ### lib/src 分层
 - `app/`：应用装配与路由。

@@ -33,6 +33,11 @@ class ReceiverLogging {
     link('🚗 $message', scope: scope);
   }
 
+  /// 打印接收机主动上报或应答的协议帧，便于与手机发送日志区分。
+  static void receiver(String message, {String scope = 'Link'}) {
+    link('🚢 $message', scope: scope);
+  }
+
   /// 仅在真机升级排查时打印协议帧，避免正常调试产生大量分包日志。
   static void upgradePhone(String message, {String scope = 'Link'}) {
     if (!upgradeEnabled) {

@@ -21,4 +21,20 @@ void main() {
 
     expect(logs, <String>['[BleTest] 📱 tx bytes(4) FA 01 0A FF']);
   });
+
+  test('receiver 使用轮船前缀打印硬件返回数据', () {
+    final logs = <String>[];
+
+    runZoned(
+      () => ReceiverLogging.receiver(
+        'rx bytes(5) FA 05 07 01 FF',
+        scope: 'BleTest',
+      ),
+      zoneSpecification: ZoneSpecification(
+        print: (_, _, _, message) => logs.add(message),
+      ),
+    );
+
+    expect(logs, <String>['[BleTest] 🚢 rx bytes(5) FA 05 07 01 FF']);
+  });
 }

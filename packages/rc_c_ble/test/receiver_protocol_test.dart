@@ -140,6 +140,21 @@ void main() {
     expect(config.ch5ToCh10Raw, const [900, 1000, 1100, 1200, 1300, 0xFFFF]);
   });
 
+  test('normalizes invalid failsafe channel values to 1500us', () {
+    final config = parseFailsafeResponse(
+      ReceiverFrame(
+        command: ReceiverCommand.readFailsafe.id,
+        data: List<int>.filled(24, 0),
+      ),
+    );
+
+    expect(config.throttleUs, 1500);
+    expect(config.steeringUs, 1500);
+    expect(config.ch3Us, 1500);
+    expect(config.ch4Us, 1500);
+    expect(config.ch5ToCh10Raw, List<int>.filled(6, 1500));
+  });
+
   test('failsafe requests preserve the receiver RFM ID', () {
     final rfmId = Uint8List.fromList(const [0x11, 0x22, 0x33, 0x44]);
     final readRequest = buildReadFailsafeRequest(rfmId);
@@ -187,13 +202,8 @@ void main() {
     ]);
   });
 
-  test('rejects missing or zero unmanaged failsafe channels', () {
+  test('rejects missing unmanaged failsafe channels', () {
     final rfmId = Uint8List.fromList(const [0x11, 0x22, 0x33, 0x44]);
-    const config = ReceiverFailsafeConfig(
-      throttleUs: 1500,
-      steeringUs: 1500,
-      ch5ToCh10Raw: [900, 1000, 1100, 1200, 1300, 0],
-    );
 
     expect(
       () => buildWriteFailsafeRequest(
@@ -202,7 +212,6 @@ void main() {
       ),
       throwsArgumentError,
     );
-    expect(() => buildWriteFailsafeRequest(rfmId, config), throwsArgumentError);
   });
 
   test('control values keep zero for undefined aux channels', () {

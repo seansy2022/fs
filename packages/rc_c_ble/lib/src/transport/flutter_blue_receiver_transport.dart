@@ -6,6 +6,11 @@ import 'ble_gatt_support.dart';
 import 'receiver_link_transport.dart';
 import 'receiver_logging.dart';
 
+/// 判断与发送帧完全一致的通知是否仍应作为接收机协议应答处理。
+bool shouldUseReceiverEchoAsProtocolReply(int? command) {
+  return command == 0x07 || command == 0x08 || command == 0x13;
+}
+
 class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
   FlutterBlueReceiverTransport({LogLevel logLevel = LogLevel.none}) {
     unawaited(FlutterBluePlus.setLogLevel(logLevel));
@@ -307,17 +312,18 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
             _lastSentBytes!.length == value.length &&
             _sameBytes(_lastSentBytes!, value);
         final command = _frameCommand(value);
-        // 0x08 的设备应答可能与请求帧完全相同，不能按写入回显丢弃。
-        final useEchoAsProtocolReply =
-            possibleEcho && (command == 0x08 || command == 0x13);
-        if (possibleEcho && !useEchoAsProtocolReply) {
-          return;
-        }
+        // 回显过滤前记录原始入站数据，避免 0x07 回显被误判时无法排查。
         if (_isLoggedProtocolFrame(value)) {
-          ReceiverLogging.device(
+          ReceiverLogging.receiver(
             'rx bytes(${value.length}) ${ReceiverLogging.hexBytes(value)}',
             scope: 'FlutterBlueReceiverTransport',
           );
+        }
+        // 失控保护读取/设置及升级长度的设备应答可能与请求帧完全相同。
+        final useEchoAsProtocolReply =
+            possibleEcho && shouldUseReceiverEchoAsProtocolReply(command);
+        if (possibleEcho && !useEchoAsProtocolReply) {
+          return;
         }
         _incomingCtrl.add(value);
       }

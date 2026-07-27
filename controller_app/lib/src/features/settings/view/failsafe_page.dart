@@ -39,6 +39,15 @@ class FailsafeContent extends ConsumerStatefulWidget {
 }
 
 class _FailsafeContentState extends ConsumerState<FailsafeContent> {
+  static const _defaultAuxFailsafeValues = <int>[
+    1500,
+    1500,
+    1500,
+    1500,
+    1500,
+    1500,
+  ];
+
   int _steeringUs = 1500;
   int _throttleUs = 1500;
   int _ch3Us = 1500;
@@ -49,15 +58,33 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
   bool _ch4Hold = true;
   bool _testing = false;
   bool _loading = false;
+  bool _hasLoadedConfig = false;
+  bool _retryScheduled = false;
+  int _readAttempts = 0;
+  StreamSubscription<ReceiverConnectionState>? _connectionSub;
+  ReceiverFailsafeConfig _cachedConfig = const ReceiverFailsafeConfig(
+    throttleUs: 1500,
+    steeringUs: 1500,
+    ch5ToCh10Raw: _defaultAuxFailsafeValues,
+  );
 
   @override
   void initState() {
     super.initState();
+    _connectionSub = ref
+        .read(receiverRepositoryProvider)
+        .connectionStateStream
+        .listen((state) {
+          if (state == ReceiverConnectionState.connected) {
+            _retryLoadIfNeeded();
+          }
+        });
     unawaited(_loadConfig());
   }
 
   @override
   void dispose() {
+    unawaited(_connectionSub?.cancel());
     if (_testing) {
       unawaited(_restoreControl());
     }
@@ -65,15 +92,26 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
   }
 
   Future<void> _loadConfig() async {
+    if (_loading || _hasLoadedConfig || _readAttempts >= 2) {
+      return;
+    }
+    final repository = ref.read(receiverRepositoryProvider);
+    // 未连接时不发送协议帧，等待连接事件触发后再读取。
+    if (repository.connectionState != ReceiverConnectionState.connected) {
+      return;
+    }
     setState(() => _loading = true);
     try {
-      final ready = await _ensureReceiverReady();
+      final ready = await _ensureReceiverReady(showError: false);
       if (!ready) {
         return;
       }
-      final config = await ref.read(receiverRepositoryProvider).readFailsafe();
+      _readAttempts++;
+      final config = await repository.readFailsafe();
       if (!mounted) return;
       setState(() {
+        _hasLoadedConfig = true;
+        _cachedConfig = config;
         _steeringUs = config.steeringUs;
         _throttleUs = config.throttleUs;
         _ch3Us = config.ch3Us;
@@ -84,12 +122,34 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
         _ch4Hold = config.ch4Hold;
       });
     } catch (_) {
-      // Use defaults
+      // 首次读取超时后仅补读一次，避免页面打开期间持续占用蓝牙链路。
+      _scheduleReadRetry();
     } finally {
       if (mounted) {
         setState(() => _loading = false);
       }
     }
+  }
+
+  /// 在连接完成或首次读取失败后，补读一次失控保护配置。
+  void _retryLoadIfNeeded() {
+    if (!_loading && !_hasLoadedConfig && _readAttempts < 2) {
+      unawaited(_loadConfig());
+    }
+  }
+
+  /// 延迟重试，让硬件有时间结束上一条超时请求。
+  void _scheduleReadRetry() {
+    if (_retryScheduled || _readAttempts >= 2) {
+      return;
+    }
+    _retryScheduled = true;
+    Future<void>.delayed(const Duration(milliseconds: 500), () {
+      _retryScheduled = false;
+      if (mounted) {
+        _retryLoadIfNeeded();
+      }
+    });
   }
 
   /// 断开蓝牙连接，触发接收机已保存的失控保护配置。
@@ -149,7 +209,7 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
   }
 
   /// 组装失控保护全量写入参数；保持状态由通道值 0xFFFF 表达。
-  ReceiverFailsafeConfig _currentConfig(ReceiverFailsafeConfig current) {
+  ReceiverFailsafeConfig _currentConfig() {
     final channels = ref.read(appSettingsProvider).channels;
     return ReceiverFailsafeConfig(
       throttleUs: _throttleUs,
@@ -161,12 +221,12 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
       ch4Us: _isAuxChannelDisabled(channels, 3) ? 1500 : _ch4Us,
       ch3Hold: _isAuxChannelDisabled(channels, 2) ? false : _ch3Hold,
       ch4Hold: _isAuxChannelDisabled(channels, 3) ? false : _ch4Hold,
-      // 页面未提供 CH5–CH10 的编辑入口，必须使用刚读取到的原始值回写。
-      ch5ToCh10Raw: current.ch5ToCh10Raw,
+      // 页面未提供 CH5–CH10 的编辑入口，使用首次读取后缓存的完整配置回写。
+      ch5ToCh10Raw: _cachedConfig.ch5ToCh10Raw,
     );
   }
 
-  Future<bool> _ensureReceiverReady() async {
+  Future<bool> _ensureReceiverReady({bool showError = true}) async {
     final repository = ref.read(receiverRepositoryProvider);
     if (repository.receiverInfo != null) {
       return true;
@@ -175,7 +235,7 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
       await repository.readReceiverInfo();
       return true;
     } catch (_) {
-      if (mounted) {
+      if (showError && mounted) {
         await AlertIconWidget.show(
           context,
           title: '设备未就绪',
@@ -193,9 +253,10 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
       return;
     }
     final repository = ref.read(receiverRepositoryProvider);
-    // 每次保存前读取完整配置，防止未展示的 CH5–CH10 被错误覆写。
-    final current = await repository.readFailsafe();
-    await repository.writeFailsafe(_currentConfig(current));
+    // 页面加载时已读取并缓存完整配置，修改时直接全量写入，避免重复发送 0x07。
+    final next = _currentConfig();
+    await repository.writeFailsafe(next);
+    _cachedConfig = next;
   }
 
   Future<void> _setSteeringHold(bool hold) async {

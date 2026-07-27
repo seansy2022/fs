@@ -1,4 +1,4 @@
-/// 接收机失控保护配置；CH5–CH10 仅由协议层原样保存和回写。
+/// 接收机失控保护配置；CH5–CH10 由协议层规范化后保存并回写。
 class ReceiverFailsafeConfig {
   const ReceiverFailsafeConfig({
     required this.throttleUs,
@@ -24,10 +24,10 @@ class ReceiverFailsafeConfig {
   final bool ch3Hold;
   final bool ch4Hold;
 
-  /// CH5–CH10 的原始 16 位协议值，按通道顺序保存；写入前必须先读取完整配置。
+  /// CH5–CH10 的 16 位协议值，按通道顺序保存。
   final List<int> ch5ToCh10Raw;
 
-  /// 复制配置；未指定的 CH5–CH10 原始值始终保留。
+  /// 复制配置；未指定的 CH5–CH10 值始终保留。
   ReceiverFailsafeConfig copyWith({
     int? throttleUs,
     int? steeringUs,

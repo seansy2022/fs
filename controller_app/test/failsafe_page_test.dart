@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:controller_app/src/core/providers.dart';
@@ -71,6 +72,51 @@ void main() {
     expect(repository.writtenConfigs.last.throttleUs, 1500);
     expect(repository.writtenConfigs.last.steeringUs, 1500);
     expect(repository.writtenConfigs.last.steeringHold, isTrue);
+    expect(repository.readFailsafeCount, 1);
+    expect(
+      repository.writtenConfigs.last.ch5ToCh10Raw,
+      List<int>.filled(6, 1500),
+    );
+  });
+
+  testWidgets('failsafe read retries once after a timeout', (tester) async {
+    final repository = _FakeReceiverRepository(failFailsafeReads: 1);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+        ],
+        child: const MaterialApp(home: FailsafePage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+
+    expect(repository.readFailsafeCount, 2);
+  });
+
+  testWidgets('reads failsafe after the page is opened before connection', (
+    tester,
+  ) async {
+    final repository = _FakeReceiverRepository(
+      initialConnectionState: ReceiverConnectionState.disconnected,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+        ],
+        child: const MaterialApp(home: FailsafePage()),
+      ),
+    );
+    await tester.pump();
+    expect(repository.readFailsafeCount, 0);
+
+    repository.emitConnectionState(ReceiverConnectionState.connected);
+    await tester.pumpAndSettle();
+
+    expect(repository.readFailsafeCount, 1);
   });
 
   testWidgets('disabled CH3 is fixed at 1500 and cannot be edited', (
@@ -109,21 +155,56 @@ void main() {
 }
 
 class _FakeReceiverRepository implements ReceiverRepository {
+  _FakeReceiverRepository({
+    this.failFailsafeReads = 0,
+    ReceiverConnectionState initialConnectionState =
+        ReceiverConnectionState.connected,
+  }) : _connectionState = initialConnectionState;
+
   final List<ReceiverFailsafeConfig> writtenConfigs =
       <ReceiverFailsafeConfig>[];
+  final StreamController<ReceiverConnectionState> _connectionCtrl =
+      StreamController<ReceiverConnectionState>.broadcast();
   final ReceiverInfo _receiverInfo = ReceiverInfo(
     rfmId: Uint8List.fromList(const [0x01, 0x02, 0x03, 0x04]),
     productModelCode: 0,
     batteryLevel: 90,
     remoteId: 'test-device',
   );
+  int readFailsafeCount = 0;
+  int failFailsafeReads;
+  ReceiverConnectionState _connectionState;
 
   @override
   ReceiverInfo get receiverInfo => _receiverInfo;
 
   @override
+  ReceiverConnectionState get connectionState => _connectionState;
+
+  @override
+  Stream<ReceiverConnectionState> get connectionStateStream async* {
+    yield connectionState;
+    yield* _connectionCtrl.stream;
+  }
+
+  /// 模拟蓝牙连接状态变化。
+  void emitConnectionState(ReceiverConnectionState state) {
+    _connectionState = state;
+    _connectionCtrl.add(state);
+  }
+
+  @override
   Future<ReceiverFailsafeConfig> readFailsafe() async {
-    return const ReceiverFailsafeConfig(throttleUs: 1500, steeringUs: 1500);
+    readFailsafeCount++;
+    if (failFailsafeReads > 0) {
+      failFailsafeReads--;
+      throw TimeoutException('read failsafe timeout');
+    }
+    return const ReceiverFailsafeConfig(
+      throttleUs: 1500,
+      steeringUs: 1500,
+      ch5ToCh10Raw: [1500, 1500, 1500, 1500, 1500, 1500],
+    );
   }
 
   @override
@@ -140,7 +221,9 @@ class _FakeReceiverRepository implements ReceiverRepository {
   }
 
   @override
-  Future<void> dispose() async {}
+  Future<void> dispose() async {
+    await _connectionCtrl.close();
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

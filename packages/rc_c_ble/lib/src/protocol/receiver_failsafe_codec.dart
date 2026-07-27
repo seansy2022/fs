@@ -76,8 +76,8 @@ ReceiverFrame buildWriteFailsafeRequest(
 
 int _readFailsafeChannel(List<int> data, int index) {
   final value = decodeWord(data[index], data[index + 1]);
-  _validateChannelValue(value);
-  return value;
+  // 部分固件会以 0x0000 回显未初始化通道，统一归一为可回写的中位值。
+  return _isValidChannelValue(value) ? value : _failsafeDisplayValueUs;
 }
 
 int _displayValue(int value) {
@@ -98,8 +98,13 @@ List<int> _encodeRawChannel(int value) {
 }
 
 void _validateChannelValue(int value) {
-  if (value == ReceiverFailsafeConfig.holdValue) return;
-  if (value < _failsafeFixedMinUs || value > _failsafeFixedMaxUs) {
+  if (!_isValidChannelValue(value)) {
     throw ArgumentError.value(value, 'value', '失控保护通道值必须为 900–2100 或 0xFFFF');
   }
+}
+
+/// 判断通道原始值能否表示固定值或保持状态。
+bool _isValidChannelValue(int value) {
+  return value == ReceiverFailsafeConfig.holdValue ||
+      (value >= _failsafeFixedMinUs && value <= _failsafeFixedMaxUs);
 }
