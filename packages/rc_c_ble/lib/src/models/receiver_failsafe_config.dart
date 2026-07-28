@@ -12,8 +12,8 @@ class ReceiverFailsafeConfig {
     this.ch5ToCh10Raw = const <int>[],
   });
 
-  /// 协议使用 0xFFFF 表示通道保持当前输出。
-  static const int holdValue = 0xFFFF;
+  /// 协议使用 0x0FFF 表示通道保持当前输出。
+  static const int holdValue = 0x0FFF;
 
   final int throttleUs;
   final int steeringUs;

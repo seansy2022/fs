@@ -18,7 +18,7 @@ ReceiverFrame buildReadFailsafeRequest(Uint8List rfmId) {
   );
 }
 
-/// 解析读取或设置应答；每路的 0xFFFF 表示保持状态。
+/// 解析读取或设置应答；每路的 0x0FFF 表示保持状态。
 ReceiverFailsafeConfig parseFailsafeResponse(ReceiverFrame frame) {
   final command = ReceiverCommand.fromId(frame.command);
   if (command != ReceiverCommand.readFailsafe &&
@@ -87,7 +87,7 @@ int _displayValue(int value) {
 }
 
 List<int> _encodeFailsafeChannel(int valueUs, bool hold) {
-  if (hold) return const <int>[0xFF, 0xFF];
+  if (hold) return encodeWord(ReceiverFailsafeConfig.holdValue);
   _validateChannelValue(valueUs);
   return encodeWord(valueUs);
 }
@@ -99,7 +99,7 @@ List<int> _encodeRawChannel(int value) {
 
 void _validateChannelValue(int value) {
   if (!_isValidChannelValue(value)) {
-    throw ArgumentError.value(value, 'value', '失控保护通道值必须为 900–2100 或 0xFFFF');
+    throw ArgumentError.value(value, 'value', '失控保护通道值必须为 900–2100 或 0x0FFF');
   }
 }
 

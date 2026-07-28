@@ -106,7 +106,7 @@ void main() {
         0xBB,
         0xCC,
         0xDD,
-        0xFF,
+        0x0F,
         0xFF,
         0x05,
         0xDC,
@@ -124,7 +124,7 @@ void main() {
         0xB0,
         0x05,
         0x14,
-        0xFF,
+        0x0F,
         0xFF,
       ],
     );
@@ -137,7 +137,7 @@ void main() {
     expect(config.ch3Hold, isFalse);
     expect(config.ch4Us, 1000);
     expect(config.ch4Hold, isFalse);
-    expect(config.ch5ToCh10Raw, const [900, 1000, 1100, 1200, 1300, 0xFFFF]);
+    expect(config.ch5ToCh10Raw, const [900, 1000, 1100, 1200, 1300, 0x0FFF]);
   });
 
   test('normalizes invalid failsafe channel values to 1500us', () {
@@ -176,11 +176,11 @@ void main() {
     expect(writeRequest.command, ReceiverCommand.writeFailsafe.id);
     expect(writeRequest.data.take(4), rfmId);
     expect(writeRequest.data.skip(4).take(8), const [
-      0xFF,
+      0x0F,
       0xFF,
       0x05,
       0xDC,
-      0xFF,
+      0x0F,
       0xFF,
       0x05,
       0x14,
