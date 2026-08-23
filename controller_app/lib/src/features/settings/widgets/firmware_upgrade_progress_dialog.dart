@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import 'firmware_upgrade_status_view.dart';
 
 class FirmwareProgressDialog extends StatefulWidget {
@@ -58,7 +59,7 @@ class _FirmwareProgressDialogState extends State<FirmwareProgressDialog> {
     setState(() {
       _state = FirmwareUpgradeVisualState.failure;
       _displayProgress = _displayProgress < 50 ? 50 : _displayProgress;
-      _failureMessage = '升级连接已结束，请检查设备状态后重试！';
+      _failureMessage = AppText.tr('升级连接已结束，请检查设备状态后重试！');
     });
   }
 
@@ -85,10 +86,10 @@ class _FirmwareProgressDialogState extends State<FirmwareProgressDialog> {
   String _messageOf(ReceiverUpgradeProgress progress) {
     final raw = progress.message?.trim();
     if (raw == null || raw.isEmpty) {
-      return '请检查设备状态后再试！';
+      return AppText.tr('请检查设备状态后再试！');
     }
     if (raw.contains('Timed out')) {
-      return '升级超时，请检查设备连接后重试！';
+      return AppText.tr('升级超时，请检查设备连接后重试！');
     }
     return raw;
   }

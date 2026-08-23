@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:controller_app/src/core/providers.dart';
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
 import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
+import 'package:controller_app/src/features/settings/models/failsafe_value_rules.dart';
 import 'package:controller_app/src/features/settings/view/failsafe_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +15,18 @@ import 'package:rc_ui/rc_ui.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('fixed failsafe value uses numeric input dialog', (tester) async {
+  test('failsafe percentage conversion uses a 1500us center', () {
+    expect(failsafeUsToPercent(900), -120);
+    expect(failsafeUsToPercent(1500), 0);
+    expect(failsafeUsToPercent(2100), 120);
+    expect(failsafePercentToUs(-120), 900);
+    expect(failsafePercentToUs(0), 1500);
+    expect(failsafePercentToUs(120), 2100);
+  });
+
+  testWidgets('fixed failsafe value uses percentage input dialog', (
+    tester,
+  ) async {
     final repository = _FakeReceiverRepository();
     await tester.pumpWidget(
       ProviderScope(
@@ -28,13 +40,13 @@ void main() {
 
     expect(
       find.ancestor(
-        of: find.text('1500').first,
+        of: find.text('0%').first,
         matching: find.byType(ItemButton),
       ),
       findsOneWidget,
     );
 
-    await tester.tap(find.text('1500').first);
+    await tester.tap(find.text('0%').first);
     await tester.pumpAndSettle();
 
     // 弹窗标题也会显示“固定值”，这里只验证四个通道标签仍存在。
@@ -45,11 +57,11 @@ void main() {
     );
     expect(find.byType(TextField), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), '800');
+    await tester.enterText(find.byType(TextField), '-120');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
-    expect(find.text('900'), findsOneWidget);
+    expect(find.text('-120%'), findsOneWidget);
     expect(repository.writtenConfigs.last.throttleUs, 1500);
     expect(repository.writtenConfigs.last.steeringUs, 900);
   });

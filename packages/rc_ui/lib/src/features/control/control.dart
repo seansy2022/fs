@@ -87,7 +87,7 @@ class _ControlState extends State<Control> {
     return (axisExtent - widget.thumbSize) / 2;
   }
 
-  void _updateValue(Offset localPosition) {
+  void _updateValue(Offset localPosition, {bool emitWhenUnchanged = false}) {
     final center = Offset(widget.width / 2, widget.height / 2);
     final axisDelta = _isVertical
         ? localPosition.dy - center.dy
@@ -105,6 +105,9 @@ class _ControlState extends State<Control> {
 
     if ((nextValue - _value).abs() >= _epsilon) {
       setState(() => _value = nextValue);
+      widget.onChanged(nextValue.round());
+    } else if (emitWhenUnchanged) {
+      // 点击中位时也需要明确下发 0，不能因状态未变化而忽略此次输入。
       widget.onChanged(nextValue.round());
     }
   }
@@ -128,6 +131,9 @@ class _ControlState extends State<Control> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (details) =>
+          _updateValue(details.localPosition, emitWhenUnchanged: true),
       onPanStart: (details) {
         if (!_isDragging) {
           setState(() => _isDragging = true);

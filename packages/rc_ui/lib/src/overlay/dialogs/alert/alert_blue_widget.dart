@@ -29,6 +29,9 @@ class AlertBlueWidget extends StatelessWidget {
     this.onTap,
     this.onDelete,
     this.onClose,
+    this.footerText,
+    this.footerIcon,
+    this.onFooterTap,
     this.emptyText = 'No devices',
     this.maxHeight = 420,
     this.maxWidth = 343,
@@ -41,6 +44,9 @@ class AlertBlueWidget extends StatelessWidget {
   final ValueChanged<AlertBlueItem>? onTap;
   final ValueChanged<AlertBlueItem>? onDelete;
   final VoidCallback? onClose;
+  final String? footerText;
+  final Widget? footerIcon;
+  final VoidCallback? onFooterTap;
   final String emptyText;
   final double maxHeight;
   final double maxWidth;
@@ -54,6 +60,9 @@ class AlertBlueWidget extends StatelessWidget {
     ValueChanged<AlertBlueItem>? onTap,
     ValueChanged<AlertBlueItem>? onDelete,
     VoidCallback? onClose,
+    String? footerText,
+    Widget? footerIcon,
+    VoidCallback? onFooterTap,
     bool barrierDismissible = true,
     String emptyText = 'No devices',
     double maxHeight = 420,
@@ -81,6 +90,9 @@ class AlertBlueWidget extends StatelessWidget {
             Navigator.of(dialogContext).pop();
           }
         },
+        footerText: footerText,
+        footerIcon: footerIcon,
+        onFooterTap: onFooterTap,
         emptyText: emptyText,
         maxHeight: maxHeight,
         maxWidth: maxWidth,
@@ -150,7 +162,45 @@ class AlertBlueWidget extends StatelessWidget {
                         },
                       ),
               ),
+              if (onFooterTap != null)
+                _FooterAction(
+                  text: footerText ?? '',
+                  icon: footerIcon,
+                  onTap: onFooterTap!,
+                ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FooterAction extends StatelessWidget {
+  const _FooterAction({
+    required this.text,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String text;
+  final Widget? icon;
+  final VoidCallback onTap;
+
+  @override
+  /// 构建设备列表底部的可选操作入口。
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: TextButton.icon(
+        onPressed: onTap,
+        icon: icon ?? const Icon(Icons.add_box_outlined),
+        label: Text(text),
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primaryBright,
+          textStyle: const TextStyle(
+            fontSize: AppFonts.s16,
+            fontWeight: AppFonts.w500,
           ),
         ),
       ),

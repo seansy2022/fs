@@ -10,6 +10,7 @@ import 'package:rc_c_ble/rc_c_ble.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers.dart';
 import '../widgets/firmware_upgrade_progress_dialog.dart';
 import '../widgets/settings_workspace.dart';
@@ -57,13 +58,13 @@ class _FirmwareUpgradeContentState
 
       final result = await AlertIconWidget.show(
         context,
-        title: '固件升级',
+        title: AppText.tr('固件升级'),
         message:
-            '当前固件版本：${info.versionLabel}\n'
+            '${AppText.tr('当前固件版本：')}${info.versionLabel}\n'
             '\n'
-            '将下载最新固件包并开始升级。升级过程中请勿断开连接。',
-        cancelText: '取消',
-        confirmText: '确定',
+            '${AppText.tr('将下载最新固件包并开始升级。升级过程中请勿断开连接。')}',
+        cancelText: AppText.tr('取消'),
+        confirmText: AppText.tr('确定'),
       );
       if (result != true || !context.mounted) return;
 
@@ -82,9 +83,9 @@ class _FirmwareUpgradeContentState
       if (!context.mounted) return;
       await AlertIconWidget.show(
         context,
-        title: '无法升级',
-        message: '请先连接接收机，并确认固件包可用。',
-        confirmText: '确定',
+        title: AppText.tr('无法升级'),
+        message: AppText.tr('请先连接接收机，并确认固件包可用。'),
+        confirmText: AppText.tr('确定'),
       );
     } finally {
       if (mounted) {
@@ -145,7 +146,9 @@ class _FirmwareUpgradeContentState
     return Column(
       children: [
         _FirmwareRow(
-          label: _working ? (_downloading ? '下载固件中' : '升级中') : '升级版本',
+          label: AppText.tr(
+            _working ? (_downloading ? '下载固件中' : '升级中') : '升级版本',
+          ),
           enabled: !_working,
           onTap: () => unawaited(_startUpgrade(context)),
         ),

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings_state.dart';
+import '../models/gear_settings.dart';
+import '../models/gyro_calibration_settings.dart';
 
 class SettingsController extends StateNotifier<AppSettingsState> {
   SettingsController() : super(AppSettingsState.defaults()) {
@@ -30,6 +32,15 @@ class SettingsController extends StateNotifier<AppSettingsState> {
     _persist();
   }
 
+  /// 保存已通过范围与顺序校验的体感校准角度。
+  void updateGyroCalibration(GyroCalibrationSettings value) {
+    if (!value.isValid) {
+      return;
+    }
+    state = state.copyWith(gyroCalibration: value);
+    _persist();
+  }
+
   void updateChannel(int index, ChannelSetting value) {
     final updated = state.channels.toList(growable: true);
     updated[index] = value;
@@ -48,6 +59,33 @@ class SettingsController extends StateNotifier<AppSettingsState> {
       tankReversePercent: reverse?.clamp(-100, 100).toDouble(),
       tankLeftTurnPercent: leftTurn?.clamp(-100, 100).toDouble(),
       tankRightTurnPercent: rightTurn?.clamp(-100, 100).toDouble(),
+    );
+    _persist();
+  }
+
+  /// 更新高低挡的前进、后退比例，并持久化到本机。
+  void updateGearRatios({
+    double? lowReverse,
+    double? lowForward,
+    double? highReverse,
+    double? highForward,
+  }) {
+    final current = state.gearSettings;
+    state = state.copyWith(
+      gearSettings: current.copyWith(
+        lowReversePercent: lowReverse == null
+            ? null
+            : normalizeGearPercent(lowReverse),
+        lowForwardPercent: lowForward == null
+            ? null
+            : normalizeGearPercent(lowForward),
+        highReversePercent: highReverse == null
+            ? null
+            : normalizeGearPercent(highReverse),
+        highForwardPercent: highForward == null
+            ? null
+            : normalizeGearPercent(highForward),
+      ),
     );
     _persist();
   }

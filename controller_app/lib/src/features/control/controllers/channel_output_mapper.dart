@@ -80,13 +80,16 @@ int mapThrottleInputToUs({
   required double lowPercent,
   required double centerPercent,
   required double highPercent,
+  int trimStep = 0,
 }) {
-  return mapControlInputToUs(
+  final mapped = mapControlInputToUs(
     input: throttle,
     lowPercent: lowPercent,
     centerPercent: centerPercent,
     highPercent: highPercent,
   );
+  // 控制页微调与方向通道保持相同的 2us 步进规则。
+  return (mapped + (trimStep * 2)).clamp(1000, 2000);
 }
 
 /// 将最终主通道 PWM 围绕 1500 us 对称反向，并保持在硬件输出范围内。

@@ -6,6 +6,7 @@ abstract final class AppRoutes {
   static const control = '/control';
   static const settings = '/settings';
   static const channelSettings = '/settings/channels';
+  static const gearSettings = '/settings/gears';
   static const failsafe = '/settings/failsafe';
   static const tankMixing = '/settings/tank-mixing';
   static const alarms = '/settings/alarms';

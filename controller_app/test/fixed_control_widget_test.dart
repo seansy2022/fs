@@ -71,4 +71,26 @@ void main() {
       expect(find.byKey(controlThumbKey), findsNothing);
     },
   );
+
+  testWidgets('fixed control sends zero when its center is tapped', (
+    tester,
+  ) async {
+    final values = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Control(
+              direction: ControlSliderDirection.horizontal,
+              onChanged: values.add,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tapAt(tester.getCenter(find.byType(Control)));
+
+    expect(values, <int>[0]);
+  });
 }

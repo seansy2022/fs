@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:rc_ui/rc_ui.dart';
 
+import '../../../core/localization/app_localizations.dart';
+
 enum FirmwareUpgradeVisualState { loading, success, failure }
 
 class FirmwareUpgradeStatusView extends StatelessWidget {
@@ -55,9 +57,9 @@ class FirmwareUpgradeStatusView extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             switch (state) {
-              FirmwareUpgradeVisualState.loading => '固件更新中…',
-              FirmwareUpgradeVisualState.success => '固件更新成功！',
-              FirmwareUpgradeVisualState.failure => '更新失败！',
+              FirmwareUpgradeVisualState.loading => AppText.tr('固件更新中…'),
+              FirmwareUpgradeVisualState.success => AppText.tr('固件更新成功！'),
+              FirmwareUpgradeVisualState.failure => AppText.tr('更新失败！'),
             },
             style: const TextStyle(
               color: AppColors.text,
@@ -68,7 +70,7 @@ class FirmwareUpgradeStatusView extends StatelessWidget {
           if (state == FirmwareUpgradeVisualState.failure) ...[
             const SizedBox(height: 8),
             Text(
-              failureMessage,
+              AppText.tr(failureMessage),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Color(0xFF7DA2CE), fontSize: 12),
             ),

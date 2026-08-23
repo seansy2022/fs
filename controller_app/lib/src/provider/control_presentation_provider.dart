@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'race_sound_player.dart';
 import '../features/control/controllers/control_controller.dart';
+import '../features/control/controllers/control_runtime_store.dart';
 
 enum ControlDriveState {
   idle,
@@ -104,27 +105,34 @@ final controlPresentationProvider =
     >((ref) {
       return ControlPresentationController(
         soundPlayer: ref.watch(raceSoundPlayerFactoryProvider)(),
+        runtimeStore: ControlRuntimeStore(),
       );
     });
 
 class ControlPresentationController
     extends StateNotifier<ControlPresentationState> {
-  ControlPresentationController({required RaceSoundPlayer soundPlayer})
-    : _soundPlayer = soundPlayer,
-      super(const ControlPresentationState.initial()) {
+  ControlPresentationController({
+    required RaceSoundPlayer soundPlayer,
+    ControlRuntimeStore? runtimeStore,
+  }) : _soundPlayer = soundPlayer,
+       _runtimeStore = runtimeStore ?? ControlRuntimeStore(),
+       super(const ControlPresentationState.initial()) {
+    _restoreRuntimeFuture = _restoreRuntime();
     _effectCompleteSubscription = _soundPlayer.onEffectComplete.listen((_) {
       unawaited(_handleEffectComplete());
     });
   }
 
-  static const movementThreshold = 0.15;
+  // 只过滤浮点运算残值；用户只要有实际输入，动画和音效立即触发。
+  static const movementThreshold = 0.001;
   static const launchHighThreshold = 0.5;
-  static const brakePreviousThreshold = 0.55;
   static const minimumTriggerGap = Duration(milliseconds: 350);
 
   final RaceSoundPlayer _soundPlayer;
+  final ControlRuntimeStore _runtimeStore;
 
   StreamSubscription<void>? _effectCompleteSubscription;
+  late final Future<void> _restoreRuntimeFuture;
   ControlScreenState? _latestControlState;
   SoundCue _activeEffectCue = SoundCue.none;
   bool _activeEffectLoop = false;
@@ -133,6 +141,7 @@ class ControlPresentationController
   int _decisionVersion = 0;
 
   Future<void> enterPage() async {
+    await _restoreRuntimeFuture;
     if (state.isPageActive) {
       return;
     }
@@ -165,17 +174,21 @@ class ControlPresentationController
   }
 
   Future<void> toggleBackgroundSound() async {
+    await _restoreRuntimeFuture;
     final enabled = !state.backgroundSoundEnabled;
     state = state.copyWith(
       backgroundSoundEnabled: enabled,
       musicCue: _desiredMusicCue(enabled),
     );
+    unawaited(_saveRuntime());
     await _syncBackgroundSound();
   }
 
   Future<void> toggleEffectSound() async {
+    await _restoreRuntimeFuture;
     final enabled = !state.effectSoundEnabled;
     state = state.copyWith(effectSoundEnabled: enabled);
+    unawaited(_saveRuntime());
     if (!enabled) {
       _activeEffectCue = SoundCue.none;
       _activeEffectLoop = false;
@@ -308,6 +321,36 @@ class ControlPresentationController
     await _soundPlayer.playBackground();
   }
 
+  /// 在首次进入控制页前恢复声音开关，避免按默认值误播放音乐。
+  Future<void> _restoreRuntime() async {
+    try {
+      final saved = await _runtimeStore.loadSoundState();
+      if (!mounted) {
+        return;
+      }
+      state = state.copyWith(
+        backgroundSoundEnabled: saved.backgroundSoundEnabled,
+        effectSoundEnabled: saved.effectSoundEnabled,
+      );
+    } catch (_) {
+      // 读取失败时沿用默认声音开关。
+    }
+  }
+
+  /// 保存声音开关；失败时不影响当前页面的播放控制。
+  Future<void> _saveRuntime() async {
+    try {
+      await _runtimeStore.saveSoundState(
+        StoredControlSoundState(
+          backgroundSoundEnabled: state.backgroundSoundEnabled,
+          effectSoundEnabled: state.effectSoundEnabled,
+        ),
+      );
+    } catch (_) {
+      // 本地保存失败时仍维持当前页面状态。
+    }
+  }
+
   SoundCue _desiredMusicCue(bool backgroundSoundEnabled) {
     return state.isPageActive && backgroundSoundEnabled
         ? SoundCue.backgroundMusic
@@ -358,8 +401,7 @@ ControlPresentationDecision deriveControlPresentationDecision({
       previousThrottle <= ControlPresentationController.movementThreshold &&
       throttle > ControlPresentationController.movementThreshold;
   final braking =
-      previousThrottle >=
-          ControlPresentationController.brakePreviousThreshold &&
+      previousThrottle >= ControlPresentationController.movementThreshold &&
       throttle < -ControlPresentationController.movementThreshold;
   final gearChanged = previousState.highGear != nextState.highGear;
 

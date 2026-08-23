@@ -6,10 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
 import '../core/app_vibration.dart';
+import '../core/receiver_battery_status.dart';
 import '../features/settings/models/app_settings_state.dart';
 import 'alert_audio_player.dart';
 import 'app_settings_provider.dart';
-import 'effective_bluetooth_provider.dart';
+import 'device_status_provider.dart';
 
 typedef AlertVibration = Future<void> Function(Duration duration);
 typedef StopAlertVibration = Future<void> Function();
@@ -32,8 +33,8 @@ final batteryAlertStopVibrationProvider = Provider<StopAlertVibration>((ref) {
 
 final batteryAlertMonitorProvider = Provider<BatteryAlertMonitor>((ref) {
   final monitor = BatteryAlertMonitor(ref);
-  ref.listen(effectiveReceiverInfoProvider, (_, next) {
-    monitor.updateBatteryLevel(next?.batteryLevel);
+  ref.listen(receiverBatteryStatusProvider, (_, next) {
+    monitor.updateBatteryStatus(next);
   });
   ref.listen<AppSettingsState>(appSettingsProvider, (_, __) => monitor.sync());
   ref.onDispose(monitor.dispose);
@@ -51,12 +52,13 @@ class BatteryAlertMonitor {
   final AlertVibration _vibrate;
   final StopAlertVibration _stopVibration;
   Timer? _sessionTimer;
-  int? _batteryLevel;
+  ReceiverBatteryStatus? _batteryStatus;
   bool _isBelowThreshold = false;
   bool _sessionActive = false;
 
-  void updateBatteryLevel(int? batteryLevel) {
-    _batteryLevel = batteryLevel;
+  /// 同步最新换算后的电池状态，避免直接使用协议原始百分比。
+  void updateBatteryStatus(ReceiverBatteryStatus? batteryStatus) {
+    _batteryStatus = batteryStatus;
     sync();
   }
 
@@ -67,12 +69,12 @@ class BatteryAlertMonitor {
       return;
     }
     final settings = _ref.read(appSettingsProvider);
-    final batteryLevel = _batteryLevel;
+    final batteryStatus = _batteryStatus;
     final shouldAlert =
         settings.lowVoltageEnabled &&
         (settings.batteryVoice || settings.batteryVibration) &&
-        batteryLevel != null &&
-        batteryLevel < settings.batteryAlertPercent;
+        batteryStatus != null &&
+        batteryStatus.isAtOrBelow(settings.batteryAlertPercent);
     if (!shouldAlert) {
       _isBelowThreshold = false;
       _stop();
@@ -132,9 +134,9 @@ class BatteryAlertMonitor {
 
 String _batteryAlertAsset(String languageCode) {
   if (languageCode.toLowerCase().startsWith('zh')) {
-    return 'voice/battery_alert_zh.mp3';
+    return 'voice/battery_alert_zh.m4a';
   }
-  return 'voice/battery_alert_en.mp3';
+  return 'voice/battery_alert_en.m4a';
 }
 
 ReceiverInfo testReceiverInfo(int batteryLevel) {

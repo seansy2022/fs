@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/receiver_battery_status.dart';
 import 'effective_bluetooth_provider.dart';
-import 'simulated_bluetooth_provider.dart';
+import 'app_settings_provider.dart';
 
 class DeviceStatusState {
   const DeviceStatusState({
@@ -24,13 +25,28 @@ class DeviceStatusState {
 }
 
 final deviceStatusProvider = Provider<DeviceStatusState>((ref) {
-  final info = ref.watch(effectiveReceiverInfoProvider);
+  final batteryStatus = ref.watch(receiverBatteryStatusProvider);
   final rssi = ref.watch(effectiveConnectedRssiProvider);
-  final simulated = ref.watch(simulatedBluetoothTelemetryProvider);
   return DeviceStatusState(
-    batteryPercent: info?.batteryLevel,
-    voltage: simulated?.voltage,
+    batteryPercent: batteryStatus?.displayPercent,
+    voltage: batteryStatus?.voltage,
     signalRssi: rssi,
     speed: null,
+  );
+});
+
+/// 根据原始接收机数据与当前设置提供统一的电池状态。
+final receiverBatteryStatusProvider = Provider<ReceiverBatteryStatus?>((ref) {
+  final rawBatteryLevel = ref
+      .watch(effectiveReceiverInfoProvider)
+      ?.batteryLevel;
+  if (rawBatteryLevel == null) {
+    return null;
+  }
+  final settings = ref.watch(appSettingsProvider);
+  return ReceiverBatteryStatus.fromRawBatteryLevel(
+    rawBatteryLevel: rawBatteryLevel,
+    minimumVoltage: settings.minimumVoltage,
+    fullVoltage: settings.fullVoltage,
   );
 });

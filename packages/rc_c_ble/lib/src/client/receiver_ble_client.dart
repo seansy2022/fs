@@ -869,6 +869,10 @@ class ReceiverBleClient {
   }
 
   void _setConnectionState(ReceiverConnectionState state) {
+    ReceiverLogging.link(
+      'connection $_connectionState -> $state remoteId=$_connectedRemoteId',
+      scope: 'ReceiverBleClient',
+    );
     _connectionState = state;
     _connectionCtrl.add(state);
   }
@@ -888,6 +892,10 @@ class ReceiverBleClient {
   }
 
   void _onTransportConnectionEvent(ReceiverLinkConnectionEvent event) {
+    ReceiverLogging.link(
+      'transport connection event remoteId=${event.remoteId} state=${event.state}',
+      scope: 'ReceiverBleClient',
+    );
     if (event.state == ReceiverLinkConnectionState.connected) {
       return;
     }
@@ -987,11 +995,25 @@ class ReceiverBleClient {
           _connectionState != ReceiverConnectionState.connected) {
         return;
       }
+      ReceiverLogging.link(
+        'rssi success remoteId=$remoteId value=$rssi',
+        scope: 'ReceiverBleClient',
+      );
       _connectedRssi = rssi;
       _connectedRssiCtrl.add(rssi);
-    } catch (_) {
-      // RSSI reads are best-effort; connection state and control traffic own
-      // disconnect handling.
+    } catch (error) {
+      // RSSI 读取失败时不能保留旧值，否则 App 会把陈旧的低信号持续当作当前状态。
+      if (!_rssiPollingEnabled ||
+          _connectedRemoteId != remoteId ||
+          _connectionState != ReceiverConnectionState.connected) {
+        return;
+      }
+      ReceiverLogging.link(
+        'rssi failed remoteId=$remoteId error=$error',
+        scope: 'ReceiverBleClient',
+      );
+      _connectedRssi = null;
+      _connectedRssiCtrl.add(null);
     } finally {
       _rssiReadInFlight = false;
     }

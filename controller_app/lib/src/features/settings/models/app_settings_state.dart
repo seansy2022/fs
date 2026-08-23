@@ -1,8 +1,11 @@
 import 'dart:convert';
 
 import 'aux_channel_value_rules.dart';
+import 'gear_settings.dart';
+import 'gyro_calibration_settings.dart';
 
-enum Handedness { leftThrottle, rightThrottle }
+/// 控制页手型布局；单手模式使用一个双轴区域同时控制方向和油门。
+enum Handedness { singleRight, singleLeft, leftThrottle, rightThrottle }
 
 enum ControlMode { fixedPosition, floating }
 
@@ -35,6 +38,7 @@ class ChannelSetting {
     required this.controlType,
     required this.switchValues,
     required this.multiStateValues,
+    this.multiStateLabels = const <String>[],
     required this.singleValue,
     required this.lowPercent,
     required this.highPercent,
@@ -49,6 +53,7 @@ class ChannelSetting {
   final AuxControlType controlType;
   final List<double> switchValues;
   final List<double> multiStateValues;
+  final List<String> multiStateLabels;
   final double singleValue;
   final double lowPercent;
   final double highPercent;
@@ -63,6 +68,7 @@ class ChannelSetting {
     AuxControlType? controlType,
     List<double>? switchValues,
     List<double>? multiStateValues,
+    List<String>? multiStateLabels,
     double? singleValue,
     double? lowPercent,
     double? highPercent,
@@ -77,6 +83,7 @@ class ChannelSetting {
       controlType: controlType ?? this.controlType,
       switchValues: switchValues ?? this.switchValues,
       multiStateValues: multiStateValues ?? this.multiStateValues,
+      multiStateLabels: multiStateLabels ?? this.multiStateLabels,
       singleValue: singleValue ?? this.singleValue,
       lowPercent: lowPercent ?? this.lowPercent,
       highPercent: highPercent ?? this.highPercent,
@@ -94,6 +101,10 @@ class ChannelSetting {
       'controlType': controlType.name,
       'switchValues': switchValues,
       'multiStateValues': multiStateValues,
+      'multiStateLabels': normalizeAuxMultiStateLabels(
+        multiStateLabels,
+        stateCount: normalizeAuxMultiStateValues(multiStateValues).length,
+      ),
       'singleValue': singleValue,
       'lowPercent': lowPercent,
       'highPercent': highPercent,
@@ -128,6 +139,12 @@ class ChannelSetting {
         fallback: defaultAuxMultiStateValues,
       ),
     );
+    final multiStateLabels = normalizeAuxMultiStateLabels(
+      (json['multiStateLabels'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<String>()
+          .toList(growable: false),
+      stateCount: multiStateValues.length,
+    );
     final singleValue = normalizeAuxChannelPercent(
       (json['singleValue'] as num?)?.toDouble() ?? trimPercent,
     );
@@ -140,6 +157,7 @@ class ChannelSetting {
       controlType: controlType,
       switchValues: switchValues,
       multiStateValues: multiStateValues,
+      multiStateLabels: multiStateLabels,
       singleValue: singleValue,
       lowPercent: lowPercent,
       highPercent: highPercent,
@@ -154,6 +172,7 @@ class AppSettingsState {
     required this.handedness,
     required this.controlMode,
     required this.gyroMode,
+    required this.gyroCalibration,
     required this.channels,
     required this.tankMixingEnabled,
     required this.trackMixLeft,
@@ -162,6 +181,7 @@ class AppSettingsState {
     required this.tankReversePercent,
     required this.tankLeftTurnPercent,
     required this.tankRightTurnPercent,
+    required this.gearSettings,
     required this.lowVoltageEnabled,
     required this.batteryType,
     required this.minimumVoltage,
@@ -182,6 +202,7 @@ class AppSettingsState {
   final Handedness handedness;
   final ControlMode controlMode;
   final GyroMode gyroMode;
+  final GyroCalibrationSettings gyroCalibration;
   final List<ChannelSetting> channels;
   final bool tankMixingEnabled;
   final double trackMixLeft;
@@ -190,6 +211,7 @@ class AppSettingsState {
   final double tankReversePercent;
   final double tankLeftTurnPercent;
   final double tankRightTurnPercent;
+  final GearSettings gearSettings;
   final bool lowVoltageEnabled;
   final BatteryType batteryType;
   final double minimumVoltage;
@@ -211,6 +233,7 @@ class AppSettingsState {
       handedness: Handedness.rightThrottle,
       controlMode: ControlMode.fixedPosition,
       gyroMode: GyroMode.throttleOnly,
+      gyroCalibration: GyroCalibrationSettings.defaults,
       channels: const <ChannelSetting>[
         ChannelSetting(
           channelLabel: 'CH1',
@@ -276,6 +299,7 @@ class AppSettingsState {
       tankReversePercent: 100,
       tankLeftTurnPercent: 100,
       tankRightTurnPercent: 100,
+      gearSettings: GearSettings.defaults,
       lowVoltageEnabled: true,
       batteryType: BatteryType.twoCell,
       minimumVoltage: 6.0,
@@ -298,6 +322,7 @@ class AppSettingsState {
     Handedness? handedness,
     ControlMode? controlMode,
     GyroMode? gyroMode,
+    GyroCalibrationSettings? gyroCalibration,
     List<ChannelSetting>? channels,
     bool? tankMixingEnabled,
     double? trackMixLeft,
@@ -306,6 +331,7 @@ class AppSettingsState {
     double? tankReversePercent,
     double? tankLeftTurnPercent,
     double? tankRightTurnPercent,
+    GearSettings? gearSettings,
     bool? lowVoltageEnabled,
     BatteryType? batteryType,
     double? minimumVoltage,
@@ -326,6 +352,7 @@ class AppSettingsState {
       handedness: handedness ?? this.handedness,
       controlMode: controlMode ?? this.controlMode,
       gyroMode: gyroMode ?? this.gyroMode,
+      gyroCalibration: gyroCalibration ?? this.gyroCalibration,
       channels: channels ?? this.channels,
       tankMixingEnabled: tankMixingEnabled ?? this.tankMixingEnabled,
       trackMixLeft: trackMixLeft ?? this.trackMixLeft,
@@ -334,6 +361,7 @@ class AppSettingsState {
       tankReversePercent: tankReversePercent ?? this.tankReversePercent,
       tankLeftTurnPercent: tankLeftTurnPercent ?? this.tankLeftTurnPercent,
       tankRightTurnPercent: tankRightTurnPercent ?? this.tankRightTurnPercent,
+      gearSettings: gearSettings ?? this.gearSettings,
       lowVoltageEnabled: lowVoltageEnabled ?? this.lowVoltageEnabled,
       batteryType: batteryType ?? this.batteryType,
       minimumVoltage: minimumVoltage ?? this.minimumVoltage,
@@ -357,6 +385,7 @@ class AppSettingsState {
       'handedness': handedness.name,
       'controlMode': controlMode.name,
       'gyroMode': gyroMode.name,
+      'gyroCalibration': gyroCalibration.toJson(),
       'channels': channels
           .map((channel) => channel.toJson())
           .toList(growable: false),
@@ -367,6 +396,7 @@ class AppSettingsState {
       'tankReversePercent': tankReversePercent,
       'tankLeftTurnPercent': tankLeftTurnPercent,
       'tankRightTurnPercent': tankRightTurnPercent,
+      'gearSettings': gearSettings.toJson(),
       'lowVoltageEnabled': lowVoltageEnabled,
       'batteryType': batteryType.name,
       'minimumVoltage': minimumVoltage,
@@ -396,6 +426,9 @@ class AppSettingsState {
       handedness: Handedness.values.byName(json['handedness']! as String),
       controlMode: ControlMode.values.byName(json['controlMode']! as String),
       gyroMode: _gyroModeFromStorage(json['gyroMode']! as String),
+      gyroCalibration: GyroCalibrationSettings.fromJson(
+        json['gyroCalibration'],
+      ),
       channels: (json['channels']! as List<dynamic>)
           .whereType<Map<String, dynamic>>()
           .map(ChannelSetting.fromJson)
@@ -412,6 +445,7 @@ class AppSettingsState {
           (json['tankLeftTurnPercent'] as num?)?.toDouble() ?? 100,
       tankRightTurnPercent:
           (json['tankRightTurnPercent'] as num?)?.toDouble() ?? 100,
+      gearSettings: GearSettings.fromJson(json['gearSettings']),
       lowVoltageEnabled: json['lowVoltageEnabled']! as bool,
       batteryType: _batteryTypeFromStorage(json['batteryType']! as String),
       minimumVoltage: (json['minimumVoltage']! as num).toDouble(),

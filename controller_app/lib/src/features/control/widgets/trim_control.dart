@@ -7,11 +7,7 @@ import 'package:rc_ui/rc_ui.dart';
 /// Range: -50 to 50, precision 1.
 /// Single tap: ±1. Long press (>=500ms): ±5 every 250ms.
 class TrimControl extends StatefulWidget {
-  const TrimControl({
-    super.key,
-    required this.value,
-    required this.onChanged,
-  });
+  const TrimControl({super.key, required this.value, required this.onChanged});
 
   final int value;
   final ValueChanged<int> onChanged;

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
+import '../core/receiver_battery_status.dart';
 import 'app_settings_provider.dart';
 
 class SimulatedBluetoothSnapshot {
@@ -62,16 +63,16 @@ final simulatedBluetoothSnapshotProvider =
         final rssi = stepIndex < _simulatedSignalSteps.length
             ? _simulatedSignalSteps[stepIndex]
             : _simulatedSignalSteps.last;
-        final voltage = calculateBatteryVoltage(
-          batteryPercent: batteryLevel,
-          minVoltage: settings.minimumVoltage,
+        final batteryStatus = ReceiverBatteryStatus.fromRawBatteryLevel(
+          rawBatteryLevel: batteryLevel,
+          minimumVoltage: settings.minimumVoltage,
           fullVoltage: settings.fullVoltage,
         );
         controller.add(
           SimulatedBluetoothSnapshot(
             connectionState: ReceiverConnectionState.connected,
             batteryLevel: batteryLevel,
-            voltage: voltage,
+            voltage: batteryStatus.voltage,
             rssi: rssi,
             receiverInfo: ReceiverInfo(
               rfmId: Uint8List(4),
@@ -125,29 +126,3 @@ final simulatedConnectedRssiProvider = Provider<AsyncValue<int?>>((ref) {
       .watch(simulatedBluetoothSnapshotProvider)
       .whenData((snapshot) => snapshot.rssi);
 });
-
-int calculateBatteryPercent({
-  required double voltage,
-  required double minVoltage,
-  required double fullVoltage,
-}) {
-  final span = fullVoltage - minVoltage;
-  if (span <= 0) {
-    return 0;
-  }
-  final ratio = ((voltage - minVoltage) / span).clamp(0.0, 1.0);
-  return (ratio * 100).round();
-}
-
-double calculateBatteryVoltage({
-  required int batteryPercent,
-  required double minVoltage,
-  required double fullVoltage,
-}) {
-  final span = fullVoltage - minVoltage;
-  if (span <= 0) {
-    return minVoltage;
-  }
-  final ratio = batteryPercent.clamp(0, 100) / 100;
-  return minVoltage + span * ratio;
-}

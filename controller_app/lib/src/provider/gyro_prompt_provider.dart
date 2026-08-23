@@ -6,6 +6,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 
 import 'app_settings_provider.dart';
 import '../features/settings/models/app_settings_state.dart';
+import '../features/settings/models/gyro_calibration_settings.dart';
 
 class GyroPrompt {
   const GyroPrompt({required this.steering, required this.throttle});
@@ -16,11 +17,12 @@ class GyroPrompt {
   final double throttle;
 }
 
-const _maxTiltDegree = 30.0;
 const _deadZoneDegree = 2.0;
 
 final gyroPromptProvider = StreamProvider.autoDispose<GyroPrompt>((ref) async* {
-  final mode = ref.watch(appSettingsProvider.select((s) => s.gyroMode));
+  final settings = ref.watch(appSettingsProvider);
+  final mode = settings.gyroMode;
+  final calibration = settings.gyroCalibration;
   if (kDebugMode) {
     debugPrint('[gyro-prompt] start mode=${mode.name}');
   }
@@ -31,6 +33,7 @@ final gyroPromptProvider = StreamProvider.autoDispose<GyroPrompt>((ref) async* {
       final steering = mapDirectionSteeringFromAccelerometer(
         y: event.y,
         z: event.z,
+        calibration: calibration,
       );
       yield GyroPrompt(steering: steering, throttle: 0.0);
     }
@@ -42,7 +45,10 @@ final gyroPromptProvider = StreamProvider.autoDispose<GyroPrompt>((ref) async* {
       samplingPeriod: SensorInterval.gameInterval,
     )) {
       final rollDegree = _degree(math.atan2(event.x, event.z));
-      final throttle = _mapDegreeToUnit(-rollDegree);
+      final throttle = mapThrottleFromDegree(
+        degree: -rollDegree,
+        calibration: calibration,
+      );
       yield GyroPrompt(steering: 0.0, throttle: throttle);
     }
     return;
@@ -56,8 +62,12 @@ final gyroPromptProvider = StreamProvider.autoDispose<GyroPrompt>((ref) async* {
     final steering = mapDirectionSteeringFromAccelerometer(
       y: event.y,
       z: event.z,
+      calibration: calibration,
     );
-    final throttle = _mapDegreeToUnit(-rollDegree);
+    final throttle = mapThrottleFromDegree(
+      degree: -rollDegree,
+      calibration: calibration,
+    );
     yield GyroPrompt(steering: steering, throttle: throttle);
   }
 });
@@ -68,15 +78,53 @@ double _degree(double radians) => radians * 180 / math.pi;
 double mapDirectionSteeringFromAccelerometer({
   required double y,
   required double z,
+  GyroCalibrationSettings calibration = GyroCalibrationSettings.defaults,
 }) {
   final pitchDegree = _degree(math.atan2(y, z));
-  return _mapDegreeToUnit(pitchDegree);
+  return mapSteeringFromDegree(degree: pitchDegree, calibration: calibration);
 }
 
-double _mapDegreeToUnit(double degree) {
-  final absValue = degree.abs();
-  if (absValue <= _deadZoneDegree) {
+/// 依据保存的油门校准点，将手机角度转换成 -1～1 的油门输入。
+@visibleForTesting
+double mapThrottleFromDegree({
+  required double degree,
+  required GyroCalibrationSettings calibration,
+}) {
+  return _mapCalibratedDegree(
+    degree: degree,
+    positiveDegree: calibration.throttleForwardDegree,
+    centerDegree: calibration.throttleCenterDegree,
+    negativeDegree: calibration.throttleReverseDegree,
+  );
+}
+
+/// 依据保存的方向校准点，将手机角度转换成 -1～1 的方向输入。
+@visibleForTesting
+double mapSteeringFromDegree({
+  required double degree,
+  required GyroCalibrationSettings calibration,
+}) {
+  return _mapCalibratedDegree(
+    degree: degree,
+    positiveDegree: calibration.steeringLeftDegree,
+    centerDegree: calibration.steeringCenterDegree,
+    negativeDegree: calibration.steeringRightDegree,
+  );
+}
+
+/// 以居中角度为零点，对正负两个校准区间分别做线性映射。
+double _mapCalibratedDegree({
+  required double degree,
+  required double positiveDegree,
+  required double centerDegree,
+  required double negativeDegree,
+}) {
+  final offset = degree - centerDegree;
+  if (offset.abs() <= _deadZoneDegree) {
     return 0;
   }
-  return (degree / _maxTiltDegree).clamp(-1, 1);
+  if (offset > 0) {
+    return (offset / (positiveDegree - centerDegree)).clamp(0, 1);
+  }
+  return (offset / (centerDegree - negativeDegree)).clamp(-1, 0);
 }

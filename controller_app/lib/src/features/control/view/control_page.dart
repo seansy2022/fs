@@ -6,19 +6,24 @@ import 'package:rc_c_ble/rc_c_ble.dart';
 import 'package:rc_ui/rc_ui.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../app/app_routes.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers.dart';
 import '../../../provider/alert_message_provider.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
 import '../../../provider/control_presentation_provider.dart';
 import '../../../provider/control_provider.dart';
+import '../../../provider/device_status_provider.dart';
 import '../../../provider/effective_bluetooth_provider.dart';
 import '../../../provider/race_sound_player.dart';
+import '../../../provider/signal_strength_utils.dart';
 import '../../settings/models/app_settings_state.dart';
 import '../controllers/control_controller.dart';
 import '../widgets/bluetooth_svg_toggle_button.dart';
 import '../widgets/control_aux_action_panel.dart';
 import '../widgets/control_status_warning_text.dart';
 import '../widgets/gyro_svg_toggle_button.dart';
+import '../widgets/single_hand_control/single_hand_layouts.dart';
 import '../widgets/steering_indicator_row.dart';
 import '../widgets/throttle_turn_signal_buttons.dart';
 
@@ -113,19 +118,12 @@ List<AuxControlButtonViewData> buildAuxButtons({
         labelOnly: true,
         onTap: () {},
       ),
-      for (var index = 0; index < labels.length; index++)
-        AuxControlButtonViewData(
-          key: ValueKey<String>(
-            'control-top-action-ch$channelIndex-state-$index',
-          ),
-          label: labels[index],
-          active: resolved.selectedIndex == index,
-          onTap: () {
-            unawaited(
-              controller.pressAuxChannel(channelIndex, selectedIndex: index),
-            );
-          },
-        ),
+      AuxControlButtonViewData(
+        key: ValueKey<String>('control-top-action-ch$channelIndex'),
+        label: labels[resolved.selectedIndex],
+        active: true,
+        onTap: () => unawaited(controller.pressAuxChannel(channelIndex)),
+      ),
     ];
   }
   return <AuxControlButtonViewData>[
@@ -149,7 +147,8 @@ class ControlPage extends ConsumerStatefulWidget {
   ConsumerState<ControlPage> createState() => _ControlPageState();
 }
 
-class _ControlPageState extends ConsumerState<ControlPage> {
+class _ControlPageState extends ConsumerState<ControlPage>
+    with WidgetsBindingObserver {
   static const _backgroundVideoAsset =
       'assets/wepb/control_bg_forward_loop.mp4';
   static const _overlayAnimationWidth = 136.0;
@@ -161,6 +160,11 @@ class _ControlPageState extends ConsumerState<ControlPage> {
   ProviderSubscription<ControlScreenState>?
   _presentationControlStateSubscription;
   ProviderSubscription<ReceiverConnectionState>? _connectionSubscription;
+  Timer? _countdownTimer;
+  int? _countdownValue = 3;
+  bool _countdownCompleted = false;
+  bool _activationInProgress = false;
+  bool _controlSessionStopped = false;
 
   ControlController _getControlController() {
     final cached = _controlController;
@@ -175,6 +179,8 @@ class _ControlPageState extends ConsumerState<ControlPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _getControlController().prepareControlSession();
     unawaited(_initializeBackgroundVideo());
     final presentationController = ref.read(
       controlPresentationProvider.notifier,
@@ -186,27 +192,33 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     _connectionSubscription = ref.listenManual<ReceiverConnectionState>(
       effectiveReceiverConnectionProvider,
       (previous, next) {
-        // 蓝牙在控制页打开后才连接时，立即启动连续控制帧。
+        // 倒计时结束后才允许连接事件启动连续控制帧。
         if (previous != next && next == ReceiverConnectionState.connected) {
-          unawaited(_activate());
+          unawaited(_activateWhenReady());
         }
       },
       fireImmediately: false,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      final initialState = ref.read(controlControllerProvider);
-      unawaited(presentationController.bindControlState(initialState));
-      unawaited(
-        ref
-            .read(bluetoothDomainControllerProvider.notifier)
-            .ensureScanStopped(),
-      );
-      unawaited(presentationController.enterPage());
-      unawaited(_activate());
+      unawaited(_initializePage(presentationController));
     });
+  }
+
+  /// 恢复本地运行状态后再开始倒计时，避免按默认状态发送控制数据。
+  Future<void> _initializePage(
+    ControlPresentationController presentationController,
+  ) async {
+    await _getControlController().restoreInputRuntime();
+    if (!mounted) {
+      return;
+    }
+    final initialState = ref.read(controlControllerProvider);
+    await presentationController.bindControlState(initialState);
+    unawaited(
+      ref.read(bluetoothDomainControllerProvider.notifier).ensureScanStopped(),
+    );
+    unawaited(presentationController.enterPage());
+    _startCountdown();
   }
 
   Future<void> _initializeBackgroundVideo() async {
@@ -235,10 +247,47 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     }
   }
 
-  Future<void> _activate() async {
-    if (ref.read(effectiveReceiverConnectionProvider) ==
-        ReceiverConnectionState.connected) {
+  /// 以每秒一次的节奏显示 3、2、1；完成前不允许发送控制帧。
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    var nextValue = 3;
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      nextValue -= 1;
+      if (nextValue == 0) {
+        timer.cancel();
+        _countdownTimer = null;
+        setState(() {
+          _countdownValue = null;
+          _countdownCompleted = true;
+        });
+        unawaited(_activateWhenReady());
+        return;
+      }
+      setState(() => _countdownValue = nextValue);
+    });
+  }
+
+  /// 倒计时结束且接收机已连接时，只启动一次控制循环。
+  Future<void> _activateWhenReady() async {
+    if (_controlSessionStopped ||
+        !_countdownCompleted ||
+        _activationInProgress ||
+        ref.read(effectiveReceiverConnectionProvider) !=
+            ReceiverConnectionState.connected) {
+      return;
+    }
+    if (ref.read(controlControllerProvider).loopActive) {
+      return;
+    }
+    _activationInProgress = true;
+    try {
       await _getControlController().activate();
+    } finally {
+      _activationInProgress = false;
     }
   }
 
@@ -247,7 +296,55 @@ class _ControlPageState extends ConsumerState<ControlPage> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        unawaited(_suspendControlSession());
+      case AppLifecycleState.resumed:
+        unawaited(_resumeControlSession());
+        break;
+    }
+  }
+
+  /// 从后台恢复时重新开始安全倒计时，完成前不恢复控制输出。
+  Future<void> _resumeControlSession() async {
+    if (!_controlSessionStopped || !mounted) {
+      return;
+    }
+    _controlSessionStopped = false;
+    _getControlController().prepareControlSession();
+    setState(() {
+      _countdownValue = 3;
+      _countdownCompleted = false;
+    });
+    _startCountdown();
+  }
+
+  /// 页面离开或应用不可见时停发控制帧，并阻止本页再次自动激活。
+  Future<void> _suspendControlSession([ControlController? controller]) async {
+    if (_controlSessionStopped) {
+      return;
+    }
+    _controlSessionStopped = true;
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    _countdownCompleted = false;
+    final activeController = controller ?? _controlController;
+    if (activeController == null) {
+      return;
+    }
+    await activeController.suspendControlOutput();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    final controlController = _controlController;
     final backgroundVideoController = _backgroundVideoController;
     _backgroundVideoController = null;
     _controlController = null;
@@ -255,6 +352,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     _presentationControlStateSubscription = null;
     _connectionSubscription?.close();
     _connectionSubscription = null;
+    unawaited(_suspendControlSession(controlController));
     unawaited(backgroundVideoController?.dispose());
     super.dispose();
   }
@@ -322,7 +420,6 @@ class _ControlPageState extends ConsumerState<ControlPage> {
 
   @override
   Widget build(BuildContext context) {
-    final info = ref.watch(effectiveReceiverInfoProvider);
     final connectionState = ref.watch(effectiveReceiverConnectionProvider);
     final connectedRssi = ref.watch(effectiveConnectedRssiProvider);
     final controlState = ref.watch(controlControllerProvider);
@@ -342,7 +439,8 @@ class _ControlPageState extends ConsumerState<ControlPage> {
     final alertMessage = ref.watch(controlPageAlertMessageProvider);
 
     final connected = connectionState == ReceiverConnectionState.connected;
-    final batteryLevel = connected ? (info?.batteryLevel ?? 0) : 0;
+    final batteryStatus = ref.watch(receiverBatteryStatusProvider);
+    final batteryLevel = connected ? (batteryStatus?.iconPercent ?? 0) : 0;
     final rssi = connected ? connectedRssi : null;
 
     final showThrottleTurnSignals = leftTurnActive || rightTurnActive;
@@ -428,8 +526,8 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                         : controlState.highGear
                         ? RcDriveMode.high
                         : RcDriveMode.low,
-                    lowLabel: '低速',
-                    highLabel: '高速',
+                    lowLabel: AppText.tr('低速'),
+                    highLabel: AppText.tr('高速'),
                     onChanged: (mode) => switch (mode) {
                       RcDriveMode.park => unawaited(
                         controlController.setParkLocked(true),
@@ -450,6 +548,9 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                       alertMessage: alertMessage,
                       battery: batteryLevel,
                       rssi: rssi,
+                      onSettings: () {
+                        Navigator.of(context).pushNamed(AppRoutes.settings);
+                      },
                       musicOn: presentationState.backgroundSoundEnabled,
                       onMusic: () {
                         unawaited(
@@ -477,6 +578,7 @@ class _ControlPageState extends ConsumerState<ControlPage> {
                     Expanded(
                       child: _ControlArea(
                         leftPadIsThrottle: leftPadIsThrottle,
+                        handedness: settings.handedness,
                         controlMode: settings.controlMode,
                         gyroMode: settings.gyroMode,
                         controlState: controlState,
@@ -489,6 +591,24 @@ class _ControlPageState extends ConsumerState<ControlPage> {
               ],
             ),
           ),
+          if (_countdownValue != null)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: Center(
+                  child: Text(
+                    '$_countdownValue',
+                    key: const ValueKey<String>('control-countdown'),
+                    style: const TextStyle(
+                      color: Color(0xFF00C6FF),
+                      fontSize: 60,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                      height: 1.171875,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -500,6 +620,7 @@ class _TopBar extends StatelessWidget {
     required this.alertMessage,
     required this.battery,
     required this.rssi,
+    required this.onSettings,
     required this.musicOn,
     required this.onMusic,
     required this.soundOn,
@@ -516,6 +637,7 @@ class _TopBar extends StatelessWidget {
   final String? alertMessage;
   final int battery;
   final int? rssi;
+  final VoidCallback onSettings;
   final bool musicOn;
   final VoidCallback onMusic;
   final bool soundOn;
@@ -541,7 +663,7 @@ class _TopBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 SignalWidget(
-                  value: _rssiToPercent(rssi).toDouble(),
+                  value: rssiToControlSignalPercent(rssi).toDouble(),
                   width: 29,
                   height: 16,
                 ),
@@ -564,6 +686,8 @@ class _TopBar extends StatelessWidget {
             ),
             Row(
               children: [
+                _ControlSettingsButton(onTap: onSettings),
+                const SizedBox(width: 16),
                 if (showThrottleTurnSignals && (leftTurnOn || rightTurnOn)) ...[
                   ThrottleTurnSignalButtons(
                     leftOn: leftTurnOn,
@@ -594,15 +718,6 @@ class _TopBar extends StatelessWidget {
       ),
     );
   }
-}
-
-int _rssiToPercent(int? rssi) {
-  if (rssi == null) return 0;
-  if (rssi >= -50) return 100;
-  if (rssi >= -65) return 75;
-  if (rssi >= -80) return 50;
-  if (rssi >= -95) return 25;
-  return 0;
 }
 
 class _CircleIconBtn extends StatelessWidget {
@@ -654,6 +769,28 @@ class _CircleIconBtn extends StatelessWidget {
   }
 }
 
+class _ControlSettingsButton extends StatelessWidget {
+  const _ControlSettingsButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        width: 36,
+        height: 36,
+        child: SvgPicture.string(_settingsButtonSvg, fit: BoxFit.contain),
+      ),
+    );
+  }
+}
+
+const _settingsButtonSvg =
+    '''<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="36" fill="#1B2D4D" fill-opacity="0.4"/><path fill-rule="evenodd" fill="url(#linear_border_126_1288_0)" d="M36 72C55.8823 72 72 55.8823 72 36C72 16.1177 55.8823 0 36 0C16.1177 0 0 16.1177 0 36C0 55.8823 16.1177 72 36 72ZM36 2C54.7777 2 70 17.2223 70 36C70 54.7777 54.7777 70 36 70C17.2223 70 2 54.7777 2 36C2 17.2223 17.2223 2 36 2Z"/><path d="M55.8665 32.8538C55.4661 31.6531 54.3982 30.8527 53.1301 30.8305H50.8609C50.6162 30.8305 50.505 30.7638 50.4383 30.5414C50.3938 30.3858 50.327 30.2301 50.2603 30.0745C50.0527 29.6002 50.1417 29.1703 50.5272 28.7849L51.7063 27.5842C52.8632 26.3835 52.8854 24.6492 51.7286 23.4263C50.683 22.3369 49.6374 21.2918 48.5473 20.2468C47.3237 19.0684 45.5884 19.0906 44.3648 20.2913L42.8521 21.8255C42.6741 22.0033 42.5183 22.0256 42.3181 21.9144C41.9399 21.7365 41.5617 21.5809 41.1613 21.4252V19.0461C41.1613 17.2451 39.8932 16 38.1135 16H33.8865C32.0845 16 30.8387 17.2451 30.8387 19.0461V21.0695C30.8387 21.3808 30.7497 21.5142 30.4605 21.5809C30.3493 21.6031 30.238 21.6476 30.1268 21.692C29.5929 21.8996 29.1183 21.8032 28.703 21.403L27.5017 20.2246C26.3671 19.1573 24.6318 19.1128 23.4972 20.1801C22.3626 21.2696 21.228 22.3813 20.1602 23.5153C19.0923 24.6492 19.1146 26.3835 20.2047 27.5175L21.8064 29.1184C21.9622 29.274 22.0289 29.4074 21.9177 29.6298C21.762 29.9188 21.6285 30.2301 21.5395 30.5192C21.4727 30.7638 21.317 30.8305 21.0945 30.8082H18.9143C17.2903 30.8082 16 32.0756 16 33.6987V38.2346C16 39.8577 17.3126 41.1028 18.9366 41.1251H21.4283C21.6285 41.5698 21.8064 41.9922 21.9844 42.4369C22.0289 42.5258 21.9399 42.7037 21.8509 42.7927L20.3382 44.3268C19.1146 45.572 19.0923 47.3285 20.3382 48.5959L23.4082 51.6642C24.6541 52.8871 26.4116 52.8649 27.6351 51.6642L29.1479 50.1523C29.3037 49.9744 29.4371 49.93 29.6596 50.0634C29.8153 50.1523 29.9933 50.219 30.1491 50.2857C30.6088 50.4785 30.8387 50.8267 30.8387 51.3307V53.0428C30.8387 54.488 31.7508 55.5998 33.1746 55.9333C33.2414 55.9333 33.2859 55.9778 33.3526 56H38.6696C39.337 55.8221 39.9599 55.5553 40.4494 54.9994C40.9166 54.4658 41.1835 53.8432 41.1835 53.1095V50.7971C41.1835 50.597 41.2503 50.4858 41.4282 50.4191C41.6507 50.3524 41.8732 50.2635 42.0734 50.1745C42.4589 50.0116 42.8002 50.0783 43.0968 50.3746L44.3871 51.6642C45.5884 52.8204 47.3237 52.8649 48.525 51.7087L51.7286 48.5069C52.8854 47.3063 52.8632 45.572 51.6841 44.3713L50.1713 42.8594C49.9711 42.6815 49.9488 42.5036 50.0823 42.2813C50.1713 42.1479 50.2158 41.9922 50.2825 41.8588C50.4754 41.3845 50.8387 41.1473 51.3726 41.1473H53.0189C54.465 41.1473 55.5773 40.2801 55.9332 38.8571C55.9332 38.7904 55.9777 38.7015 56 38.6348V33.3207C55.9555 33.1651 55.911 33.0094 55.8443 32.8316L55.8665 32.8538ZM42.1846 36.0111C42.1846 39.413 39.426 42.1701 36.0222 42.1923C32.574 42.1923 29.7931 39.4352 29.7931 36.0111C29.7931 32.587 32.5295 29.8299 35.9555 29.8299C39.4038 29.8299 42.1624 32.5648 42.1624 36.0333L42.1846 36.0111Z" fill="url(#linear_fill_126_1291)"/><defs><linearGradient id="linear_border_126_1288_0" x1="36" y1="72" x2="36" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7EA2CF" stop-opacity="0.4"/><stop offset="0.2807" stop-color="#7DA2CE" stop-opacity="0.64"/><stop offset="0.5394" stop-color="#7DA2CE"/><stop offset="0.7815" stop-color="#7DA2CE" stop-opacity="0.64"/><stop offset="1" stop-color="#7DA2CE" stop-opacity="0.4"/></linearGradient><linearGradient id="linear_fill_126_1291" x1="36" y1="16" x2="36" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#EDF5FF"/><stop offset="1" stop-color="#92C3FF"/></linearGradient></defs></svg>''';
+
 // 涓笅閮ㄦ帶鍒跺尯鍩?
 class _ControlArea extends StatelessWidget {
   static const _controlGap = 18.0;
@@ -666,6 +803,7 @@ class _ControlArea extends StatelessWidget {
 
   const _ControlArea({
     required this.leftPadIsThrottle,
+    required this.handedness,
     required this.controlMode,
     required this.gyroMode,
     required this.controlState,
@@ -674,6 +812,7 @@ class _ControlArea extends StatelessWidget {
   });
 
   final bool leftPadIsThrottle;
+  final Handedness handedness;
   final ControlMode controlMode;
   final GyroMode gyroMode;
   final ControlScreenState controlState;
@@ -727,12 +866,14 @@ class _ControlArea extends StatelessWidget {
   }) {
     final slider = RCControllSider(
       direction: RCControllSiderDirection.vertical,
+      initialValue: controlState.throttleTrim / 50,
+      step: 0.02,
       trackMain: 160,
       enabled: controlState.sliderButtonsVisible,
       showButtons: controlState.sliderButtonsVisible,
       lockSignUntilRelease: true,
       onChanged: (value) {
-        controlController.setThrottle(value);
+        unawaited(controlController.setThrottleTrim((value * 50).round()));
       },
     );
 
@@ -755,10 +896,12 @@ class _ControlArea extends StatelessWidget {
         const SizedBox(height: _controlGap),
         RCControllSider(
           direction: RCControllSiderDirection.horizontal,
+          initialValue: controlState.trim / 50,
+          step: 0.02,
           enabled: controlState.sliderButtonsVisible,
           showButtons: controlState.sliderButtonsVisible,
           onChanged: (value) {
-            controlController.setSteering(value);
+            unawaited(controlController.setSteeringTrim((value * 50).round()));
           },
         ),
       ],
@@ -797,6 +940,47 @@ class _ControlArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final singleHandRight = handedness == Handedness.singleRight;
+    final singleHandLeft = handedness == Handedness.singleLeft;
+    if (singleHandRight || singleHandLeft) {
+      return AbsorbPointer(
+        absorbing: inputLocked,
+        child: singleHandRight
+            ? SingleHandRightControl(
+                steeringTrim: controlState.trim,
+                throttleTrim: controlState.throttleTrim,
+                showTrimButtons: controlState.sliderButtonsVisible,
+                onControlChanged: (value) {
+                  // 双轴值复用原有主通道入口，确保发送链路保持一致。
+                  unawaited(controlController.setSteering(value.steering));
+                  unawaited(controlController.setThrottle(value.throttle));
+                },
+                onSteeringTrimChanged: (value) {
+                  unawaited(controlController.setSteeringTrim(value));
+                },
+                onThrottleTrimChanged: (value) {
+                  unawaited(controlController.setThrottleTrim(value));
+                },
+              )
+            : SingleHandLeftControl(
+                steeringTrim: controlState.trim,
+                throttleTrim: controlState.throttleTrim,
+                showTrimButtons: controlState.sliderButtonsVisible,
+                onControlChanged: (value) {
+                  // 双轴值复用原有主通道入口，确保发送链路保持一致。
+                  unawaited(controlController.setSteering(value.steering));
+                  unawaited(controlController.setThrottle(value.throttle));
+                },
+                onSteeringTrimChanged: (value) {
+                  unawaited(controlController.setSteeringTrim(value));
+                },
+                onThrottleTrimChanged: (value) {
+                  unawaited(controlController.setThrottleTrim(value));
+                },
+              ),
+      );
+    }
+
     final useFloatingOverride = controlMode == ControlMode.floating;
     final useGyroOverride = shouldUseGyroControlOverride(
       gyroEnabled: controlState.gyroEnabled,

@@ -7,10 +7,13 @@ import 'package:rc_c_ble/rc_c_ble.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
+import '../../../provider/device_status_provider.dart';
 import '../../../provider/effective_bluetooth_provider.dart';
 import '../../bluetooth/widgets/bluetooth_connect_feedback.dart';
+import 'home_reconnect_dialog.dart';
 
 const _blueSvg = '''
 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none">
@@ -40,6 +43,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _handlingPrompt = false;
   bool _autoReconnectActive = false;
   bool _autoReconnectAttempted = false;
+  bool _autoReconnectCancelled = false;
 
   @override
   void initState() {
@@ -61,6 +65,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     setState(() {
       _autoReconnectAttempted = true;
       _autoReconnectActive = true;
+      _autoReconnectCancelled = false;
       _reconnectStartedAt = DateTime.now();
     });
     final connected = await ref
@@ -73,7 +78,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       _autoReconnectActive = false;
       _reconnectStartedAt = null;
     });
-    if (connected) {
+    if (connected || _autoReconnectCancelled) {
       return;
     }
     final failure = _resolveReconnectFailure(
@@ -85,14 +90,31 @@ class _HomePageState extends ConsumerState<HomePage> {
     _showReconnectFailure(failure);
   }
 
+  /// 关闭配对提示并取消本次首页自动重连，避免连接在后台继续完成。
+  void _cancelAutoReconnect() {
+    if (!_autoReconnectActive) {
+      return;
+    }
+    setState(() {
+      _autoReconnectCancelled = true;
+      _autoReconnectActive = false;
+      _reconnectStartedAt = null;
+    });
+    unawaited(
+      ref
+          .read(bluetoothDomainControllerProvider.notifier)
+          .cancelPendingAutoReconnect(),
+    );
+  }
+
   _ReconnectFailure? _resolveReconnectFailure(String? errorMessage) {
     if (errorMessage == null || errorMessage.isEmpty) {
       return null;
     }
     return _ReconnectFailure(
-      title: '连接失败',
+      title: AppText.tr('连接失败'),
       message: errorMessage,
-      confirmText: '知道了',
+      confirmText: AppText.tr('知道了'),
     );
   }
 
@@ -142,11 +164,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     });
 
     final connectionState = ref.watch(effectiveReceiverConnectionProvider);
-    final receiverInfo = ref.watch(effectiveReceiverInfoProvider);
     final connectedRssi = ref.watch(effectiveConnectedRssiProvider);
     final connectedDevice = bluetoothState.connectedDevice;
     final connected = connectionState == ReceiverConnectionState.connected;
-    final batteryLevel = receiverInfo?.batteryLevel;
+    final batteryStatus = ref.watch(receiverBatteryStatusProvider);
+    final batteryLevel = batteryStatus?.displayPercent;
     final rssi = connected ? (connectedRssi ?? connectedDevice?.rssi) : null;
     final deviceName = connectedDevice?.name ?? '--';
 
@@ -307,7 +329,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
           ),
           if (_reconnectStartedAt != null)
-            _HomeReconnectOverlay(startedAt: _reconnectStartedAt!),
+            _HomeReconnectOverlay(onClose: _cancelAutoReconnect),
         ],
       ),
     );
@@ -401,19 +423,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       context: context,
       barrierDismissible: true,
       barrierColor: const Color(0xCC000000),
-      builder: (dialogContext) => const _BluetoothEntryDialog(),
+      builder: (_) => const _PairedDevicesDialogContent(),
     );
     if (!context.mounted) {
       return;
     }
-    if (option == 'paired_list') {
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: true,
-        barrierColor: const Color(0xCC000000),
-        builder: (_) => const _PairedDevicesDialogContent(),
-      );
-    } else if (option == 'scan_pairing') {
+    if (option == 'scan_pairing') {
       await _openScanPairingEntry(context);
     }
   }
@@ -423,10 +438,10 @@ class _HomePageState extends ConsumerState<HomePage> {
         ReceiverConnectionState.connected) {
       final confirmed = await AlertIconWidget.show(
         context,
-        title: '提示',
-        message: '确定放弃当前连接接收机去配对其它接收机？',
-        cancelText: '取消',
-        confirmText: '确定',
+        title: AppText.tr('提示'),
+        message: AppText.tr('确定放弃当前连接接收机去配对其它接收机？'),
+        cancelText: AppText.tr('取消'),
+        confirmText: AppText.tr('确定'),
       );
       if (confirmed != true || !context.mounted) {
         return;
@@ -440,9 +455,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         }
         await AlertIconWidget.show(
           context,
-          title: '断开失败',
-          message: '当前连接接收机断开失败，请重试。',
-          confirmText: '知道了',
+          title: AppText.tr('断开失败'),
+          message: AppText.tr('当前连接接收机断开失败，请重试。'),
+          confirmText: AppText.tr('知道了'),
         );
         return;
       }
@@ -465,21 +480,16 @@ class _HomePageState extends ConsumerState<HomePage> {
 }
 
 class _HomeReconnectOverlay extends StatelessWidget {
-  const _HomeReconnectOverlay({required this.startedAt});
+  const _HomeReconnectOverlay({required this.onClose});
 
-  final DateTime startedAt;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: ColoredBox(
         color: const Color(0x66000000),
-        child: Center(
-          child: BlueConnectingLoading(
-            text: '扫描上次设备中...',
-            connectingStartedAt: startedAt,
-          ),
-        ),
+        child: Center(child: HomeReconnectDialog(onClose: onClose)),
       ),
     );
   }
@@ -495,55 +505,6 @@ class _ReconnectFailure {
   final String title;
   final String message;
   final String confirmText;
-}
-
-class _BluetoothEntryDialog extends StatelessWidget {
-  const _BluetoothEntryDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      child: Center(
-        child: Container(
-          width: 343,
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF002149),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xA37DA2CE)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
-                child: Text(
-                  '\u8bbe\u5907\u5165\u53e3',
-                  style: TextStyle(
-                    color: Color(0xFFEDF5FF),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _ActionButton(
-                text: '\u5df2\u914d\u5bf9\u8bbe\u5907\u5217\u8868',
-                onTap: () => Navigator.of(context).pop('paired_list'),
-              ),
-              const SizedBox(height: 8),
-              _ActionButton(
-                text: '\u53bb\u914d\u5bf9',
-                onTap: () => Navigator.of(context).pop('scan_pairing'),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _PairedDevicesDialogContent extends ConsumerWidget {
@@ -630,6 +591,9 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
         }
       },
       onClose: () => Navigator.of(context).pop(),
+      footerText: '\u67e5\u627e\u65b0\u8bbe\u5907',
+      footerIcon: const Icon(Icons.add_box_outlined, size: 24),
+      onFooterTap: () => Navigator.of(context).pop('scan_pairing'),
     );
   }
 }
@@ -788,37 +752,6 @@ class _ScanDevicesDialogContentState
       },
       onDelete: null,
       onClose: _closeDialog,
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.text, required this.onTap});
-
-  final String text;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: SizedBox(
-        width: double.infinity,
-        child: TextButton(
-          onPressed: onTap,
-          style: TextButton.styleFrom(
-            backgroundColor: const Color(0x661B2D4D),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-              side: const BorderSide(color: Color(0xFF0072FF), width: 1),
-            ),
-          ),
-          child: Text(
-            text,
-            style: const TextStyle(color: Color(0xFFEDF5FF), fontSize: 14),
-          ),
-        ),
-      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:internet_file/internet_file.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:rc_ui/rc_ui.dart';
+import 'package:controller_app/src/core/localization/app_localizations.dart';
 
 class HelpCenterContent extends StatefulWidget {
   const HelpCenterContent({super.key});
@@ -38,11 +39,11 @@ class _HelpCenterContentState extends State<HelpCenterContent> {
           }
 
           if (snapshot.hasError || !snapshot.hasData) {
-            return const Center(
+            return Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(
-                  'PDF 打开失败，请检查网络或链接是否可用。',
+                  AppText.tr('PDF 打开失败，请检查网络或链接是否可用。'),
                   style: TextStyle(color: AppColors.text, fontSize: 14),
                   textAlign: TextAlign.center,
                 ),
@@ -62,7 +63,7 @@ class _HelpCenterContentState extends State<HelpCenterContent> {
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
-                    'PDF 渲染失败：$error',
+                    AppText.tr('PDF 渲染失败：$error'),
                     style: const TextStyle(color: AppColors.text, fontSize: 14),
                     textAlign: TextAlign.center,
                   ),

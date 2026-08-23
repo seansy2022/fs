@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers.dart';
 import '../widgets/numeric_input_dialog.dart';
 import '../widgets/settings_workspace.dart';
@@ -107,7 +108,7 @@ class _TankMixingContentState extends ConsumerState<TankMixingContent> {
     setState(() => _selectedDirection = direction);
     final raw = await NumericInputDialog.show(
       context,
-      title: title,
+      title: AppText.tr(title),
       initialValue: initialValue.toString(),
       unit: '%',
       allowSigned: true,

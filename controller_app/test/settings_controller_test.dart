@@ -92,6 +92,19 @@ void main() {
     expect(controller.state.handedness, Handedness.leftThrottle);
   });
 
+  test('settings controller persists single hand mode', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final controller = SettingsController();
+
+    await Future<void>.delayed(Duration.zero);
+    controller.setHandedness(Handedness.singleRight);
+    final restored = AppSettingsState.fromStorageString(
+      controller.state.toStorageString(),
+    );
+
+    expect(restored.handedness, Handedness.singleRight);
+  });
+
   test('settings controller persists tank mixing enabled state', () async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     final controller = SettingsController();
@@ -118,6 +131,57 @@ void main() {
     expect(restored.tankLeftTurnPercent, 100);
     expect(restored.tankRightTurnPercent, 100);
   });
+
+  test('settings persists gear ratios with current App defaults', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final controller = SettingsController();
+
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.state.gearSettings.lowReversePercent, 100);
+    expect(controller.state.gearSettings.lowForwardPercent, 50);
+    expect(controller.state.gearSettings.highReversePercent, 100);
+    expect(controller.state.gearSettings.highForwardPercent, 100);
+
+    controller.updateGearRatios(lowReverse: 30, highReverse: 60);
+    final restored = AppSettingsState.fromStorageString(
+      controller.state.toStorageString(),
+    );
+    expect(restored.gearSettings.lowReversePercent, 30);
+    expect(restored.gearSettings.highReversePercent, 60);
+  });
+
+  test(
+    'settings persists multi-state labels and restores old defaults',
+    () async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final controller = SettingsController();
+
+      await Future<void>.delayed(Duration.zero);
+      final channel = controller.state.channels[2];
+      controller.updateChannel(
+        2,
+        channel.copyWith(
+          controlType: AuxControlType.multiState,
+          multiStateLabels: const <String>['低速', '中速', '高速'],
+        ),
+      );
+
+      final restored = AppSettingsState.fromStorageString(
+        controller.state.toStorageString(),
+      );
+      expect(restored.channels[2].multiStateLabels, const <String>[
+        '低速',
+        '中速',
+        '高速',
+      ]);
+
+      final legacy = channel.copyWith(multiStateLabels: const <String>[]);
+      expect(
+        ChannelSetting.fromJson(legacy.toJson()).multiStateLabels,
+        const <String>['状态 1', '状态 2', '状态 3'],
+      );
+    },
+  );
 
   test(
     'settings controller clamps tank mixing ratios to signed range',

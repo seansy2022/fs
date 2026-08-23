@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/localization/app_localizations.dart';
 import '../../provider/global_reconnect_provider.dart';
 import 'reconnect_overlay_view.dart';
 
@@ -14,10 +15,10 @@ class GlobalReconnectOverlay extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     return ReconnectOverlayView(
-      title: '正在重连',
-      deviceName: state.deviceName ?? '蓝牙设备',
+      title: AppText.tr('正在重连'),
+      deviceName: state.deviceName ?? AppText.tr('蓝牙设备'),
       startedAt: state.startedAt!,
-      actionLabel: '取消',
+      actionLabel: AppText.tr('取消'),
       onAction: () {
         ref.read(globalReconnectControllerProvider.notifier).cancel();
       },

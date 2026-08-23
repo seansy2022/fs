@@ -46,9 +46,7 @@ List<Permission> _bluetoothPermissionsForPlatform() {
     ];
   }
   if (Platform.isIOS) {
-    return <Permission>[
-      Permission.bluetooth,
-    ];
+    return <Permission>[Permission.bluetooth];
   }
   return <Permission>[];
 }

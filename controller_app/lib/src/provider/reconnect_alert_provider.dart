@@ -88,7 +88,7 @@ class ReconnectAlertMonitor {
 String _reconnectAsset(String languageCode, bool connected) {
   final chinese = languageCode.toLowerCase().startsWith('zh');
   if (connected) {
-    return chinese ? 'voice/reconnect_on_zh.mp3' : 'voice/reconnect_on_en.mp3';
+    return chinese ? 'voice/reconnect_on_zh.m4a' : 'voice/reconnect_on_en.m4a';
   }
-  return chinese ? 'voice/reconnect_off_zh.mp3' : 'voice/reconnect_off_en.mp3';
+  return chinese ? 'voice/reconnect_off_zh.m4a' : 'voice/reconnect_off_en.m4a';
 }

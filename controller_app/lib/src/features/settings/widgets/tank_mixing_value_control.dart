@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:rc_ui/rc_ui.dart';
 
+import '../../../core/localization/app_localizations.dart';
+
 /// 履带混控方向标签。
 class TankMixMetricLabel extends StatelessWidget {
   const TankMixMetricLabel({super.key, required this.label});
@@ -10,7 +12,7 @@ class TankMixMetricLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      label,
+      AppText.tr(label),
       style: const TextStyle(
         color: AppColors.text,
         fontSize: 14,

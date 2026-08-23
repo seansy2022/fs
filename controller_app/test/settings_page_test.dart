@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:controller_app/src/core/providers.dart';
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
 import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
+import 'package:controller_app/src/features/settings/view/gyro/gyro_control_section.dart';
 import 'package:controller_app/src/features/settings/view/settings_page.dart';
 
 import 'fakes/exit_ble_repository_fake.dart';
@@ -18,7 +19,7 @@ void main() {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
   });
 
-  testWidgets('gyro mode buttons are 74 by 28 with lowercase all', (
+  testWidgets('gyro type value opens a component dialog and saves selection', (
     tester,
   ) async {
     final controller = _TestSettingsController(
@@ -33,17 +34,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final toggle = tester.widget<RcMultiToggle<String>>(
-      find.byType(RcMultiToggle<String>),
-    );
-    expect(toggle.width, 222);
-    expect(toggle.height, 28);
+    expect(find.text('体感控制'), findsOneWidget);
+    expect(find.text('体感类型'), findsOneWidget);
+    expect(find.text('方向+油门'), findsOneWidget);
+    expect(find.byType(RcMultiToggle<String>), findsNothing);
 
-    expect(find.text('all'), findsOneWidget);
-    expect(find.text('ALL'), findsNothing);
+    await tester.tap(find.byKey(gyroTypeValueKey));
+    await tester.pumpAndSettle();
 
-    final allText = tester.widget<Text>(find.text('all'));
-    expect(allText.style?.fontWeight, AppFonts.w400);
+    expect(find.text('方向'), findsOneWidget);
+    expect(find.text('油门'), findsOneWidget);
+    await tester.tap(find.text('油门'));
+    await tester.pumpAndSettle();
+
+    expect(controller.state.gyroMode, GyroMode.throttleOnly);
   });
 
   testWidgets('default background music label sits next to arrow', (

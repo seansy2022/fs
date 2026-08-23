@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:controller_app/src/features/control/controllers/control_controller.dart';
+import 'package:controller_app/src/features/control/controllers/control_runtime_store.dart';
 import 'package:controller_app/src/provider/control_presentation_provider.dart';
 import 'package:controller_app/src/provider/race_sound_player.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('deriveControlPresentationDecision', () {
@@ -15,6 +19,29 @@ void main() {
       expect(command.animationState, ControlAnimationState.forward);
       expect(command.effectCue, SoundCue.launchLow);
       expect(command.effectLoop, isFalse);
+    });
+
+    test('plays animation and launch sound for minimal forward input', () {
+      final command = deriveControlPresentationDecision(
+        previousState: const ControlScreenState(throttle: 0),
+        nextState: const ControlScreenState(throttle: 0.01),
+      );
+
+      expect(command.driveState, ControlDriveState.launchLow);
+      expect(command.animationState, ControlAnimationState.forward);
+      expect(command.effectCue, SoundCue.launchLow);
+    });
+
+    test('uses driving loop for sustained minimal forward input', () {
+      final command = deriveControlPresentationDecision(
+        previousState: const ControlScreenState(throttle: 0.01),
+        nextState: const ControlScreenState(throttle: 0.02),
+        forceContinuousState: true,
+      );
+
+      expect(command.animationState, ControlAnimationState.forward);
+      expect(command.effectCue, SoundCue.drivingLoop);
+      expect(command.effectLoop, isTrue);
     });
 
     test('plays high launch when entering forward above 50%', () {
@@ -42,7 +69,7 @@ void main() {
     test('does not play braking when throttle returns to neutral', () {
       final command = deriveControlPresentationDecision(
         previousState: const ControlScreenState(throttle: 0.8),
-        nextState: const ControlScreenState(throttle: 0.05),
+        nextState: const ControlScreenState(throttle: 0),
       );
 
       expect(command.driveState, ControlDriveState.idle);
@@ -115,4 +142,55 @@ void main() {
       expect(command.effectCue, SoundCue.gearDown);
     });
   });
+
+  test(
+    'saved disabled sound switches stay muted when entering control page',
+    () async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final runtimeStore = ControlRuntimeStore();
+      await runtimeStore.saveSoundState(
+        const StoredControlSoundState(
+          backgroundSoundEnabled: false,
+          effectSoundEnabled: false,
+        ),
+      );
+      final player = _FakeRaceSoundPlayer();
+      final controller = ControlPresentationController(
+        soundPlayer: player,
+        runtimeStore: runtimeStore,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.enterPage();
+
+      expect(controller.state.backgroundSoundEnabled, isFalse);
+      expect(controller.state.effectSoundEnabled, isFalse);
+      expect(player.playBackgroundCount, 0);
+    },
+  );
+}
+
+class _FakeRaceSoundPlayer implements RaceSoundPlayer {
+  int playBackgroundCount = 0;
+
+  @override
+  Stream<void> get onEffectComplete => const Stream<void>.empty();
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<bool> playBackground() async {
+    playBackgroundCount++;
+    return true;
+  }
+
+  @override
+  Future<bool> playEffect(SoundCue cue, {required bool loop}) async => true;
+
+  @override
+  Future<void> stopBackground() async {}
+
+  @override
+  Future<void> stopEffect() async {}
 }

@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../controllers/aux_failsafe_sync.dart';
 import '../controllers/channel_value_constraints.dart';
 import '../models/aux_channel_value_rules.dart';
@@ -113,7 +116,7 @@ class _ChannelSettingsContentState
             SizedBox(
               width: _leadingLabelWidth(context, constraints.maxWidth),
               child: Text(
-                label,
+                AppText.tr(label),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: AppColors.text, fontSize: 14),
@@ -140,7 +143,7 @@ class _ChannelSettingsContentState
             const SizedBox(width: 12),
             SelectOptionToggle(
               selected: channel.reversed,
-              label: '反向',
+              label: AppText.tr('反向'),
               onTap: () {
                 controller.updateChannel(
                   channelIndex,
@@ -178,7 +181,8 @@ class _ChannelSettingsContentState
                   SizedBox(
                     width: _leadingLabelWidth(context, constraints.maxWidth),
                     child: Text(
-                      'CH${channelIndex + 1}(${channel.displayName})',
+                      'CH${channelIndex + 1}('
+                      '${AppText.tr(channel.displayName)})',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -205,14 +209,11 @@ class _ChannelSettingsContentState
                     child: _AuxNameField(
                       key: ValueKey<String>('aux-name-$channelIndex'),
                       value: channel.displayName,
-                      onChanged: (value) {
+                      fallbackValue: '辅助${channelIndex - 1}',
+                      onEditingComplete: (value) {
                         controller.updateChannel(
                           channelIndex,
-                          channel.copyWith(
-                            displayName: value.trim().isEmpty
-                                ? '辅助${channelIndex - 1}'
-                                : value,
-                          ),
+                          channel.copyWith(displayName: value),
                         );
                       },
                     ),
@@ -273,7 +274,7 @@ class _ChannelSettingsContentState
     required double maxWidth,
   }) {
     final inset = _leadingLabelWidth(context, maxWidth);
-    final itemWidth = ((maxWidth - inset - 32) / 3).clamp(0.0, double.infinity);
+    final itemWidth = ((maxWidth - 32) / 3).clamp(0.0, double.infinity);
     switch (channel.controlType) {
       case AuxControlType.disabled:
         return null;
@@ -286,7 +287,7 @@ class _ChannelSettingsContentState
             runSpacing: 10,
             children: [
               _AuxValueEditor(
-                label: '开',
+                label: AppText.tr('开'),
                 value: values[0].round(),
                 onChanged: (value) => _updateSwitchValue(
                   controller,
@@ -297,7 +298,7 @@ class _ChannelSettingsContentState
                 ),
               ),
               _AuxValueEditor(
-                label: '关',
+                label: AppText.tr('关'),
                 value: values[1].round(),
                 onChanged: (value) => _updateSwitchValue(
                   controller,
@@ -312,43 +313,59 @@ class _ChannelSettingsContentState
         );
       case AuxControlType.multiState:
         final values = normalizeAuxMultiStateValues(channel.multiStateValues);
-        return Padding(
-          padding: EdgeInsets.only(left: inset),
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 12,
-            children: [
-              for (var index = 0; index < values.length; index++)
-                _AuxValueEditor(
-                  width: itemWidth,
-                  inputWidth: (itemWidth - 48).clamp(0.0, double.infinity),
-                  label: '状态${index + 1}',
-                  value: values[index].round(),
-                  onChanged: (value) => _updateMultiStateValue(
-                    controller,
-                    channelIndex,
-                    channel,
-                    index,
-                    value.toDouble(),
-                  ),
+        final labels = normalizeAuxMultiStateLabels(
+          channel.multiStateLabels,
+          stateCount: values.length,
+        );
+        // 多状态配置以整行宽度三等分，不再为标题额外预留左侧空白。
+        return Wrap(
+          spacing: 16,
+          runSpacing: 12,
+          children: [
+            for (var index = 0; index < values.length; index++)
+              _buildMultiStateValueEditor(
+                itemWidth: itemWidth,
+                index: index,
+                label: labels[index],
+                value: values[index].round(),
+                onEditLabel: () => _editMultiStateLabel(
+                  context,
+                  controller,
+                  channelIndex,
+                  channel,
+                  index,
+                  labels[index],
                 ),
+                onRemove: () => _removeMultiStateValueAt(
+                  controller,
+                  channelIndex,
+                  channel,
+                  index,
+                ),
+                onChanged: (value) => _updateMultiStateValue(
+                  controller,
+                  channelIndex,
+                  channel,
+                  index,
+                  value.toDouble(),
+                ),
+              ),
+            if (values.length < auxMultiStateMaxCount)
               _MultiStateActionButtons(
                 width: itemWidth,
-                showDelete: values.length > auxMultiStateMinCount,
-                addEnabled: values.length < auxMultiStateMaxCount,
-                onDelete: () =>
-                    _removeMultiStateValue(controller, channelIndex, channel),
+                showDelete: false,
+                addEnabled: true,
+                onDelete: () {},
                 onTap: () =>
                     _addMultiStateValue(controller, channelIndex, channel),
               ),
-            ],
-          ),
+          ],
         );
       case AuxControlType.value:
         return Padding(
           padding: EdgeInsets.only(left: inset),
           child: _AuxValueEditor(
-            label: '设置值',
+            label: AppText.tr('设置值'),
             labelWidth: null,
             spacing: 16,
             value: channel.singleValue.round(),
@@ -372,6 +389,40 @@ class _ChannelSettingsContentState
     }
   }
 
+  /// 根据可用宽度调整状态名和数值输入框，保证小屏幕不发生横向溢出。
+  Widget _buildMultiStateValueEditor({
+    required double itemWidth,
+    required int index,
+    required String label,
+    required int value,
+    required VoidCallback onEditLabel,
+    required VoidCallback onRemove,
+    required ValueChanged<int> onChanged,
+  }) {
+    final canRemove = index >= auxMultiStateMinCount;
+    // RCButton 的最小宽度为 60，按该值计算避免实际渲染超出约束。
+    const minimumInputWidth = 60.0;
+    const maximumInputWidth = 70.0;
+    const labelInputSpacing = 6.0;
+    final removalWidth = canRemove ? 28.0 : 0.0;
+    final labelWidth =
+        (itemWidth - minimumInputWidth - removalWidth - labelInputSpacing)
+            .clamp(36.0, 76.0);
+    return _AuxValueEditor(
+      width: itemWidth,
+      // 大屏使用紧凑输入框，剩余空间由三等分列自然留白。
+      inputWidth: (itemWidth - labelWidth - removalWidth - labelInputSpacing)
+          .clamp(minimumInputWidth, maximumInputWidth),
+      labelWidth: labelWidth,
+      spacing: labelInputSpacing,
+      label: label,
+      value: value,
+      onEditLabel: onEditLabel,
+      onRemove: canRemove ? onRemove : null,
+      onChanged: onChanged,
+    );
+  }
+
   void _selectControlType(
     BuildContext context,
     int channelIndex,
@@ -384,7 +435,7 @@ class _ChannelSettingsContentState
 
     AlertListDialog.show(
       context,
-      title: '控制类型',
+      title: AppText.tr('控制类型'),
       width: 300,
       options: options,
       selectedOption: _controlTypeLabel(channel.controlType),
@@ -434,9 +485,9 @@ class _ChannelSettingsContentState
       }
       await AlertIconWidget.show(
         context,
-        title: '同步失败',
-        message: '通道已设为禁用，但失控保护参数未能同步到接收机，请检查蓝牙连接后重试。',
-        confirmText: '知道了',
+        title: AppText.tr('同步失败'),
+        message: AppText.tr('通道已设为禁用，但失控保护参数未能同步到接收机，请检查蓝牙连接后重试。'),
+        confirmText: AppText.tr('知道了'),
       );
     }
   }
@@ -481,6 +532,10 @@ class _ChannelSettingsContentState
       channelIndex,
       channel.copyWith(
         multiStateValues: next,
+        multiStateLabels: normalizeAuxMultiStateLabels(
+          channel.multiStateLabels,
+          stateCount: next.length,
+        ),
         function: _legacyFunctionForControlType(
           channelIndex,
           AuxControlType.multiState,
@@ -500,6 +555,10 @@ class _ChannelSettingsContentState
       channelIndex,
       channel.copyWith(
         multiStateValues: next,
+        multiStateLabels: normalizeAuxMultiStateLabels(
+          channel.multiStateLabels,
+          stateCount: next.length,
+        ),
         function: _legacyFunctionForControlType(
           channelIndex,
           AuxControlType.multiState,
@@ -509,23 +568,72 @@ class _ChannelSettingsContentState
     );
   }
 
-  void _removeMultiStateValue(
+  void _removeMultiStateValueAt(
     SettingsController controller,
     int channelIndex,
     ChannelSetting channel,
+    int valueIndex,
   ) {
-    if (channel.multiStateValues.length <= auxMultiStateMinCount) {
+    if (valueIndex < auxMultiStateMinCount) {
       return;
     }
-    final next = removeAuxMultiStateValue(channel.multiStateValues);
+    final next = removeAuxMultiStateValueAt(
+      channel.multiStateValues,
+      valueIndex,
+    );
+    final labels = normalizeAuxMultiStateLabels(
+      channel.multiStateLabels,
+      stateCount: normalizeAuxMultiStateValues(channel.multiStateValues).length,
+    ).toList(growable: true)..removeAt(valueIndex);
     controller.updateChannel(
       channelIndex,
       channel.copyWith(
         multiStateValues: next,
+        multiStateLabels: normalizeAuxMultiStateLabels(
+          labels,
+          stateCount: next.length,
+        ),
         function: _legacyFunctionForControlType(
           channelIndex,
           AuxControlType.multiState,
           currentFunction: channel.function,
+        ),
+      ),
+    );
+  }
+
+  /// 编辑多状态名称；空值在提交时自动恢复为对应默认名称。
+  Future<void> _editMultiStateLabel(
+    BuildContext context,
+    SettingsController controller,
+    int channelIndex,
+    ChannelSetting channel,
+    int valueIndex,
+    String currentValue,
+  ) async {
+    final value = await TextInputDialog.show(
+      context,
+      title: AppText.tr('修改状态名称'),
+      initialValue: currentValue,
+      maxLength: auxMultiStateLabelMaxLength,
+    );
+    if (value == null) {
+      return;
+    }
+    final stateCount = normalizeAuxMultiStateValues(
+      channel.multiStateValues,
+    ).length;
+    final labels = normalizeAuxMultiStateLabels(
+      channel.multiStateLabels,
+      stateCount: stateCount,
+    ).toList(growable: true);
+    labels[valueIndex] = value;
+    controller.updateChannel(
+      channelIndex,
+      channel.copyWith(
+        multiStateLabels: normalizeAuxMultiStateLabels(
+          labels,
+          stateCount: stateCount,
         ),
       ),
     );
@@ -545,13 +653,13 @@ class _ChannelSettingsContentState
   String _controlTypeLabel(AuxControlType type) {
     switch (type) {
       case AuxControlType.disabled:
-        return '禁用';
+        return AppText.tr('禁用');
       case AuxControlType.switchControl:
-        return '开关';
+        return AppText.tr('开关');
       case AuxControlType.multiState:
-        return '多状态';
+        return AppText.tr('多状态');
       case AuxControlType.value:
-        return '值';
+        return AppText.tr('值');
     }
   }
 
@@ -581,23 +689,23 @@ class _ChannelSettingsContentState
   String _functionLabel(AuxiliaryFunction function) {
     switch (function) {
       case AuxiliaryFunction.none:
-        return '无';
+        return AppText.tr('无');
       case AuxiliaryFunction.headlight:
-        return '大灯';
+        return AppText.tr('大灯');
       case AuxiliaryFunction.warningLight:
-        return '警示灯';
+        return AppText.tr('警示灯');
       case AuxiliaryFunction.gearControl:
-        return '挡位控制';
+        return AppText.tr('挡位控制');
       case AuxiliaryFunction.gyro:
-        return '陀螺仪';
+        return AppText.tr('陀螺仪');
       case AuxiliaryFunction.brakeLight:
-        return '刹车灯';
+        return AppText.tr('刹车灯');
       case AuxiliaryFunction.reverseLight:
-        return '倒车灯';
+        return AppText.tr('倒车灯');
       case AuxiliaryFunction.leftSignal:
-        return '左转灯';
+        return AppText.tr('左转灯');
       case AuxiliaryFunction.rightSignal:
-        return '右转灯';
+        return AppText.tr('右转灯');
     }
   }
 
@@ -648,7 +756,9 @@ class _ChannelSettingsContentState
     );
     final raw = await NumericInputDialog.show(
       context,
-      title: '设置${channel.channelLabel}${_fieldLabel(field)}',
+      title:
+          '${AppText.tr('设置值')} ${channel.channelLabel} '
+          '${_fieldLabel(field)}',
       initialValue: _valueForField(channel, field).round().toString(),
       unit: field == ChannelValueField.trim && channelIndex < 2 ? 'us' : '%',
       allowSigned: constraint.allowNegativeInput,
@@ -690,11 +800,11 @@ class _ChannelSettingsContentState
   String _fieldLabel(ChannelValueField field) {
     switch (field) {
       case ChannelValueField.low:
-        return '低';
+        return AppText.tr('低');
       case ChannelValueField.high:
-        return '高';
+        return AppText.tr('高');
       case ChannelValueField.trim:
-        return '中';
+        return AppText.tr('中');
     }
   }
 }
@@ -726,7 +836,7 @@ class _AuxLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      value,
+      AppText.tr(value),
       maxLines: 1,
       style: const TextStyle(color: AppColors.text, fontSize: 14),
     );
@@ -749,11 +859,13 @@ class _AuxNameField extends StatefulWidget {
   const _AuxNameField({
     super.key,
     required this.value,
-    required this.onChanged,
+    required this.fallbackValue,
+    required this.onEditingComplete,
   });
 
   final String value;
-  final ValueChanged<String> onChanged;
+  final String fallbackValue;
+  final ValueChanged<String> onEditingComplete;
 
   @override
   State<_AuxNameField> createState() => _AuxNameFieldState();
@@ -761,23 +873,58 @@ class _AuxNameField extends StatefulWidget {
 
 class _AuxNameFieldState extends State<_AuxNameField> {
   late final TextEditingController _controller = TextEditingController(
-    text: widget.value,
+    text: AppText.tr(widget.value),
   );
+  late final FocusNode _focusNode = FocusNode()..addListener(_onFocusChanged);
+  late String _lastCommittedValue = widget.value;
 
   @override
   void didUpdateWidget(covariant _AuxNameField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.value == widget.value || _controller.text == widget.value) {
+    if (oldWidget.value == widget.value) {
       return;
     }
-    _controller.text = widget.value;
+    _lastCommittedValue = widget.value;
+    if (_focusNode.hasFocus || _controller.text == AppText.tr(widget.value)) {
+      return;
+    }
+    _controller.text = AppText.tr(widget.value);
     _controller.selection = TextSelection.collapsed(
       offset: _controller.text.length,
     );
   }
 
+  /// 输入框失去焦点时，将临时输入内容提交到设置状态。
+  void _onFocusChanged() {
+    if (!_focusNode.hasFocus) {
+      _commitValue();
+    }
+  }
+
+  /// 完成编辑后校验名称；空名称恢复默认值，其他内容保留原样。
+  void _commitValue() {
+    final rawValue = _controller.text.trim();
+    final value = rawValue.isEmpty
+        ? widget.fallbackValue
+        : rawValue == AppText.tr(widget.value)
+        ? widget.value
+        : rawValue;
+    if (_controller.text != value) {
+      _controller.text = value;
+      _controller.selection = TextSelection.collapsed(offset: value.length);
+    }
+    if (_lastCommittedValue == value) {
+      return;
+    }
+    _lastCommittedValue = value;
+    widget.onEditingComplete(value);
+  }
+
   @override
   void dispose() {
+    _focusNode
+      ..removeListener(_onFocusChanged)
+      ..dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -795,7 +942,11 @@ class _AuxNameFieldState extends State<_AuxNameField> {
       alignment: Alignment.center,
       child: TextField(
         controller: _controller,
-        onChanged: widget.onChanged,
+        focusNode: _focusNode,
+        inputFormatters: <TextInputFormatter>[
+          LengthLimitingTextInputFormatter(5),
+        ],
+        onSubmitted: (_) => _commitValue(),
         style: const TextStyle(
           color: AppColors.text,
           fontSize: 14,
@@ -820,6 +971,8 @@ class _AuxValueEditor extends StatelessWidget {
     this.inputWidth,
     this.labelWidth = 28,
     this.spacing = 0,
+    this.onEditLabel,
+    this.onRemove,
   });
 
   final String label;
@@ -829,6 +982,8 @@ class _AuxValueEditor extends StatelessWidget {
   final double? inputWidth;
   final double? labelWidth;
   final double spacing;
+  final VoidCallback? onEditLabel;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -837,27 +992,62 @@ class _AuxValueEditor extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (labelWidth == null)
-            Text(
-              label,
-              maxLines: 1,
-              style: const TextStyle(color: AppColors.text, fontSize: 14),
-            )
-          else
-            SizedBox(
-              width: label.length > 2 ? 48 : labelWidth,
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: AppColors.text, fontSize: 14),
-              ),
-            ),
+          _AuxValueLabel(label: label, width: labelWidth, onEdit: onEditLabel),
           SizedBox(width: spacing),
           _ChannelValueInput(
             width: inputWidth ?? 60,
             value: value,
             onChanged: onChanged,
+          ),
+          if (onRemove != null) ...[
+            const SizedBox(width: 8),
+            _MultiStateDeleteIconButton(onTap: onRemove!),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AuxValueLabel extends StatelessWidget {
+  const _AuxValueLabel({required this.label, required this.width, this.onEdit});
+
+  final String label;
+  final double? width;
+  final VoidCallback? onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      AppText.tr(label),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(color: AppColors.text, fontSize: 12),
+    );
+    if (onEdit == null) {
+      return width == null
+          ? text
+          : SizedBox(width: label.length > 2 ? 48 : width, child: text);
+    }
+    return SizedBox(
+      width: width ?? 48,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(fit: FlexFit.loose, child: text),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onEdit,
+            child: SizedBox(
+              key: const ValueKey<String>('multi-state-label-edit'),
+              width: 16,
+              height: 16,
+              child: SvgPicture.asset(
+                'assets/icons/channel_state_edit.svg',
+                width: 16,
+                height: 16,
+              ),
+            ),
           ),
         ],
       ),
@@ -901,7 +1091,7 @@ class _MultiStateActionButtons extends StatelessWidget {
             width: actionWidth,
             height: 30,
             child: PrimaryButton(
-              text: '新增',
+              text: AppText.tr('新增'),
               type: PrimaryButtonType.primary,
               enabled: addEnabled,
               padding: EdgeInsets.zero,
@@ -1026,7 +1216,7 @@ class _ChannelValueInput extends StatelessWidget {
   Future<void> _openEditor(BuildContext context) async {
     final raw = await NumericInputDialog.show(
       context,
-      title: '设置值',
+      title: AppText.tr('设置值'),
       initialValue: value.toString(),
       unit: '%',
       allowSigned: true,
@@ -1052,7 +1242,7 @@ class _ChannelValueInput extends StatelessWidget {
       padding: EdgeInsets.zero,
       textWidget: Text(
         '$value%',
-        style: const TextStyle(color: AppColors.textDim, fontSize: 14),
+        style: const TextStyle(color: AppColors.textDim, fontSize: 12),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
 import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
+import 'package:controller_app/src/core/receiver_battery_status.dart';
 import 'package:controller_app/src/provider/app_settings_provider.dart';
 import 'package:controller_app/src/provider/simulated_bluetooth_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,31 +11,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('calculateBatteryPercent maps voltage to percentage', () {
-    expect(
-      calculateBatteryPercent(voltage: 8.4, minVoltage: 6.0, fullVoltage: 8.4),
-      100,
+  test('simulated voltage uses the receiver fixed calibration', () {
+    final status = ReceiverBatteryStatus.fromRawBatteryLevel(
+      rawBatteryLevel: 75,
+      minimumVoltage: 6.0,
+      fullVoltage: 8.4,
     );
-    expect(
-      calculateBatteryPercent(voltage: 8.0, minVoltage: 6.0, fullVoltage: 8.4),
-      83,
-    );
-    expect(
-      calculateBatteryPercent(voltage: 7.0, minVoltage: 6.0, fullVoltage: 8.4),
-      42,
-    );
-    expect(
-      calculateBatteryPercent(voltage: 6.0, minVoltage: 6.0, fullVoltage: 8.4),
-      0,
-    );
-    expect(
-      calculateBatteryVoltage(
-        batteryPercent: 75,
-        minVoltage: 6.0,
-        fullVoltage: 8.4,
-      ),
-      closeTo(7.8, 0.0001),
-    );
+
+    expect(status.voltage, closeTo(7.25, 0.0001));
   });
 
   test('simulated telemetry cycles full to empty then reconnects', () async {

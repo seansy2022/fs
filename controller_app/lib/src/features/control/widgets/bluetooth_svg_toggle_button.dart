@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/localization/app_localizations.dart';
+
 const _bluetoothOnSvg = '''
 <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="36" fill="#1B2D4D" fill-opacity="0.4"></circle><path fill-rule="evenodd" fill="url(#linear_border_1_1237_0)" d="M36 72C55.8823 72 72 55.8823 72 36C72 16.1177 55.8823 0 36 0C16.1177 0 0 16.1177 0 36C0 55.8823 16.1177 72 36 72ZM36 2C54.7777 2 70 17.2223 70 36C70 54.7777 54.7777 70 36 70C17.2223 70 2 54.7777 2 36C2 17.2223 17.2223 2 36 2Z"></path><path d="M53.2616 13.0983C53.8846 13.3965 53.9999 14.0616 53.9999 14.9561C53.9999 24.3364 53.9999 33.6937 53.9999 43.0741C53.9999 46.5372 51.8082 49.3582 48.509 50.1609C44.5177 51.1242 40.5265 48.5096 39.8113 44.4502C39.0961 40.5283 41.9337 36.7441 45.925 36.2395C47.7707 36.0102 49.4318 36.4459 50.9545 37.478C51.0237 37.5239 51.0699 37.5697 51.1391 37.5927C51.1622 37.5927 51.1852 37.5927 51.2545 37.6156L51.2545 28.0059C51.1391 28.0518 51.0237 28.0747 50.9084 28.1206C44.8176 30.5287 38.75 32.9598 32.6592 35.368C32.3362 35.4826 32.2901 35.6661 32.2901 35.9643C32.2901 41.2393 32.2901 46.4913 32.2901 51.7663C32.2901 55.2753 29.9599 58.1422 26.5223 58.8532C22.6695 59.6559 18.8858 57.0872 18.1244 53.1424C17.3862 49.4041 20.0163 45.5969 23.7999 44.9318C25.7841 44.5878 27.6067 44.9777 29.2678 46.1015C29.3601 46.1473 29.4293 46.1932 29.5908 46.2849C29.5908 46.0556 29.5908 45.8721 29.5908 45.7116C29.5908 38.3036 29.5908 30.8957 29.5908 23.5107C29.5908 22.4098 29.7754 22.1346 30.7905 21.7218C37.9195 18.8779 52.1542 13.213 52.1542 13.213C52.1542 13.213 52.8694 12.8461 53.2616 13.0754L53.2616 13.0983Z" fill="url(#linear_fill_1_1240)"></path><defs><linearGradient id="linear_border_1_1237_0" x1="36" y1="72" x2="36" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7EA2CF" stop-opacity="0.4"/><stop offset="0.2807" stop-color="#7DA2CE" stop-opacity="0.64"/><stop offset="0.5394" stop-color="#7DA2CE"/><stop offset="0.7815" stop-color="#7DA2CE" stop-opacity="0.64"/><stop offset="1" stop-color="#7DA2CE" stop-opacity="0.4"/></linearGradient><linearGradient id="linear_fill_1_1240" x1="36" y1="13" x2="36" y2="59" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#EDF5FF"/><stop offset="1" stop-color="#92C3FF"/></linearGradient></defs></svg>
 ''';
@@ -25,7 +27,7 @@ class BluetoothSvgToggleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: value ? '开' : '关',
+      label: AppText.tr(value ? '开' : '关'),
       child: SizedBox(
         width: size,
         height: size,
@@ -70,7 +72,7 @@ class SoundSvgToggleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: value ? '声音开' : '声音关',
+      label: AppText.tr(value ? '声音开' : '声音关'),
       child: SizedBox(
         width: size,
         height: size,

@@ -111,15 +111,15 @@ void main() {
 
     final card = _auxCardFor('辅助1');
     expect(
-      find.descendant(of: card, matching: find.text('状态1')),
+      find.descendant(of: card, matching: find.text('状态 1')),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: card, matching: find.text('状态2')),
+      find.descendant(of: card, matching: find.text('状态 2')),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: card, matching: find.text('状态3')),
+      find.descendant(of: card, matching: find.text('状态 3')),
       findsOneWidget,
     );
     expect(
@@ -139,7 +139,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.descendant(of: card, matching: find.text('状态4')),
+      find.descendant(of: card, matching: find.text('自定义名称')),
       findsOneWidget,
     );
   });
@@ -158,14 +158,64 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(of: card, matching: find.text('新增')));
     await tester.pumpAndSettle();
-    await tester.tap(find.descendant(of: card, matching: find.text('新增')));
+    expect(
+      find.descendant(of: card, matching: find.text('自定义名称')),
+      findsNWidgets(2),
+    );
+    expect(find.descendant(of: card, matching: find.text('新增')), findsNothing);
+  });
+
+  testWidgets('multi state label can be edited and falls back when cleared', (
+    tester,
+  ) async {
+    final controller = _TestSettingsController(
+      _stateWithAux(
+        ch3Type: AuxControlType.multiState,
+        ch4Type: AuxControlType.disabled,
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appSettingsProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: ChannelSettingsPage()),
+      ),
+    );
     await tester.pumpAndSettle();
 
-    expect(
-      find.descendant(of: card, matching: find.text('状态5')),
-      findsOneWidget,
+    final card = _auxCardFor('辅助1');
+    await tester.tap(
+      find
+          .descendant(
+            of: card,
+            matching: find.byKey(
+              const ValueKey<String>('multi-state-label-edit'),
+            ),
+          )
+          .first,
     );
-    expect(find.descendant(of: card, matching: find.text('状态6')), findsNothing);
+    await tester.pumpAndSettle();
+    expect(find.text('修改状态名称'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, '低速');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(controller.state.channels[2].multiStateLabels.first, '低速');
+
+    await tester.tap(
+      find
+          .descendant(
+            of: card,
+            matching: find.byKey(
+              const ValueKey<String>('multi-state-label-edit'),
+            ),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(controller.state.channels[2].multiStateLabels.first, '状态 1');
   });
 
   testWidgets('aux value editor allows extended signed range', (tester) async {
@@ -233,7 +283,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.descendant(of: card, matching: find.text('状态4')),
+        find.descendant(of: card, matching: find.text('自定义名称')),
         findsNothing,
       );
       expect(
@@ -263,7 +313,10 @@ void main() {
       findsOneWidget,
     );
     expect(find.descendant(of: card, matching: find.text('开')), findsNothing);
-    expect(find.descendant(of: card, matching: find.text('状态1')), findsNothing);
+    expect(
+      find.descendant(of: card, matching: find.text('状态 1')),
+      findsNothing,
+    );
   });
 
   testWidgets('editing name persists after rebuild', (tester) async {

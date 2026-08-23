@@ -4,11 +4,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../provider/app_settings_provider.dart';
 import 'channel_output_mapper.dart';
 import 'tank_mixer.dart';
 import 'control_aux_runtime_store.dart';
+import 'control_runtime_store.dart';
 import '../../settings/models/app_settings_state.dart';
+import '../../settings/models/aux_channel_value_rules.dart';
+import '../../settings/models/gear_settings.dart';
 
 class AuxChannelRuntimeState {
   const AuxChannelRuntimeState({
@@ -61,11 +65,13 @@ String auxChannelControlLabel(
   return switch (setting.controlType) {
     AuxControlType.disabled => setting.displayName,
     AuxControlType.switchControl =>
-      '${setting.displayName} ${resolved.switchOn ? '开' : '关'}',
+      '${AppText.tr(setting.displayName)} '
+          '${AppText.tr(resolved.switchOn ? '开' : '关')}',
     AuxControlType.multiState =>
-      '${setting.displayName} 状态${resolved.selectedIndex + 1}',
+      '${AppText.tr(setting.displayName)} '
+          '${AppText.tr(_multiStateLabels(setting)[resolved.selectedIndex])}',
     AuxControlType.value =>
-      '${setting.displayName} ${setting.singleValue.round()}%',
+      '${AppText.tr(setting.displayName)} ${setting.singleValue.round()}%',
   };
 }
 
@@ -77,22 +83,31 @@ List<String> auxChannelControlLabels(
   return switch (setting.controlType) {
     AuxControlType.disabled => const <String>[],
     AuxControlType.switchControl => <String>[
-      '${setting.displayName} ${resolved.switchOn ? '开' : '关'}',
+      '${AppText.tr(setting.displayName)} '
+          '${AppText.tr(resolved.switchOn ? '开' : '关')}',
     ],
-    AuxControlType.multiState => List<String>.generate(
-      setting.multiStateValues.isEmpty ? 1 : setting.multiStateValues.length,
-      (index) => '状态${index + 1}',
-    ),
+    AuxControlType.multiState => _multiStateLabels(
+      setting,
+    ).map(AppText.tr).toList(growable: false),
     AuxControlType.value => <String>[
-      '${setting.displayName} ${setting.singleValue.round()}%',
+      '${AppText.tr(setting.displayName)} ${setting.singleValue.round()}%',
     ],
   };
+}
+
+List<String> _multiStateLabels(ChannelSetting setting) {
+  final values = normalizeAuxMultiStateValues(setting.multiStateValues);
+  return normalizeAuxMultiStateLabels(
+    setting.multiStateLabels,
+    stateCount: values.length,
+  );
 }
 
 class ControlScreenState {
   const ControlScreenState({
     this.steering = 0,
     this.throttle = 0,
+    this.throttleTrim = 0,
     this.trim = 0,
     this.headlightsOn = false,
     this.warningLightsOn = false,
@@ -109,6 +124,7 @@ class ControlScreenState {
 
   final double steering;
   final double throttle;
+  final int throttleTrim;
   final int trim;
   final bool headlightsOn;
   final bool warningLightsOn;
@@ -125,6 +141,7 @@ class ControlScreenState {
   ControlScreenState copyWith({
     double? steering,
     double? throttle,
+    int? throttleTrim,
     int? trim,
     bool? headlightsOn,
     bool? warningLightsOn,
@@ -141,6 +158,7 @@ class ControlScreenState {
     return ControlScreenState(
       steering: steering ?? this.steering,
       throttle: throttle ?? this.throttle,
+      throttleTrim: throttleTrim ?? this.throttleTrim,
       trim: trim ?? this.trim,
       headlightsOn: headlightsOn ?? this.headlightsOn,
       warningLightsOn: warningLightsOn ?? this.warningLightsOn,
@@ -165,14 +183,26 @@ class ControlController extends StateNotifier<ControlScreenState> {
     this._ref,
     this._repository, {
     ControlAuxRuntimeStore? auxRuntimeStore,
+    ControlRuntimeStore? runtimeStore,
   }) : _auxRuntimeStore = auxRuntimeStore ?? ControlAuxRuntimeStore(),
+       _runtimeStore = runtimeStore ?? ControlRuntimeStore(),
        super(const ControlScreenState()) {
     unawaited(_loadSavedAuxRuntime(_ref.read(appSettingsProvider)));
+    _inputRuntimeRestoreFuture = _loadSavedInputRuntime();
+    _ref.listen<AppSettingsState>(appSettingsProvider, (previous, next) {
+      if (previous?.gearSettings == next.gearSettings || !state.loopActive) {
+        return;
+      }
+      // 设置页修改挡位比例时，立刻刷新控制缓存供下一帧心跳发送。
+      unawaited(_syncPromptAndPush());
+    });
   }
 
   final Ref _ref;
   final ReceiverRepository _repository;
   final ControlAuxRuntimeStore _auxRuntimeStore;
+  final ControlRuntimeStore _runtimeStore;
+  late final Future<void> _inputRuntimeRestoreFuture;
   double _touchSteering = 0;
   double _touchThrottle = 0;
   double _gyroSteering = 0;
@@ -181,14 +211,48 @@ class ControlController extends StateNotifier<ControlScreenState> {
   DateTime? _lastGyroSyncAt;
   bool _gyroSyncInFlight = false;
   bool _gyroSyncPending = false;
+  bool _controlOutputSuspended = false;
   ReceiverControlValues? _lastPushedValues;
 
   bool get gyroEnabled => state.gyroEnabled;
 
+  /// 等待控制页输入状态恢复完成，供页面开始倒计时前调用。
+  Future<void> restoreInputRuntime() => _inputRuntimeRestoreFuture;
+
+  /// 新进入控制页时允许后续倒计时启动控制循环。
+  void prepareControlSession() {
+    _controlOutputSuspended = false;
+  }
+
   Future<void> activate() async {
+    if (_controlOutputSuspended) {
+      return;
+    }
     await _syncPromptAndPush();
+    if (_controlOutputSuspended) {
+      return;
+    }
     await _repository.startControlLoop();
+    if (_controlOutputSuspended) {
+      await _repository.stopControlLoop();
+      return;
+    }
     state = state.copyWith(loopActive: true);
+  }
+
+  /// 停止后台或已退出页面的连续控制帧，不额外补发控制数据。
+  Future<void> suspendControlOutput() async {
+    _controlOutputSuspended = true;
+    _cancelGyroSync();
+    _touchSteering = 0;
+    _touchThrottle = 0;
+    _gyroSteering = 0;
+    _gyroThrottle = 0;
+    await _repository.stopControlLoop();
+    if (!mounted) {
+      return;
+    }
+    state = state.copyWith(loopActive: false);
   }
 
   Future<void> deactivate() async {
@@ -206,6 +270,9 @@ class ControlController extends StateNotifier<ControlScreenState> {
     required double steering,
     required double throttle,
   }) async {
+    if (_controlOutputSuspended) {
+      return;
+    }
     _gyroSteering = steering.clamp(-1, 1);
     _gyroThrottle = throttle.clamp(-1, 1);
     _gyroSyncPending = true;
@@ -271,7 +338,28 @@ class ControlController extends StateNotifier<ControlScreenState> {
   }
 
   Future<void> adjustTrim(int delta) async {
-    state = state.copyWith(trim: (state.trim + delta).clamp(-50, 50));
+    await setSteeringTrim(state.trim + delta);
+  }
+
+  /// 设置油门微调值，并立刻按当前控制量刷新接收机输出。
+  Future<void> setThrottleTrim(int value) async {
+    final trim = value.clamp(-50, 50);
+    if (state.throttleTrim == trim) {
+      return;
+    }
+    state = state.copyWith(throttleTrim: trim);
+    unawaited(_saveInputRuntime());
+    await _push();
+  }
+
+  /// 设置方向微调值，并立刻按当前控制量刷新接收机输出。
+  Future<void> setSteeringTrim(int value) async {
+    final trim = value.clamp(-50, 50);
+    if (state.trim == trim) {
+      return;
+    }
+    state = state.copyWith(trim: trim);
+    unawaited(_saveInputRuntime());
     await _push();
   }
 
@@ -290,6 +378,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
       return;
     }
     state = state.copyWith(gyroEnabled: enabled);
+    unawaited(_saveInputRuntime());
     if (!enabled) {
       _cancelGyroSync();
       _gyroSteering = 0;
@@ -358,6 +447,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
 
   void toggleSliderButtons() {
     state = state.copyWith(sliderButtonsVisible: !state.sliderButtonsVisible);
+    unawaited(_saveInputRuntime());
   }
 
   Future<void> _scheduleGyroPromptSync() async {
@@ -409,6 +499,10 @@ class ControlController extends StateNotifier<ControlScreenState> {
   }
 
   Future<void> _push({double? steering, double? throttle}) async {
+    // 应用进入后台或控制页退出后，任何异步事件都不能继续写入接收机。
+    if (_controlOutputSuspended) {
+      return;
+    }
     final effectiveSteering = steering ?? state.steering;
     final effectiveThrottle = throttle ?? state.throttle;
     final settings = _ref.read(appSettingsProvider);
@@ -426,6 +520,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
       lowPercent: throttleSetting.lowPercent,
       centerPercent: throttleSetting.trimPercent,
       highPercent: throttleSetting.highPercent,
+      trimStep: state.throttleTrim,
     );
     final output = settings.tankMixingEnabled
         ? mixTankOutputs(
@@ -491,10 +586,11 @@ class ControlController extends StateNotifier<ControlScreenState> {
   }
 
   double _applyGearToThrottle(double throttle) {
-    if (state.highGear || throttle <= 0) {
-      return throttle;
-    }
-    return throttle.clamp(-1, 0.5).toDouble();
+    return applyGearThrottleRatio(
+      throttle: throttle,
+      highGear: state.highGear,
+      settings: _ref.read(appSettingsProvider).gearSettings,
+    );
   }
 
   int _auxOutputForChannel(AppSettingsState settings, int channelIndex) {
@@ -561,6 +657,36 @@ class ControlController extends StateNotifier<ControlScreenState> {
       ch3Runtime: ch3 ?? state.ch3Runtime,
       ch4Runtime: ch4 ?? state.ch4Runtime,
     );
+  }
+
+  /// 恢复控制页输入运行状态；控制循环尚未启动时不会发送控制数据。
+  Future<void> _loadSavedInputRuntime() async {
+    final saved = await _runtimeStore.loadInputState();
+    if (!mounted) {
+      return;
+    }
+    state = state.copyWith(
+      gyroEnabled: saved.gyroEnabled,
+      throttleTrim: saved.throttleTrim,
+      trim: saved.steeringTrim,
+      sliderButtonsVisible: saved.sliderButtonsVisible,
+    );
+  }
+
+  /// 保存陀螺仪与微调状态，存储异常不影响控制输出。
+  Future<void> _saveInputRuntime() async {
+    try {
+      await _runtimeStore.saveInputState(
+        StoredControlInputState(
+          gyroEnabled: state.gyroEnabled,
+          throttleTrim: state.throttleTrim,
+          steeringTrim: state.trim,
+          sliderButtonsVisible: state.sliderButtonsVisible,
+        ),
+      );
+    } catch (_) {
+      // 本地保存失败时仍保留当前页面中的控制状态。
+    }
   }
 
   AuxChannelRuntimeState? _runtimeFromSaved(

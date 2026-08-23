@@ -4,7 +4,9 @@ import 'package:vibration/vibration.dart';
 class AppVibration {
   const AppVibration._();
 
-  static Future<void> alert({Duration duration = const Duration(milliseconds: 500)}) async {
+  static Future<void> alert({
+    Duration duration = const Duration(milliseconds: 500),
+  }) async {
     try {
       if (await Vibration.hasVibrator()) {
         await Vibration.vibrate(

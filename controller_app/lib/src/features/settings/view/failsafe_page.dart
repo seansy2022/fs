@@ -6,10 +6,12 @@ import 'package:rc_c_ble/rc_c_ble.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
 import '../../../provider/global_reconnect_provider.dart';
 import '../models/app_settings_state.dart';
+import '../models/failsafe_value_rules.dart';
 import '../widgets/numeric_input_dialog.dart';
 import '../widgets/settings_workspace.dart';
 
@@ -169,9 +171,9 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
       if (mounted) {
         await AlertIconWidget.show(
           context,
-          title: '测试模式',
-          message: '蓝牙已断开，接收机将进入失控保护状态。\n点击“恢复”后将扫描并重新连接蓝牙。',
-          confirmText: '恢复',
+          title: AppText.tr('测试模式'),
+          message: AppText.tr('蓝牙已断开，接收机将进入失控保护状态。\n点击“恢复”后将扫描并重新连接蓝牙。'),
+          confirmText: AppText.tr('恢复'),
         );
         await _restoreControl();
       }
@@ -200,9 +202,9 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
       if (mounted) {
         await AlertIconWidget.show(
           context,
-          title: '恢复失败',
-          message: '未能重新连接蓝牙，请确认接收机已上电后再次点击 TEST 恢复。',
-          confirmText: '知道了',
+          title: AppText.tr('恢复失败'),
+          message: AppText.tr('未能重新连接蓝牙，请确认接收机已上电后再次点击 TEST 恢复。'),
+          confirmText: AppText.tr('知道了'),
         );
       }
     }
@@ -238,9 +240,9 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
       if (showError && mounted) {
         await AlertIconWidget.show(
           context,
-          title: '设备未就绪',
-          message: '暂时无法读取设备信息，失控保护参数还不能读取或写入，请稍后重试。',
-          confirmText: '知道了',
+          title: AppText.tr('设备未就绪'),
+          message: AppText.tr('暂时无法读取设备信息，失控保护参数还不能读取或写入，请稍后重试。'),
+          confirmText: AppText.tr('知道了'),
         );
       }
       return false;
@@ -375,7 +377,8 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
                   valueUs: _steeringUs,
                   hold: _steeringHold,
                   onHoldChanged: (v) => unawaited(_setSteeringHold(v)),
-                  onValueChanged: (v) => unawaited(_setSteeringValue(v)),
+                  onPercentChanged: (v) =>
+                      unawaited(_setSteeringValue(failsafePercentToUs(v))),
                   enabled: !_loading,
                 ),
                 const SizedBox(height: 8),
@@ -384,7 +387,8 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
                   valueUs: _throttleUs,
                   hold: _throttleHold,
                   onHoldChanged: (v) => unawaited(_setThrottleHold(v)),
-                  onValueChanged: (v) => unawaited(_setThrottleValue(v)),
+                  onPercentChanged: (v) =>
+                      unawaited(_setThrottleValue(failsafePercentToUs(v))),
                   enabled: !_loading,
                 ),
                 const SizedBox(height: 8),
@@ -394,7 +398,8 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
                   hold: _ch3Hold,
                   disabled: ch3Disabled,
                   onHoldChanged: (v) => unawaited(_setCh3Hold(v)),
-                  onValueChanged: (v) => unawaited(_setCh3Value(v)),
+                  onPercentChanged: (v) =>
+                      unawaited(_setCh3Value(failsafePercentToUs(v))),
                   enabled: !_loading,
                 ),
                 const SizedBox(height: 8),
@@ -404,7 +409,8 @@ class _FailsafeContentState extends ConsumerState<FailsafeContent> {
                   hold: _ch4Hold,
                   disabled: ch4Disabled,
                   onHoldChanged: (v) => unawaited(_setCh4Hold(v)),
-                  onValueChanged: (v) => unawaited(_setCh4Value(v)),
+                  onPercentChanged: (v) =>
+                      unawaited(_setCh4Value(failsafePercentToUs(v))),
                   enabled: !_loading,
                 ),
               ],
@@ -443,7 +449,7 @@ class _FailsafeChannelStrip extends StatefulWidget {
     required this.valueUs,
     required this.hold,
     required this.onHoldChanged,
-    required this.onValueChanged,
+    required this.onPercentChanged,
     required this.enabled,
     this.disabled = false,
   });
@@ -452,7 +458,7 @@ class _FailsafeChannelStrip extends StatefulWidget {
   final int valueUs;
   final bool hold;
   final ValueChanged<bool> onHoldChanged;
-  final ValueChanged<int> onValueChanged;
+  final ValueChanged<int> onPercentChanged;
   final bool enabled;
   final bool disabled;
 
@@ -465,6 +471,7 @@ class _FailsafeChannelStripState extends State<_FailsafeChannelStrip> {
   Widget build(BuildContext context) {
     final showValueInput = !widget.hold || widget.disabled;
     final valueUs = widget.disabled ? 1500 : widget.valueUs;
+    final valuePercent = failsafeUsToPercent(valueUs);
     final canEdit = widget.enabled && !widget.disabled;
     return SettingsStrip(
       child: Row(
@@ -472,7 +479,7 @@ class _FailsafeChannelStripState extends State<_FailsafeChannelStrip> {
           SizedBox(
             width: 60,
             child: Text(
-              widget.title,
+              AppText.tr(widget.title),
               style: const TextStyle(color: AppColors.text, fontSize: 14),
             ),
           ),
@@ -482,7 +489,7 @@ class _FailsafeChannelStripState extends State<_FailsafeChannelStrip> {
               opacity: widget.disabled ? 0.4 : 1,
               child: ItemButton(
                 key: ValueKey<String>('failsafe-${widget.title}-value'),
-                text: '$valueUs',
+                text: '$valuePercent%',
                 selected: true,
                 fontSize: 14,
                 width: 88,
@@ -496,7 +503,9 @@ class _FailsafeChannelStripState extends State<_FailsafeChannelStrip> {
             opacity: widget.disabled ? 0.4 : 1,
             child: ItemButton(
               key: ValueKey<String>('failsafe-${widget.title}-mode'),
-              text: widget.disabled ? '禁用' : (widget.hold ? '保持' : '固定值'),
+              text: AppText.tr(
+                widget.disabled ? '禁用' : (widget.hold ? '保持' : '固定值'),
+              ),
               selected: true,
               fontSize: 14,
               width: 74,
@@ -512,16 +521,18 @@ class _FailsafeChannelStripState extends State<_FailsafeChannelStrip> {
   Future<void> _editValue(BuildContext context) async {
     final raw = await NumericInputDialog.show(
       context,
-      title: '固定值',
-      initialValue: widget.valueUs.toString(),
-      unit: 'us',
+      title: AppText.tr('固定值'),
+      initialValue: failsafeUsToPercent(widget.valueUs).toString(),
+      unit: '%',
+      allowSigned: true,
       allowDecimal: false,
-      maxAbsValue: 2100,
+      maxAbsValue: failsafePercentLimit,
       maxLength: 4,
     );
     final parsed = int.tryParse(raw?.trim() ?? '');
     if (parsed == null) return;
-    // 失控保护四路固定值统一限制为 900–2100 us。
-    widget.onValueChanged(parsed.clamp(900, 2100));
+    widget.onPercentChanged(
+      parsed.clamp(-failsafePercentLimit, failsafePercentLimit).toInt(),
+    );
   }
 }

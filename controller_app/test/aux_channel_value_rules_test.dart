@@ -44,4 +44,39 @@ void main() {
       const <double>[-100, 0, 100],
     );
   });
+
+  test('multi-state labels restore defaults and keep custom names aligned', () {
+    expect(
+      normalizeAuxMultiStateLabels(const <String>[], stateCount: 5),
+      const <String>['状态 1', '状态 2', '状态 3', '自定义名称', '自定义名称'],
+    );
+    expect(
+      normalizeAuxMultiStateLabels(const <String>[
+        '低速',
+        '',
+        '高速',
+        '灯光',
+      ], stateCount: 4),
+      const <String>['低速', '状态 2', '高速', '灯光'],
+    );
+    expect(
+      normalizeAuxMultiStateLabels(const <String>[
+        '状态1',
+        '状态2',
+        '状态3',
+      ], stateCount: 3),
+      const <String>['状态 1', '状态 2', '状态 3'],
+    );
+  });
+
+  test('only custom multi-state values can be removed by index', () {
+    expect(
+      removeAuxMultiStateValueAt(const <double>[-100, 0, 100, 30, 60], 1),
+      const <double>[-100, 0, 100, 30, 60],
+    );
+    expect(
+      removeAuxMultiStateValueAt(const <double>[-100, 0, 100, 30, 60], 3),
+      const <double>[-100, 0, 100, 60],
+    );
+  });
 }

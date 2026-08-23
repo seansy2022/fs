@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_ui/rc_ui.dart';
 
+import '../core/localization/app_localizations.dart';
+import '../provider/app_locale_provider.dart';
 import '../provider/battery_alert_provider.dart';
 import '../provider/bluetooth_domain_provider.dart';
 import '../provider/global_reconnect_provider.dart';
@@ -22,13 +25,20 @@ class ControllerApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final language = ref.watch(appLocaleProvider);
     ref.watch(batteryAlertMonitorProvider);
     ref.watch(signalAlertMonitorProvider);
     ref.watch(reconnectAlertMonitorProvider);
     ref.watch(bluetoothDomainControllerProvider);
     ref.watch(globalReconnectControllerProvider);
     return MaterialApp(
-      title: 'Flysky Smart Car',
+      locale: language.locale,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        ...GlobalMaterialLocalizations.delegates,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      onGenerateTitle: (context) => context.tr('富斯智能车控'),
       debugShowCheckedModeBanner: false,
       theme: appTheme(),
       initialRoute: AppRoutes.splash,
@@ -60,6 +70,11 @@ class ControllerApp extends ConsumerWidget {
           case AppRoutes.channelSettings:
             return _pageNoTransition(
               const SettingsPage(initialRoute: AppRoutes.channelSettings),
+              settings,
+            );
+          case AppRoutes.gearSettings:
+            return _pageNoTransition(
+              const SettingsPage(initialRoute: AppRoutes.gearSettings),
               settings,
             );
           case AppRoutes.failsafe:

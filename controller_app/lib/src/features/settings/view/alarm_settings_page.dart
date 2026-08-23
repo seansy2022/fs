@@ -10,6 +10,7 @@ import '../widgets/numeric_input_dialog.dart';
 import '../widgets/select_option_toggle.dart';
 import '../widgets/settings_action_button.dart';
 import '../widgets/settings_workspace.dart';
+import 'package:controller_app/src/core/localization/app_localizations.dart';
 
 class AlarmSettingsPage extends ConsumerWidget {
   const AlarmSettingsPage({super.key});
@@ -56,8 +57,8 @@ class AlarmSettingsContent extends ConsumerWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          '电量转换',
+                        Text(
+                          AppText.tr('电量转换'),
                           style: TextStyle(color: AppColors.text, fontSize: 14),
                         ),
                         const SizedBox(width: 8),
@@ -76,8 +77,8 @@ class AlarmSettingsContent extends ConsumerWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          '最低电压',
+                        Text(
+                          AppText.tr('最低电压'),
                           style: TextStyle(color: AppColors.text, fontSize: 14),
                         ),
                         const SizedBox(width: 8),
@@ -88,7 +89,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                           onTap: () async {
                             final raw = await NumericInputDialog.show(
                               context,
-                              title: '最低电压',
+                              title: AppText.tr('最低电压'),
                               initialValue: _formatDisplayNumber(
                                 settings.minimumVoltage,
                               ),
@@ -109,8 +110,8 @@ class AlarmSettingsContent extends ConsumerWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          '满电电压',
+                        Text(
+                          AppText.tr('满电电压'),
                           style: TextStyle(color: AppColors.text, fontSize: 14),
                         ),
                         const SizedBox(width: 8),
@@ -121,7 +122,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                           onTap: () async {
                             final raw = await NumericInputDialog.show(
                               context,
-                              title: '满电电压',
+                              title: AppText.tr('满电电压'),
                               initialValue: _formatDisplayNumber(
                                 settings.fullVoltage,
                               ),
@@ -163,7 +164,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                         onTap: () async {
                           final raw = await NumericInputDialog.show(
                             context,
-                            title: '报警电量',
+                            title: AppText.tr('报警电量'),
                             initialValue: settings.batteryAlertPercent
                                 .round()
                                 .toString(),
@@ -190,17 +191,17 @@ class AlarmSettingsContent extends ConsumerWidget {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                        SelectOptionToggle(
-                          selected: settings.batteryVoice,
-                          label: '语音',
-                          onTap: () => controller.updateBatterySettings(
+                      SelectOptionToggle(
+                        selected: settings.batteryVoice,
+                        label: AppText.tr('语音'),
+                        onTap: () => controller.updateBatterySettings(
                           voice: !settings.batteryVoice,
                         ),
                       ),
                       const SizedBox(width: 12),
                       SelectOptionToggle(
                         selected: settings.batteryVibration,
-                        label: '震动',
+                        label: AppText.tr('震动'),
                         onTap: () => controller.updateBatterySettings(
                           vibration: !settings.batteryVibration,
                         ),
@@ -232,8 +233,8 @@ class AlarmSettingsContent extends ConsumerWidget {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          '低于',
+                        Text(
+                          AppText.tr('低于'),
                           style: TextStyle(color: AppColors.text, fontSize: 14),
                         ),
                         const SizedBox(width: 8),
@@ -243,7 +244,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                           onTap: () async {
                             final raw = await NumericInputDialog.show(
                               context,
-                              title: '报警信号值',
+                              title: AppText.tr('报警信号值'),
                               initialValue: settings.signalThreshold
                                   .round()
                                   .toString(),
@@ -267,7 +268,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                       children: [
                         SelectOptionToggle(
                           selected: settings.signalVoice,
-                          label: '语音',
+                          label: AppText.tr('语音'),
                           onTap: () => controller.updateSignalSettings(
                             voice: !settings.signalVoice,
                           ),
@@ -275,7 +276,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                         const SizedBox(width: 12),
                         SelectOptionToggle(
                           selected: settings.signalVibration,
-                          label: '震动',
+                          label: AppText.tr('震动'),
                           onTap: () => controller.updateSignalSettings(
                             vibration: !settings.signalVibration,
                           ),
@@ -296,7 +297,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                 children: [
                   SelectOptionToggle(
                     selected: settings.reconnectVoice,
-                    label: '语音',
+                    label: AppText.tr('语音'),
                     onTap: () => controller.updateReconnectAlerts(
                       voice: !settings.reconnectVoice,
                     ),
@@ -304,7 +305,7 @@ class AlarmSettingsContent extends ConsumerWidget {
                   const SizedBox(width: 12),
                   SelectOptionToggle(
                     selected: settings.reconnectVibration,
-                    label: '震动',
+                    label: AppText.tr('震动'),
                     onTap: () => controller.updateReconnectAlerts(
                       vibration: !settings.reconnectVibration,
                     ),
@@ -330,7 +331,7 @@ void _showBatteryTypeDialog(
 
   AlertListDialog.show(
     context,
-    title: '选择电池类型',
+    title: AppText.tr('选择电池类型'),
     width: 350,
     options: options,
     selectedOption: _batteryTypeLabel(current),
@@ -354,7 +355,7 @@ String _batteryTypeLabel(BatteryType type) {
     case BatteryType.fourCell:
       return '4S';
     case BatteryType.other:
-      return '其他';
+      return AppText.tr('其他');
   }
 }
 
@@ -370,7 +371,7 @@ class _LabeledRow extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            title,
+            AppText.tr(title),
             style: const TextStyle(color: AppColors.text, fontSize: 14),
           ),
         ),

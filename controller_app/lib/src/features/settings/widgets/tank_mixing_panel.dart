@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import 'tank_mixing_direction_controls.dart';
+import 'package:controller_app/src/core/localization/app_localizations.dart';
 
 class TankMixingPanel extends StatelessWidget {
   const TankMixingPanel({
@@ -58,7 +59,7 @@ class TankMixingPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 TankMixSidePair(
-                  label: '左转',
+                  label: AppText.tr('左转'),
                   value: leftTurnValue,
                   enabled: enabled,
                   selected: enabled && leftTurnSelected,
@@ -66,8 +67,8 @@ class TankMixingPanel extends StatelessWidget {
                   topButton: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        '履带混控：',
+                      Text(
+                        AppText.tr('履带混控：'),
                         style: TextStyle(
                           color: AppColors.text,
                           fontSize: 12,
@@ -82,7 +83,7 @@ class TankMixingPanel extends StatelessWidget {
                         width: 56,
                         height: 28,
                         textWidget: Text(
-                          enabled ? '开启' : '关闭',
+                          AppText.tr(enabled ? '开启' : '关闭'),
                           style: TextStyle(
                             color: enabled ? AppColors.text : AppColors.textDim,
                             fontSize: 11,
@@ -103,7 +104,7 @@ class TankMixingPanel extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TankMixCenterRow(
-                      label: '前进',
+                      label: AppText.tr('前进'),
                       value: forwardValue,
                       enabled: enabled,
                       selected: enabled && forwardSelected,
@@ -120,7 +121,7 @@ class TankMixingPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     TankMixCenterRow(
-                      label: '后退',
+                      label: AppText.tr('后退'),
                       value: backwardValue,
                       enabled: enabled,
                       selected: enabled && backwardSelected,
@@ -136,7 +137,7 @@ class TankMixingPanel extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 TankMixSidePair(
-                  label: '右转',
+                  label: AppText.tr('右转'),
                   value: rightTurnValue,
                   enabled: enabled,
                   selected: enabled && rightTurnSelected,

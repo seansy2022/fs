@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../../../core/app_constants.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../shared/widgets/app_page_scaffold.dart';
 
 class HelpCenterPage extends StatelessWidget {
@@ -10,7 +11,7 @@ class HelpCenterPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppPageScaffold(
-      title: '帮助中心',
+      title: AppText.tr('帮助中心'),
       onBack: () => Navigator.of(context).pop(),
       body: ListView.separated(
         itemCount: helpDocuments.length,
@@ -33,7 +34,7 @@ class HelpCenterPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          document.title,
+                          AppText.tr(document.title),
                           style: const TextStyle(
                             color: AppColors.text,
                             fontSize: AppFonts.s16,
@@ -42,7 +43,7 @@ class HelpCenterPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          document.summary,
+                          AppText.tr(document.summary),
                           style: const TextStyle(
                             color: AppColors.textDim,
                             fontSize: 13,
@@ -75,12 +76,12 @@ class HelpDocumentPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppPageScaffold(
-      title: document.title,
+      title: AppText.tr(document.title),
       onBack: () => Navigator.of(context).pop(),
       body: Panel(
         child: SingleChildScrollView(
           child: Text(
-            document.body,
+            AppText.tr(document.body),
             style: const TextStyle(
               color: AppColors.text,
               fontSize: 15,

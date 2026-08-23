@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
+import '../core/localization/app_localizations.dart';
 import '../core/providers.dart';
 import '../features/bluetooth/controllers/device_history_controller.dart';
 
@@ -587,7 +588,10 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
     }
     if (state.availability != BluetoothAvailability.ready) {
       _setState(
-        state.copyWith(isWorking: false, errorMessage: '蓝牙当前不可用，请稍后重试。'),
+        state.copyWith(
+          isWorking: false,
+          errorMessage: AppText.tr('蓝牙当前不可用，请稍后重试。'),
+        ),
       );
       return false;
     }
@@ -651,11 +655,10 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   }
 
   String _deviceConnectFailedMessage(String deviceName) {
-    final resolvedName = deviceName.trim().isEmpty ? '蓝牙设备' : deviceName;
-    if (resolvedName.contains('设备')) {
-      return '$resolvedName连接失败';
-    }
-    return '$resolvedName设备连接失败';
+    final resolvedName = deviceName.trim().isEmpty
+        ? AppText.tr('蓝牙设备')
+        : deviceName;
+    return '$resolvedName ${AppText.tr('连接失败')}';
   }
 
   Future<bool> _connectInternal(String remoteId) async {
@@ -690,14 +693,14 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
     } catch (_) {
       final connectedAfterError = await _waitForConnectedDevice(remoteId);
       if (!connectedAfterError) {
-        _setState(state.copyWith(errorMessage: '连接设备失败，请重试。'));
+        _setState(state.copyWith(errorMessage: AppText.tr('连接设备失败，请重试。')));
         return false;
       }
     }
 
     final connected = await _waitForConnectedDevice(remoteId);
     if (!connected) {
-      _setState(state.copyWith(errorMessage: '连接设备失败，请重试。'));
+      _setState(state.copyWith(errorMessage: AppText.tr('连接设备失败，请重试。')));
       return false;
     }
 
@@ -811,7 +814,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
       _setState(state.copyWith(clearError: true));
       return true;
     } catch (_) {
-      _setState(state.copyWith(errorMessage: '断开连接失败，请重试。'));
+      _setState(state.copyWith(errorMessage: AppText.tr('断开连接失败，请重试。')));
       return false;
     }
   }
@@ -942,7 +945,7 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
           isScanning: false,
           isWorking: false,
           clearHomeScanEndsAt: true,
-          errorMessage: '扫描停止失败，请稍后重试。',
+          errorMessage: AppText.tr('扫描停止失败，请稍后重试。'),
         ),
       );
       return false;
@@ -981,9 +984,9 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   String _scanStartErrorMessage(Object error) {
     final message = '$error';
     if (message.contains('APPLICATION_REGISTRATION_FAILED')) {
-      return '蓝牙扫描初始化失败，请稍后重试。';
+      return AppText.tr('蓝牙扫描初始化失败，请稍后重试。');
     }
-    return '扫描启动失败，请稍后重试。';
+    return AppText.tr('扫描启动失败，请稍后重试。');
   }
 
   Future<bool> _requestBluetoothPermissionsForBootstrap() async {

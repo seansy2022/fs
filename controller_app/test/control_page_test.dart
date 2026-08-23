@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:controller_app/src/features/control/controllers/control_controller.dart';
 import 'package:controller_app/src/features/control/view/control_page.dart';
 import 'package:controller_app/src/provider/control_presentation_provider.dart';
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
@@ -17,6 +18,25 @@ import 'package:controller_app/src/provider/gyro_prompt_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('multi-state controls display configured state labels', () {
+    final channel = AppSettingsState.defaults().channels[2].copyWith(
+      controlType: AuxControlType.multiState,
+      multiStateValues: const <double>[-100, 0, 100],
+      multiStateLabels: const <String>['低速', '中速', '高速'],
+    );
+    const runtime = AuxChannelRuntimeState(
+      controlType: AuxControlType.multiState,
+      selectedIndex: 1,
+    );
+
+    expect(auxChannelControlLabels(channel, runtime), <String>[
+      '低速',
+      '中速',
+      '高速',
+    ]);
+    expect(auxChannelControlLabel(channel, runtime), '辅助1 中速');
+  });
 
   test('gyro override stays off when control-page gyro switch is off', () {
     expect(
@@ -390,7 +410,35 @@ void main() {
     ]);
   });
 
-  testWidgets('control page starts the loop after a delayed connection', (
+  test('suspended control output stops all receiver writes', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController();
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(controlControllerProvider.notifier);
+
+    await controller.activate();
+    await controller.suspendControlOutput();
+    await controller.setThrottle(1);
+    await controller.setGyroPrompt(steering: 1, throttle: 1);
+
+    expect(repository.callOrder, <String>[
+      'updateControlValues',
+      'startControlLoop',
+      'stopControlLoop',
+    ]);
+  });
+
+  testWidgets('control page starts the loop after countdown and connection', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
@@ -419,10 +467,108 @@ void main() {
     connectionStates.add(ReceiverConnectionState.connected);
     await tester.pump();
 
+    expect(
+      find.byKey(const ValueKey<String>('control-countdown')),
+      findsOneWidget,
+    );
+    expect(find.text('3'), findsOneWidget);
+    expect(repository.callOrder, isEmpty);
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('2'), findsOneWidget);
+    expect(repository.callOrder, isEmpty);
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('1'), findsOneWidget);
+    expect(repository.callOrder, isEmpty);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('control-countdown')),
+      findsNothing,
+    );
     expect(repository.callOrder, <String>[
       'updateControlValues',
       'startControlLoop',
     ]);
+  });
+
+  testWidgets('control page stops sending when app enters background', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final connectionStates = StreamController<ReceiverConnectionState>();
+    addTearDown(connectionStates.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          receiverConnectionProvider.overrideWith(
+            (ref) => connectionStates.stream,
+          ),
+          appSettingsProvider.overrideWith((ref) => _TestSettingsController()),
+          gyroPromptProvider.overrideWith(
+            (ref) => Stream.value(const GyroPrompt.zero()),
+          ),
+        ],
+        child: const MaterialApp(home: ControlPage()),
+      ),
+    );
+    connectionStates.add(ReceiverConnectionState.connected);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump();
+
+    expect(repository.callOrder, contains('startControlLoop'));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+
+    expect(repository.callOrder.last, 'stopControlLoop');
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(find.text('3'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump();
+    expect(
+      repository.callOrder.where((call) => call == 'startControlLoop'),
+      hasLength(2),
+    );
+  });
+
+  testWidgets('control page stops sending when it is removed', (tester) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final connectionStates = StreamController<ReceiverConnectionState>();
+    addTearDown(connectionStates.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          receiverConnectionProvider.overrideWith(
+            (ref) => connectionStates.stream,
+          ),
+          appSettingsProvider.overrideWith((ref) => _TestSettingsController()),
+          gyroPromptProvider.overrideWith(
+            (ref) => Stream.value(const GyroPrompt.zero()),
+          ),
+        ],
+        child: const MaterialApp(home: ControlPage()),
+      ),
+    );
+    connectionStates.add(ReceiverConnectionState.connected);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump();
+    expect(repository.callOrder, contains('startControlLoop'));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(repository.callOrder.last, 'stopControlLoop');
   });
 
   test(
@@ -582,10 +728,13 @@ void main() {
     final controller = container.read(controlControllerProvider.notifier);
 
     await controller.setSteering(0);
-    expect(repository.lastControlValues?.steering, 1550);
+    expect(repository.lastControlValues?.steering, 1510);
 
     await controller.adjustTrim(2);
-    expect(repository.lastControlValues?.steering, 1554);
+    expect(repository.lastControlValues?.steering, 1514);
+
+    await controller.setThrottleTrim(-3);
+    expect(repository.lastControlValues?.throttle, 1494);
   });
 
   test('pressAuxChannel toggles CH3 switch output', () async {
@@ -977,9 +1126,7 @@ void main() {
     expect(tester.widget<Text>(labelFinder).style?.color, AppColors.onPrimary);
   });
 
-  testWidgets('multi-state aux button keeps the selected state active', (
-    tester,
-  ) async {
+  testWidgets('multi-state aux button cycles selected state', (tester) async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     final repository = _FakeReceiverRepository();
     final settings = _TestSettingsController()
@@ -1010,39 +1157,37 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
 
     final buttonFinder = find.byKey(
-      const ValueKey<String>('control-top-action-ch2-state-1'),
-    );
-    final state1Finder = find.descendant(
-      of: find.byKey(const ValueKey<String>('control-top-action-ch2-state-0')),
-      matching: find.text('状态1'),
-    );
-    final labelFinder = find.descendant(
-      of: buttonFinder,
-      matching: find.text('状态2'),
+      const ValueKey<String>('control-top-action-ch2'),
     );
     expect(find.text('辅助'), findsOneWidget);
-    expect(tester.widget<Text>(state1Finder).style?.color, AppColors.onPrimary);
     expect(
-      tester.widget<Text>(labelFinder).style?.color,
-      const Color(0xFF7DA2CE),
+      find.descendant(of: buttonFinder, matching: find.text('状态 1')),
+      findsOneWidget,
     );
 
     await tester.tap(buttonFinder);
     await tester.pump();
 
-    expect(tester.widget<Text>(labelFinder).style?.color, AppColors.onPrimary);
     expect(
-      tester.widget<Text>(state1Finder).style?.color,
-      const Color(0xFF7DA2CE),
+      find.descendant(of: buttonFinder, matching: find.text('状态 2')),
+      findsOneWidget,
     );
     expect(repository.lastPulseChannelIndex, isNull);
     expect(repository.lastControlValues?.auxChannels[0], 1700);
 
+    await tester.tap(buttonFinder);
     await tester.pump();
 
-    expect(tester.widget<Text>(labelFinder).style?.color, AppColors.onPrimary);
+    expect(
+      find.descendant(of: buttonFinder, matching: find.text('状态 1')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('control page keeps CH3 and CH4 aux buttons on one row at left', (
@@ -1082,9 +1227,9 @@ void main() {
     await tester.pump();
 
     expect(find.text('辅助'), findsOneWidget);
-    expect(find.text('状态1'), findsOneWidget);
-    expect(find.text('状态2'), findsOneWidget);
-    expect(find.text('状态5'), findsOneWidget);
+    expect(find.text('状态 1'), findsOneWidget);
+    expect(find.text('状态 2'), findsOneWidget);
+    expect(find.text('自定义名称'), findsOneWidget);
     expect(find.text('辅助二 0%'), findsOneWidget);
     final ch3LabelTop = tester.getTopLeft(
       find.byKey(const ValueKey<String>('control-top-action-ch2-label')),
@@ -1217,7 +1362,9 @@ class _FakeReceiverRepository implements ReceiverRepository {
   }
 
   @override
-  Future<void> stopControlLoop() async {}
+  Future<void> stopControlLoop() async {
+    callOrder.add('stopControlLoop');
+  }
 
   @override
   Future<void> dispose() async {}

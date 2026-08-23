@@ -22,20 +22,17 @@ class AuxControlButtonViewData {
 class ControlAuxActionPanel extends StatelessWidget {
   const ControlAuxActionPanel({super.key, required this.auxButtons});
 
-  static const buttonWidth = 62.0;
+  static const minimumButtonWidth = 50.0;
   static const buttonHeight = 32.0;
   static const itemGap = 8.0;
-  static const visibleButtonWidthFactor = 3.5;
+  static const viewportWidth = 237.0;
 
   final List<AuxControlButtonViewData> auxButtons;
 
   @override
   Widget build(BuildContext context) {
-    final visibleWidth = buttonWidth * visibleButtonWidthFactor;
-    final visibleGaps = itemGap * (visibleButtonWidthFactor - 1);
-    final viewportWidth = auxButtons.isEmpty ? 0.0 : visibleWidth + visibleGaps;
     return SizedBox(
-      width: viewportWidth,
+      width: auxButtons.isEmpty ? 0.0 : ControlAuxActionPanel.viewportWidth,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -134,27 +131,31 @@ class _AuxActionButtonState extends State<_AuxActionButton> {
 
   @override
   Widget build(BuildContext context) {
-    return RCButton(
-      onTap: _handleTap,
-      active: widget.active || _flashActive,
-      enableRepeat: false,
-      width: ControlAuxActionPanel.buttonWidth,
-      height: ControlAuxActionPanel.buttonHeight,
-      padding: EdgeInsets.zero,
-      borderRadius: AppDimens.squareButtonRadius,
-      textWidget: Text(
-        widget.label,
-        maxLines: 1,
-        overflow: TextOverflow.visible,
-        softWrap: false,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: AppFonts.w600,
-          color: widget.active || _flashActive
-              ? AppColors.onPrimary
-              : const Color(0xFF7DA2CE),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minWidth: ControlAuxActionPanel.minimumButtonWidth,
+      ),
+      child: RCButton(
+        onTap: _handleTap,
+        active: widget.active || _flashActive,
+        enableRepeat: false,
+        height: ControlAuxActionPanel.buttonHeight,
+        padding: EdgeInsets.zero,
+        borderRadius: AppDimens.squareButtonRadius,
+        textWidget: Text(
+          widget.label,
+          maxLines: 1,
+          overflow: TextOverflow.visible,
+          softWrap: false,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: AppFonts.w600,
+            color: widget.active || _flashActive
+                ? AppColors.onPrimary
+                : const Color(0xFF7DA2CE),
+          ),
+          textAlign: TextAlign.center,
         ),
-        textAlign: TextAlign.center,
       ),
     );
   }

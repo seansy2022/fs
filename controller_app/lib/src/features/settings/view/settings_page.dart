@@ -8,15 +8,19 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
 import '../../../provider/receiver_ble_mode_provider.dart';
 import '../models/app_settings_state.dart';
+import '../language/language_setting_section.dart';
 import '../widgets/settings_workspace.dart';
 import 'alarm_settings_page.dart';
 import 'channel_settings_page.dart';
 import 'failsafe_page.dart';
 import 'firmware_upgrade_page.dart';
+import 'gear/gear_settings_page.dart';
+import 'gyro/gyro_control_section.dart';
 import 'help_center_page.dart';
 import 'tank_mixing_page.dart';
 
@@ -33,6 +37,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   static const _routes = <String>[
     AppRoutes.settings,
     AppRoutes.channelSettings,
+    AppRoutes.gearSettings,
     AppRoutes.failsafe,
     AppRoutes.tankMixing,
     AppRoutes.alarms,
@@ -68,6 +73,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         children: const [
           BasicSettingsContent(),
           ChannelSettingsContent(),
+          GearSettingsContent(),
           FailsafeContent(),
           TankMixingContent(),
           AlarmSettingsContent(),
@@ -94,13 +100,6 @@ class BasicSettingsContent extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, _) {
-        const gyroOptions = ['方向', '油门', 'all'];
-        final selectedGyroLabel = switch (settings.gyroMode) {
-          GyroMode.directionOnly => '方向',
-          GyroMode.throttleOnly => '油门',
-          GyroMode.all => 'all',
-        };
-
         return SingleChildScrollView(
           child: Column(
             children: [
@@ -111,20 +110,25 @@ class BasicSettingsContent extends ConsumerWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
-                            '手型设置',
-                            style: TextStyle(
+                            context.tr('手型设置'),
+                            style: const TextStyle(
                               color: AppColors.text,
                               fontSize: 14,
                             ),
                           ),
                           SizedBox(height: 10),
                           Text(
-                            '右手油门表示右侧区域控制油门\n左手油门表示左侧区域控制油门',
-                            style: TextStyle(
+                            context.tr(
+                              '单手右边：右边区域控制油门方向\n'
+                              '单手左边：左边区域控制油门方向\n'
+                              '右手油门：右边区域控制油门\n'
+                              '左手油门：左边区域控制油门',
+                            ),
+                            style: const TextStyle(
                               color: AppColors.textDim,
-                              fontSize: 12,
+                              fontSize: 8,
                             ),
                           ),
                         ],
@@ -134,14 +138,27 @@ class BasicSettingsContent extends ConsumerWidget {
                     Row(
                       children: [
                         _HandModeCard(
-                          title: '左手油门',
+                          title: '单手右边',
+                          hasEmbeddedTitle: true,
                           selected:
-                              settings.handedness == Handedness.leftThrottle,
-                          iconAsset: 'lib/src/assets/svg/l_youmen.svg',
+                              settings.handedness == Handedness.singleRight,
+                          iconAsset:
+                              'lib/src/assets/svg/single_hand_right_option.svg',
                           onTap: () =>
-                              controller.setHandedness(Handedness.leftThrottle),
+                              controller.setHandedness(Handedness.singleRight),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
+                        _HandModeCard(
+                          title: '单手左边',
+                          hasEmbeddedTitle: true,
+                          selected:
+                              settings.handedness == Handedness.singleLeft,
+                          iconAsset:
+                              'lib/src/assets/svg/single_hand_left_option.svg',
+                          onTap: () =>
+                              controller.setHandedness(Handedness.singleLeft),
+                        ),
+                        const SizedBox(width: 8),
                         _HandModeCard(
                           title: '右手油门',
                           selected:
@@ -151,11 +168,22 @@ class BasicSettingsContent extends ConsumerWidget {
                             Handedness.rightThrottle,
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        _HandModeCard(
+                          title: '左手油门',
+                          selected:
+                              settings.handedness == Handedness.leftThrottle,
+                          iconAsset: 'lib/src/assets/svg/l_youmen.svg',
+                          onTap: () =>
+                              controller.setHandedness(Handedness.leftThrottle),
+                        ),
                       ],
                     ),
                   ],
                 ),
               ),
+              const SizedBox(height: 8),
+              const LanguageSettingSection(),
               const SizedBox(height: 8),
               SettingsStrip(
                 child: Row(
@@ -164,18 +192,18 @@ class BasicSettingsContent extends ConsumerWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
-                            '操控模式',
-                            style: TextStyle(
+                            context.tr('操控模式'),
+                            style: const TextStyle(
                               color: AppColors.text,
                               fontSize: 14,
                             ),
                           ),
                           SizedBox(height: 10),
                           Text(
-                            '固定位置表示从固定起点开始操控，\n隐藏可变位置表示任意起点开始。',
-                            style: TextStyle(
+                            context.tr('固定位置表示从固定起点开始操控，\n隐藏可变位置表示任意起点开始。'),
+                            style: const TextStyle(
                               color: AppColors.textDim,
                               fontSize: 12,
                             ),
@@ -210,44 +238,21 @@ class BasicSettingsContent extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              SettingsStrip(
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        '陀螺仪设置',
-                        style: TextStyle(color: AppColors.text, fontSize: 14),
-                      ),
-                    ),
-                    RcMultiToggle<String>(
-                      options: gyroOptions,
-                      selected: selectedGyroLabel,
-                      width: 74.0 * gyroOptions.length,
-                      height: 28,
-                      fontSize: 14,
-                      fontWeight: AppFonts.w400,
-                      uppercaseLabels: false,
-                      onChanged: (value) =>
-                          controller.setGyroMode(switch (value) {
-                            '方向' => GyroMode.directionOnly,
-                            '油门' => GyroMode.throttleOnly,
-                            _ => GyroMode.all,
-                          }),
-                    ),
-                  ],
-                ),
-              ),
+              const GyroControlSection(),
               const SizedBox(height: 8),
               SettingsStrip(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () => _onExitBleModeTap(context, ref),
-                  child: const Row(
+                  child: Row(
                     children: [
                       Expanded(
                         child: Text(
-                          '设置接收机退出蓝牙模式',
-                          style: TextStyle(color: AppColors.text, fontSize: 14),
+                          context.tr('设置接收机退出蓝牙模式'),
+                          style: const TextStyle(
+                            color: AppColors.text,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                       Icon(
@@ -266,14 +271,17 @@ class BasicSettingsContent extends ConsumerWidget {
                   onTap: () => _onBackgroundMusicTap(context, ref),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          '背景音乐',
-                          style: TextStyle(color: AppColors.text, fontSize: 14),
+                          context.tr('背景音乐'),
+                          style: const TextStyle(
+                            color: AppColors.text,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                       Text(
-                        _backgroundMusicDisplayName(settings),
+                        context.tr(_backgroundMusicDisplayName(settings)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -306,9 +314,9 @@ Future<void> _onExitBleModeTap(BuildContext context, WidgetRef ref) async {
     if (context.mounted) {
       await AlertIconWidget.show(
         context,
-        title: '退出蓝牙模式',
-        message: '当前未连接接收机，无需退出蓝牙模式。',
-        confirmText: '确定',
+        title: AppText.tr('退出蓝牙模式'),
+        message: AppText.tr('当前未连接接收机，无需退出蓝牙模式。'),
+        confirmText: AppText.tr('确定'),
       );
     }
     return;
@@ -316,10 +324,10 @@ Future<void> _onExitBleModeTap(BuildContext context, WidgetRef ref) async {
 
   final result = await AlertIconWidget.show(
     context,
-    title: '退出蓝牙模式',
-    message: '确定退出蓝牙模式？\n退出后需要重新连接才能控制。',
-    cancelText: '否',
-    confirmText: '是',
+    title: AppText.tr('退出蓝牙模式'),
+    message: AppText.tr('确定退出蓝牙模式？\n退出后需要重新连接才能控制。'),
+    cancelText: AppText.tr('否'),
+    confirmText: AppText.tr('是'),
   );
   if (result == true && context.mounted) {
     final exitResult = await controller.exitBleModeAndDisconnect();
@@ -329,17 +337,17 @@ Future<void> _onExitBleModeTap(BuildContext context, WidgetRef ref) async {
     if (exitResult == ReceiverBleModeExitResult.success) {
       await AlertIconWidget.show(
         context,
-        title: '已退出',
-        message: '接收机已退出蓝牙模式。',
-        confirmText: '确定',
+        title: AppText.tr('已退出'),
+        message: AppText.tr('接收机已退出蓝牙模式。'),
+        confirmText: AppText.tr('确定'),
       );
       return;
     }
     await AlertIconWidget.show(
       context,
-      title: '操作失败',
-      message: '退出蓝牙模式失败，请重试。',
-      confirmText: '确定',
+      title: AppText.tr('操作失败'),
+      message: AppText.tr('退出蓝牙模式失败，请重试。'),
+      confirmText: AppText.tr('确定'),
     );
   }
 }
@@ -385,9 +393,9 @@ Future<void> _onBackgroundMusicTap(BuildContext context, WidgetRef ref) async {
         }
         await AlertIconWidget.show(
           context,
-          title: '文件选择不可用',
-          message: '当前环境未注册文件选择插件，请重启应用后重试。',
-          confirmText: '确定',
+          title: AppText.tr('文件选择不可用'),
+          message: AppText.tr('当前环境未注册文件选择插件，请重启应用后重试。'),
+          confirmText: AppText.tr('确定'),
         );
         return;
       } on PlatformException catch (_) {
@@ -396,9 +404,9 @@ Future<void> _onBackgroundMusicTap(BuildContext context, WidgetRef ref) async {
         }
         await AlertIconWidget.show(
           context,
-          title: '选择失败',
-          message: '打开本地文件失败，请重试。',
-          confirmText: '确定',
+          title: AppText.tr('选择失败'),
+          message: AppText.tr('打开本地文件失败，请重试。'),
+          confirmText: AppText.tr('确定'),
         );
         return;
       }
@@ -414,9 +422,9 @@ Future<void> _onBackgroundMusicTap(BuildContext context, WidgetRef ref) async {
       if (extension != 'mp3' && extension != 'wav') {
         await AlertIconWidget.show(
           context,
-          title: '格式不支持',
-          message: '仅支持 MP3 或 WAV 音频文件。',
-          confirmText: '确定',
+          title: AppText.tr('格式不支持'),
+          message: AppText.tr('仅支持 MP3 或 WAV 音频文件。'),
+          confirmText: AppText.tr('确定'),
         );
         return;
       }
@@ -465,11 +473,11 @@ class _BackgroundMusicDialog extends StatelessWidget {
                 height: 60,
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Padding(
                         padding: EdgeInsets.only(left: 16),
                         child: Text(
-                          '背景音乐',
+                          AppText.tr('背景音乐'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -550,7 +558,7 @@ class _BackgroundMusicOptionRow extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    label,
+                    AppText.tr(label),
                     style: const TextStyle(color: AppColors.text, fontSize: 14),
                   ),
                 ),
@@ -576,12 +584,14 @@ const _kOptionCheckedSvg =
 class _HandModeCard extends StatelessWidget {
   const _HandModeCard({
     required this.title,
+    this.hasEmbeddedTitle = false,
     required this.selected,
     required this.iconAsset,
     required this.onTap,
   });
 
   final String title;
+  final bool hasEmbeddedTitle;
   final bool selected;
   final String iconAsset;
   final VoidCallback onTap;
@@ -590,24 +600,38 @@ class _HandModeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return RCButton(
       onTap: onTap,
-      width: 80,
-      height: 72,
+      width: 64,
+      height: 58,
       active: selected,
       enableRepeat: false,
       direction: Axis.vertical,
-      gap: 10,
-      padding: const EdgeInsets.fromLTRB(0, 6, 0, 0),
-      iconWidget: SvgPicture.asset(
-        iconAsset,
-        width: 54,
-        height: 28,
-        fit: BoxFit.contain,
-      ),
+      gap: 3,
+      padding: EdgeInsets.zero,
+      // 单手 SVG 底部带有中文图形文字；裁掉该区域后统一使用可本地化标题。
+      iconWidget: hasEmbeddedTitle
+          ? ClipRect(
+              child: Align(
+                alignment: Alignment.topCenter,
+                heightFactor: 0.64,
+                child: SvgPicture.asset(
+                  iconAsset,
+                  width: 64,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            )
+          : SvgPicture.asset(
+              iconAsset,
+              width: 40,
+              height: 22,
+              fit: BoxFit.contain,
+            ),
+      // 所有选项均由文字层显示，确保语言切换时不受 SVG 内嵌文字影响。
       textWidget: Text(
-        title,
+        context.tr(title),
         style: TextStyle(
           color: selected ? AppColors.text : AppColors.textDim,
-          fontSize: 10,
+          fontSize: 8,
         ),
       ),
     );
