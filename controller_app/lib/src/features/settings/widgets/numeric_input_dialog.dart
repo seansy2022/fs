@@ -133,7 +133,8 @@ class _NumericInputDialogState extends State<NumericInputDialog> {
                 onTap: () {},
                 child: SizedBox(
                   width: 311,
-                  height: 125.5,
+                  // 内容最小高度为 126，避免在软键盘弹出时产生半像素溢出。
+                  height: 126,
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                     decoration: BoxDecoration(

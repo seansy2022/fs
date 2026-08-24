@@ -12,6 +12,7 @@ class SingleHandRightControl extends StatelessWidget {
     required this.steeringTrim,
     required this.throttleTrim,
     required this.showTrimButtons,
+    this.showTrims = true,
     required this.onControlChanged,
     required this.onSteeringTrimChanged,
     required this.onThrottleTrimChanged,
@@ -20,6 +21,7 @@ class SingleHandRightControl extends StatelessWidget {
   final int steeringTrim;
   final int throttleTrim;
   final bool showTrimButtons;
+  final bool showTrims;
   final ValueChanged<FourDirectionValue> onControlChanged;
   final ValueChanged<int> onSteeringTrimChanged;
   final ValueChanged<int> onThrottleTrimChanged;
@@ -31,6 +33,7 @@ class SingleHandRightControl extends StatelessWidget {
       steeringTrim: steeringTrim,
       throttleTrim: throttleTrim,
       showTrimButtons: showTrimButtons,
+      showTrims: showTrims,
       onControlChanged: onControlChanged,
       onSteeringTrimChanged: onSteeringTrimChanged,
       onThrottleTrimChanged: onThrottleTrimChanged,
@@ -45,6 +48,7 @@ class SingleHandLeftControl extends StatelessWidget {
     required this.steeringTrim,
     required this.throttleTrim,
     required this.showTrimButtons,
+    this.showTrims = true,
     required this.onControlChanged,
     required this.onSteeringTrimChanged,
     required this.onThrottleTrimChanged,
@@ -53,6 +57,7 @@ class SingleHandLeftControl extends StatelessWidget {
   final int steeringTrim;
   final int throttleTrim;
   final bool showTrimButtons;
+  final bool showTrims;
   final ValueChanged<FourDirectionValue> onControlChanged;
   final ValueChanged<int> onSteeringTrimChanged;
   final ValueChanged<int> onThrottleTrimChanged;
@@ -64,6 +69,7 @@ class SingleHandLeftControl extends StatelessWidget {
       steeringTrim: steeringTrim,
       throttleTrim: throttleTrim,
       showTrimButtons: showTrimButtons,
+      showTrims: showTrims,
       onControlChanged: onControlChanged,
       onSteeringTrimChanged: onSteeringTrimChanged,
       onThrottleTrimChanged: onThrottleTrimChanged,
@@ -78,6 +84,7 @@ class _SingleHandControlLayout extends StatelessWidget {
     required this.steeringTrim,
     required this.throttleTrim,
     required this.showTrimButtons,
+    required this.showTrims,
     required this.onControlChanged,
     required this.onSteeringTrimChanged,
     required this.onThrottleTrimChanged,
@@ -94,12 +101,23 @@ class _SingleHandControlLayout extends StatelessWidget {
   final int steeringTrim;
   final int throttleTrim;
   final bool showTrimButtons;
+  final bool showTrims;
   final ValueChanged<FourDirectionValue> onControlChanged;
   final ValueChanged<int> onSteeringTrimChanged;
   final ValueChanged<int> onThrottleTrimChanged;
 
   @override
   Widget build(BuildContext context) {
+    if (!showTrims) {
+      return Align(
+        alignment: rightHand ? Alignment.bottomRight : Alignment.bottomLeft,
+        child: SizedBox(
+          width: _designControlSide,
+          height: _designControlSide,
+          child: FourDirectionControl(onChanged: onControlChanged),
+        ),
+      );
+    }
     return Padding(
       padding: EdgeInsets.only(
         left: rightHand ? 0 : _edge,

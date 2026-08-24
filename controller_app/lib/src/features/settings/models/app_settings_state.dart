@@ -9,7 +9,11 @@ enum Handedness { singleRight, singleLeft, leftThrottle, rightThrottle }
 
 enum ControlMode { fixedPosition, floating }
 
-enum GyroMode { directionOnly, throttleOnly, all }
+/// 体感输入覆盖的通道范围。
+enum GyroMode { off, directionOnly, throttleOnly, all }
+
+/// 单通道体感模式下，剩余触控通道所在的操作区域。
+enum GyroHandMode { left, right, dual }
 
 enum BatteryType { oneCell, twoCell, threeCell, fourCell, other }
 
@@ -172,6 +176,7 @@ class AppSettingsState {
     required this.handedness,
     required this.controlMode,
     required this.gyroMode,
+    required this.gyroHandMode,
     required this.gyroCalibration,
     required this.channels,
     required this.tankMixingEnabled,
@@ -202,6 +207,7 @@ class AppSettingsState {
   final Handedness handedness;
   final ControlMode controlMode;
   final GyroMode gyroMode;
+  final GyroHandMode gyroHandMode;
   final GyroCalibrationSettings gyroCalibration;
   final List<ChannelSetting> channels;
   final bool tankMixingEnabled;
@@ -233,6 +239,7 @@ class AppSettingsState {
       handedness: Handedness.rightThrottle,
       controlMode: ControlMode.fixedPosition,
       gyroMode: GyroMode.throttleOnly,
+      gyroHandMode: GyroHandMode.left,
       gyroCalibration: GyroCalibrationSettings.defaults,
       channels: const <ChannelSetting>[
         ChannelSetting(
@@ -322,6 +329,7 @@ class AppSettingsState {
     Handedness? handedness,
     ControlMode? controlMode,
     GyroMode? gyroMode,
+    GyroHandMode? gyroHandMode,
     GyroCalibrationSettings? gyroCalibration,
     List<ChannelSetting>? channels,
     bool? tankMixingEnabled,
@@ -352,6 +360,7 @@ class AppSettingsState {
       handedness: handedness ?? this.handedness,
       controlMode: controlMode ?? this.controlMode,
       gyroMode: gyroMode ?? this.gyroMode,
+      gyroHandMode: gyroHandMode ?? this.gyroHandMode,
       gyroCalibration: gyroCalibration ?? this.gyroCalibration,
       channels: channels ?? this.channels,
       tankMixingEnabled: tankMixingEnabled ?? this.tankMixingEnabled,
@@ -385,6 +394,7 @@ class AppSettingsState {
       'handedness': handedness.name,
       'controlMode': controlMode.name,
       'gyroMode': gyroMode.name,
+      'gyroHandMode': gyroHandMode.name,
       'gyroCalibration': gyroCalibration.toJson(),
       'channels': channels
           .map((channel) => channel.toJson())
@@ -426,6 +436,7 @@ class AppSettingsState {
       handedness: Handedness.values.byName(json['handedness']! as String),
       controlMode: ControlMode.values.byName(json['controlMode']! as String),
       gyroMode: _gyroModeFromStorage(json['gyroMode']! as String),
+      gyroHandMode: _gyroHandModeFromStorage(json['gyroHandMode'] as String?),
       gyroCalibration: GyroCalibrationSettings.fromJson(
         json['gyroCalibration'],
       ),
@@ -552,12 +563,22 @@ BatteryType _batteryTypeFromStorage(String raw) {
 GyroMode _gyroModeFromStorage(String raw) {
   switch (raw) {
     case 'off':
-      // Legacy value: map old "off" mode to the new default throttle mode.
-      return GyroMode.throttleOnly;
+      return GyroMode.off;
     case 'directionOnly':
     case 'throttleOnly':
     case 'all':
       return GyroMode.values.byName(raw);
   }
-  return GyroMode.throttleOnly;
+  return GyroMode.off;
+}
+
+/// 兼容旧版本尚未保存体感手型时的默认布局。
+GyroHandMode _gyroHandModeFromStorage(String? raw) {
+  switch (raw) {
+    case 'left':
+    case 'right':
+    case 'dual':
+      return GyroHandMode.values.byName(raw!);
+  }
+  return GyroHandMode.left;
 }

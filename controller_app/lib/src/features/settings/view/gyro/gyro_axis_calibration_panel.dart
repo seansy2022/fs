@@ -1,9 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:rc_ui/rc_ui.dart';
 import 'package:controller_app/src/core/localization/app_localizations.dart';
+
+import '../../widgets/numeric_input_dialog.dart';
 
 /// 一个可复用的角度输入项；油门和方向校准共用相同外观。
 class GyroDegreeInputData {
@@ -89,6 +90,27 @@ class GyroDegreeInput extends StatelessWidget {
   final bool showError;
   final VoidCallback onChanged;
 
+  /// 打开通用数值弹窗；只有用户在弹窗内提交后，才回写当前校准草稿。
+  Future<void> _editDegree(BuildContext context) async {
+    final value = await NumericInputDialog.show(
+      context,
+      title: AppText.tr(data.label),
+      initialValue: data.controller.text,
+      unit: '°',
+      allowSigned: true,
+      allowDecimal: true,
+      maxAbsValue: 90,
+      maxLength: 5,
+    );
+    if (value == null) {
+      return;
+    }
+
+    // 保持原有的延后校验规则：空值或非法格式会在点击页面保存时统一提示。
+    data.controller.text = value;
+    onChanged();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -101,36 +123,44 @@ class GyroDegreeInput extends StatelessWidget {
           style: const TextStyle(color: AppColors.textDim, fontSize: 11),
         ),
         const SizedBox(height: 4),
-        Container(
-          height: 30,
-          constraints: const BoxConstraints(maxWidth: 78),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: const Color(0x661B2D4D),
-            borderRadius: BorderRadius.circular(3),
-            border: Border.all(
-              color: showError ? AppColors.tertiary : AppColors.primary,
-              width: 0.8,
+        GestureDetector(
+          key: ValueKey<String>('gyro-degree-input-${data.label}'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _editDegree(context),
+          child: Container(
+            height: 30,
+            constraints: const BoxConstraints(maxWidth: 78),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: const Color(0x661B2D4D),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(
+                color: showError ? AppColors.tertiary : AppColors.primary,
+                width: 0.8,
+              ),
             ),
-          ),
-          child: TextField(
-            controller: data.controller,
-            keyboardType: const TextInputType.numberWithOptions(
-              signed: true,
-              decimal: true,
-            ),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[-0-9.]')),
-              LengthLimitingTextInputFormatter(5),
-            ],
-            textAlign: TextAlign.center,
-            onChanged: (_) => onChanged(),
-            style: const TextStyle(color: AppColors.text, fontSize: 13),
-            decoration: const InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-              suffixText: '°',
-              suffixStyle: TextStyle(color: AppColors.textDim, fontSize: 11),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: data.controller,
+                    builder: (context, value, child) => Text(
+                      value.text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.text,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                const Text(
+                  '°',
+                  style: TextStyle(color: AppColors.textDim, fontSize: 11),
+                ),
+              ],
             ),
           ),
         ),

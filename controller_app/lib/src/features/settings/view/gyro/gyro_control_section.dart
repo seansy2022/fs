@@ -23,8 +23,11 @@ class GyroControlSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(appSettingsProvider.select((s) => s.gyroMode));
+    final settings = ref.watch(appSettingsProvider);
+    final mode = settings.gyroMode;
     final controller = ref.read(appSettingsProvider.notifier);
+    final canSelectGyroHand =
+        mode == GyroMode.directionOnly || mode == GyroMode.throttleOnly;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -65,7 +68,12 @@ class GyroControlSection extends ConsumerWidget {
                 onTap: () => _showGyroTypePicker(context, mode, controller),
               ),
               _GyroDivider(scale: scale),
-              _GyroHandModeSegments(scale: scale),
+              _GyroHandModeSegments(
+                scale: scale,
+                selectedMode: settings.gyroHandMode,
+                enabled: canSelectGyroHand,
+                onSelected: controller.setGyroHandMode,
+              ),
             ],
           ),
         );
@@ -185,11 +193,19 @@ class _GyroDivider extends StatelessWidget {
   }
 }
 
-/// 手型行为尚未定义，先一比一保留 SVG 的默认“左手”高亮状态。
+/// 单通道体感模式下选择剩余触控通道的操作区域。
 class _GyroHandModeSegments extends StatelessWidget {
-  const _GyroHandModeSegments({required this.scale});
+  const _GyroHandModeSegments({
+    required this.scale,
+    required this.selectedMode,
+    required this.enabled,
+    required this.onSelected,
+  });
 
   final double scale;
+  final GyroHandMode selectedMode;
+  final bool enabled;
+  final ValueChanged<GyroHandMode> onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -204,7 +220,9 @@ class _GyroHandModeSegments extends StatelessWidget {
             label: '左手',
             width: 148 * scale,
             fontSize: 28 * scale,
-            selected: true,
+            selected: enabled && selectedMode == GyroHandMode.left,
+            enabled: enabled,
+            onTap: () => onSelected(GyroHandMode.left),
             borderRadius: BorderRadius.horizontal(
               left: Radius.circular(4 * scale),
             ),
@@ -213,11 +231,17 @@ class _GyroHandModeSegments extends StatelessWidget {
             label: '右手',
             width: 148 * scale,
             fontSize: 28 * scale,
+            selected: enabled && selectedMode == GyroHandMode.right,
+            enabled: enabled,
+            onTap: () => onSelected(GyroHandMode.right),
           ),
           _GyroHandModeSegment(
             label: '双手',
             width: 146 * scale,
             fontSize: 28 * scale,
+            selected: enabled && selectedMode == GyroHandMode.dual,
+            enabled: enabled,
+            onTap: () => onSelected(GyroHandMode.dual),
             borderRadius: BorderRadius.horizontal(
               right: Radius.circular(4 * scale),
             ),
@@ -233,6 +257,8 @@ class _GyroHandModeSegment extends StatelessWidget {
     required this.label,
     required this.width,
     required this.fontSize,
+    required this.enabled,
+    required this.onTap,
     this.selected = false,
     this.borderRadius = BorderRadius.zero,
   });
@@ -240,35 +266,48 @@ class _GyroHandModeSegment extends StatelessWidget {
   final String label;
   final double width;
   final double fontSize;
+  final bool enabled;
+  final VoidCallback onTap;
   final bool selected;
   final BorderRadius borderRadius;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: selected ? null : const Color(0x661B2D4D),
-        gradient: selected
-            ? const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x0000C6FF), Color(0x8000C6FF)],
-              )
-            : null,
-        borderRadius: borderRadius,
-        border: Border.all(
-          color: selected ? AppColors.primaryBright : AppColors.primary,
-          width: 1,
-        ),
-      ),
-      child: Text(
-        AppText.tr(label),
-        style: TextStyle(
-          color: selected ? AppColors.text : const Color(0xFF7DA2CE),
-          fontSize: fontSize,
-          height: 1,
+    return IgnorePointer(
+      ignoring: !enabled,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.42,
+        child: GestureDetector(
+          key: ValueKey<String>('gyro-hand-$label'),
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            width: width,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected ? null : const Color(0x661B2D4D),
+              gradient: selected
+                  ? const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x0000C6FF), Color(0x8000C6FF)],
+                    )
+                  : null,
+              borderRadius: borderRadius,
+              border: Border.all(
+                color: selected ? AppColors.primaryBright : AppColors.primary,
+                width: 1,
+              ),
+            ),
+            child: Text(
+              AppText.tr(label),
+              style: TextStyle(
+                color: selected ? AppColors.text : const Color(0xFF7DA2CE),
+                fontSize: fontSize,
+                height: 1,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -309,6 +348,7 @@ void _showGyroTypePicker(
   SettingsController controller,
 ) {
   final options = <String>[
+    AppText.tr('关闭'),
     AppText.tr('方向'),
     AppText.tr('油门'),
     AppText.tr('方向+油门'),
@@ -321,6 +361,7 @@ void _showGyroTypePicker(
     selectedOption: _gyroModeLabel(current),
     onOptionSelected: (value) {
       controller.setGyroMode(switch (value) {
+        final off when off == AppText.tr('关闭') => GyroMode.off,
         final direction when direction == AppText.tr('方向') =>
           GyroMode.directionOnly,
         final throttle when throttle == AppText.tr('油门') =>
@@ -333,6 +374,7 @@ void _showGyroTypePicker(
 
 String _gyroModeLabel(GyroMode mode) {
   return switch (mode) {
+    GyroMode.off => AppText.tr('关闭'),
     GyroMode.directionOnly => AppText.tr('方向'),
     GyroMode.throttleOnly => AppText.tr('油门'),
     GyroMode.all => AppText.tr('方向+油门'),

@@ -32,6 +32,12 @@ class SettingsController extends StateNotifier<AppSettingsState> {
     _persist();
   }
 
+  /// 保存单通道体感模式下的触控手型，不与基本设置手型共用状态。
+  void setGyroHandMode(GyroHandMode value) {
+    state = state.copyWith(gyroHandMode: value);
+    _persist();
+  }
+
   /// 保存已通过范围与顺序校验的体感校准角度。
   void updateGyroCalibration(GyroCalibrationSettings value) {
     if (!value.isValid) {

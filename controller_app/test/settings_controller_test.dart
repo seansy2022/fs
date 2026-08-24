@@ -80,6 +80,8 @@ void main() {
     });
 
     expect(state.batteryType, BatteryType.other);
+    expect(state.gyroMode, GyroMode.off);
+    expect(state.gyroHandMode, GyroHandMode.left);
   });
 
   test('settings controller switches handedness', () async {
@@ -90,6 +92,20 @@ void main() {
     controller.setHandedness(Handedness.leftThrottle);
 
     expect(controller.state.handedness, Handedness.leftThrottle);
+  });
+
+  test('settings controller persists gyro hand mode independently', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final controller = SettingsController();
+
+    await Future<void>.delayed(Duration.zero);
+    controller.setGyroHandMode(GyroHandMode.dual);
+    final restored = AppSettingsState.fromStorageString(
+      controller.state.toStorageString(),
+    );
+
+    expect(restored.gyroMode, GyroMode.throttleOnly);
+    expect(restored.gyroHandMode, GyroHandMode.dual);
   });
 
   test('settings controller persists single hand mode', () async {

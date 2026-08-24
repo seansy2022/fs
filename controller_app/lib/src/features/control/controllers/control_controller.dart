@@ -190,6 +190,15 @@ class ControlController extends StateNotifier<ControlScreenState> {
     unawaited(_loadSavedAuxRuntime(_ref.read(appSettingsProvider)));
     _inputRuntimeRestoreFuture = _loadSavedInputRuntime();
     _ref.listen<AppSettingsState>(appSettingsProvider, (previous, next) {
+      if (previous?.gyroMode != next.gyroMode) {
+        _clearModeInputs();
+        if (next.gyroMode == GyroMode.off && state.gyroEnabled) {
+          state = state.copyWith(gyroEnabled: false);
+          unawaited(_saveInputRuntime());
+        }
+        unawaited(_syncPromptAndPush());
+        return;
+      }
       if (previous?.gearSettings == next.gearSettings || !state.loopActive) {
         return;
       }
@@ -215,6 +224,15 @@ class ControlController extends StateNotifier<ControlScreenState> {
   ReceiverControlValues? _lastPushedValues;
 
   bool get gyroEnabled => state.gyroEnabled;
+
+  /// 切换体感类型时清空两种来源的主通道输入，防止旧值残留到新布局。
+  void _clearModeInputs() {
+    _touchSteering = 0;
+    _touchThrottle = 0;
+    _gyroSteering = 0;
+    _gyroThrottle = 0;
+    _gyroSyncPending = false;
+  }
 
   /// 等待控制页输入状态恢复完成，供页面开始倒计时前调用。
   Future<void> restoreInputRuntime() => _inputRuntimeRestoreFuture;
@@ -270,7 +288,8 @@ class ControlController extends StateNotifier<ControlScreenState> {
     required double steering,
     required double throttle,
   }) async {
-    if (_controlOutputSuspended) {
+    if (_controlOutputSuspended ||
+        _ref.read(appSettingsProvider).gyroMode == GyroMode.off) {
       return;
     }
     _gyroSteering = steering.clamp(-1, 1);

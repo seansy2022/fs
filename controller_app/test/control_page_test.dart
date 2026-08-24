@@ -55,7 +55,7 @@ void main() {
     );
   });
 
-  test('gyro override only applies for enabled single-axis gyro modes', () {
+  test('gyro override applies for every enabled non-closed gyro mode', () {
     expect(
       shouldUseGyroControlOverride(
         gyroEnabled: true,
@@ -72,6 +72,10 @@ void main() {
     );
     expect(
       shouldUseGyroControlOverride(gyroEnabled: true, gyroMode: GyroMode.all),
+      isTrue,
+    );
+    expect(
+      shouldUseGyroControlOverride(gyroEnabled: true, gyroMode: GyroMode.off),
       isFalse,
     );
   });
@@ -217,64 +221,18 @@ void main() {
     },
   );
 
-  testWidgets(
-    'floating vertical throttle on control page responds to upward drag',
-    (tester) async {
-      SharedPreferences.setMockInitialValues(const <String, Object>{});
-      final repository = _FakeReceiverRepository();
-      final settings = _TestSettingsController()
-        ..state = AppSettingsState.defaults().copyWith(
-          controlMode: ControlMode.floating,
-          handedness: Handedness.rightThrottle,
-          gyroMode: GyroMode.all,
-        );
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            receiverRepositoryProvider.overrideWith((ref) => repository),
-            appSettingsProvider.overrideWith((ref) => settings),
-            gyroPromptProvider.overrideWith(
-              (ref) => Stream.value(const GyroPrompt.zero()),
-            ),
-          ],
-          child: const MaterialApp(home: ControlPage()),
-        ),
+  testWidgets('方向加油门体感隐藏主控并固定两条微调的位置', (tester) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        controlMode: ControlMode.floating,
+        handedness: Handedness.rightThrottle,
+        gyroMode: GyroMode.all,
       );
-      await tester.pump();
 
-      expect(find.byType(VerticalFloatingControlZone), findsOneWidget);
-      expect(find.byType(FloatingControlZone), findsOneWidget);
-
-      final verticalFinder = find.byType(VerticalFloatingControlZone);
-      final gesture = await tester.startGesture(
-        tester.getCenter(verticalFinder),
-      );
-      await tester.pump();
-
-      await gesture.moveBy(const Offset(0, -81));
-      await tester.pump();
-
-      expect(repository.lastControlValues, isNotNull);
-      expect(repository.lastControlValues!.throttle, greaterThan(1500));
-
-      await gesture.up();
-      await tester.pump();
-    },
-  );
-
-  testWidgets(
-    'gyro throttle mode keeps only the original horizontal control area',
-    (tester) async {
-      SharedPreferences.setMockInitialValues(const <String, Object>{});
-      final repository = _FakeReceiverRepository();
-      final settings = _TestSettingsController()
-        ..state = AppSettingsState.defaults().copyWith(
-          controlMode: ControlMode.fixedPosition,
-          handedness: Handedness.rightThrottle,
-          gyroMode: GyroMode.throttleOnly,
-        );
-      final container = ProviderContainer(
+    await tester.pumpWidget(
+      ProviderScope(
         overrides: [
           receiverRepositoryProvider.overrideWith((ref) => repository),
           appSettingsProvider.overrideWith((ref) => settings),
@@ -282,55 +240,112 @@ void main() {
             (ref) => Stream.value(const GyroPrompt.zero()),
           ),
         ],
-      );
-      addTearDown(container.dispose);
+        child: const MaterialApp(home: ControlPage()),
+      ),
+    );
+    await tester.pump();
 
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(home: ControlPage()),
+    final steeringTrim = find.byKey(
+      const ValueKey<String>('control-steering-trim'),
+    );
+    final throttleTrim = find.byKey(
+      const ValueKey<String>('control-throttle-trim'),
+    );
+    expect(find.byType(VerticalFloatingControlZone), findsNothing);
+    expect(find.byType(FloatingControlZone), findsNothing);
+    expect(steeringTrim, findsOneWidget);
+    expect(throttleTrim, findsOneWidget);
+    expect(
+      tester.getCenter(steeringTrim).dx,
+      lessThan(
+        tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
+      ),
+    );
+    expect(
+      tester.getCenter(throttleTrim).dx,
+      greaterThan(
+        tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
+      ),
+    );
+  });
+
+  testWidgets('油门体感保留方向主控并固定两条微调的位置', (tester) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        controlMode: ControlMode.fixedPosition,
+        handedness: Handedness.rightThrottle,
+        gyroMode: GyroMode.throttleOnly,
+      );
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
         ),
-      );
-      await tester.pump();
+      ],
+    );
+    addTearDown(container.dispose);
 
-      await container
-          .read(controlControllerProvider.notifier)
-          .setGyroEnabled(true);
-      await tester.pump();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: ControlPage()),
+      ),
+    );
+    await tester.pump();
 
-      final horizontalControls = find.byWidgetPredicate(
-        (widget) =>
-            widget is Control &&
-            widget.direction == ControlSliderDirection.horizontal,
-      );
-      final verticalControls = find.byWidgetPredicate(
-        (widget) =>
-            widget is Control &&
-            widget.direction == ControlSliderDirection.vertical,
-      );
-      final horizontalSliders = find.byWidgetPredicate(
-        (widget) =>
-            widget is RCControllSider &&
-            widget.direction == RCControllSiderDirection.horizontal,
-      );
-      final verticalSliders = find.byWidgetPredicate(
-        (widget) =>
-            widget is RCControllSider &&
-            widget.direction == RCControllSiderDirection.vertical,
-      );
+    await container
+        .read(controlControllerProvider.notifier)
+        .setGyroEnabled(true);
+    await tester.pump();
 
-      expect(horizontalControls, findsOneWidget);
-      expect(verticalControls, findsNothing);
-      expect(horizontalSliders, findsOneWidget);
-      expect(verticalSliders, findsNothing);
-      expect(
-        tester.getCenter(horizontalControls).dx,
-        lessThan(
-          tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
-        ),
-      );
-    },
-  );
+    final horizontalControls = find.byWidgetPredicate(
+      (widget) =>
+          widget is Control &&
+          widget.direction == ControlSliderDirection.horizontal,
+    );
+    final verticalControls = find.byWidgetPredicate(
+      (widget) =>
+          widget is Control &&
+          widget.direction == ControlSliderDirection.vertical,
+    );
+    final horizontalSliders = find.byWidgetPredicate(
+      (widget) =>
+          widget is RCControllSider &&
+          widget.direction == RCControllSiderDirection.horizontal,
+    );
+    final verticalSliders = find.byWidgetPredicate(
+      (widget) =>
+          widget is RCControllSider &&
+          widget.direction == RCControllSiderDirection.vertical,
+    );
+
+    expect(horizontalControls, findsOneWidget);
+    expect(verticalControls, findsNothing);
+    expect(horizontalSliders, findsOneWidget);
+    expect(verticalSliders, findsOneWidget);
+    expect(
+      tester.getCenter(horizontalControls).dx,
+      lessThan(
+        tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
+      ),
+    );
+    expect(
+      tester.getCenter(horizontalSliders).dx,
+      lessThan(
+        tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
+      ),
+    );
+    expect(
+      tester.getCenter(verticalSliders).dx,
+      greaterThan(
+        tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
+      ),
+    );
+  });
 
   test('park lock zeros steering throttle and blocks control input', () async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
