@@ -101,9 +101,9 @@ class _GyroCalibrationButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned(
       left: 32 * scale,
-      top: 88 * scale,
-      width: 216 * scale,
-      height: 56 * scale,
+      top: 80 * scale,
+      width: 260 * scale,
+      height: 64 * scale,
       child: GestureDetector(
         key: gyroCalibrationEntryKey,
         behavior: HitTestBehavior.opaque,
@@ -122,7 +122,7 @@ class _GyroCalibrationButton extends StatelessWidget {
               AppText.tr('体感控制校准'),
               style: TextStyle(
                 color: AppColors.bg,
-                fontSize: 28 * scale,
+                fontSize: 24 * scale,
                 height: 1,
               ),
             ),
@@ -210,15 +210,15 @@ class _GyroHandModeSegments extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      left: 742 * scale,
-      top: 108 * scale,
-      width: 442 * scale,
-      height: 56 * scale,
+      left: 704 * scale,
+      top: 100 * scale,
+      width: 480 * scale,
+      height: 64 * scale,
       child: Row(
         children: [
           _GyroHandModeSegment(
             label: '左手',
-            width: 148 * scale,
+            width: 160 * scale,
             fontSize: 28 * scale,
             selected: enabled && selectedMode == GyroHandMode.left,
             enabled: enabled,
@@ -229,7 +229,7 @@ class _GyroHandModeSegments extends StatelessWidget {
           ),
           _GyroHandModeSegment(
             label: '右手',
-            width: 148 * scale,
+            width: 160 * scale,
             fontSize: 28 * scale,
             selected: enabled && selectedMode == GyroHandMode.right,
             enabled: enabled,
@@ -237,7 +237,7 @@ class _GyroHandModeSegments extends StatelessWidget {
           ),
           _GyroHandModeSegment(
             label: '双手',
-            width: 146 * scale,
+            width: 160 * scale,
             fontSize: 28 * scale,
             selected: enabled && selectedMode == GyroHandMode.dual,
             enabled: enabled,
@@ -273,6 +273,11 @@ class _GyroHandModeSegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizedLabel = AppText.tr(label);
+    final useCompactFont =
+        Localizations.localeOf(context).languageCode == 'en' &&
+        localizedLabel.length > label.length;
+
     return IgnorePointer(
       ignoring: !enabled,
       child: Opacity(
@@ -300,10 +305,13 @@ class _GyroHandModeSegment extends StatelessWidget {
               ),
             ),
             child: Text(
-              AppText.tr(label),
+              localizedLabel,
+              maxLines: 1,
+              softWrap: false,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: selected ? AppColors.text : const Color(0xFF7DA2CE),
-                fontSize: fontSize,
+                fontSize: useCompactFont ? fontSize * 0.86 : fontSize,
                 height: 1,
               ),
             ),

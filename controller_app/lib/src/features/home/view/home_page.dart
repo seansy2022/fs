@@ -233,7 +233,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             width: 112,
                             height: 120,
                             child: HomeMetric(
-                              label: 'RX\u7535\u91cf',
+                              label: AppText.tr('RX电量'),
                               value: batteryLevel != null
                                   ? '$batteryLevel'
                                   : '--',
@@ -246,7 +246,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             width: 112,
                             height: 120,
                             child: HomeMetric(
-                              label: '\u4fe1\u53f7\u5f3a\u5ea6',
+                              label: AppText.tr('信号强度'),
                               value: rssi != null ? '$rssi' : '--',
                               unit: rssi != null ? 'dBm' : '',
                               emphasize: connected,
@@ -259,7 +259,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _HomeActionButton(
-                            text: '\u8bbe\u7f6e',
+                            text: AppText.tr('设置'),
                             width: 174,
                             height: 44,
                             backgroundColor: const Color.fromRGBO(
@@ -289,7 +289,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                           const SizedBox(width: 20),
                           _HomeActionButton(
-                            text: '\u5f00\u59cb',
+                            text: AppText.tr('开始'),
                             width: 160,
                             height: 44,
                             gradient: const LinearGradient(
@@ -522,9 +522,7 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
         .map((device) {
           final item = AlertBlueItem(
             title: device.name,
-            status: device.isConnected
-                ? '\u5df2\u8fde\u63a5'
-                : '\u672a\u8fde\u63a5',
+            status: device.isConnected ? AppText.tr('已连接') : AppText.tr('未连接'),
             statusColor: device.isConnected
                 ? const Color(0xFF00C6FF)
                 : Colors.white.withValues(alpha: 0.65),
@@ -535,9 +533,9 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
         .toList(growable: false);
 
     return AlertBlueWidget(
-      title: '\u5df2\u914d\u5bf9\u8bbe\u5907\u5217\u8868',
+      title: AppText.tr('已配对设备列表'),
       items: items,
-      emptyText: '\u6682\u65e0\u5386\u53f2\u8bbe\u5907',
+      emptyText: AppText.tr('暂无历史设备'),
       onTap: (item) async {
         final target = itemMap[item];
         if (target == null) {
@@ -591,7 +589,7 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
         }
       },
       onClose: () => Navigator.of(context).pop(),
-      footerText: '\u67e5\u627e\u65b0\u8bbe\u5907',
+      footerText: AppText.tr('查找新设备'),
       footerIcon: const Icon(Icons.add_box_outlined, size: 24),
       onFooterTap: () => Navigator.of(context).pop('scan_pairing'),
     );

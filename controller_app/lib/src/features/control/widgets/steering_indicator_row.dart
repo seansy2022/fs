@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/localization/app_localizations.dart';
+
 const _indicatorDialSvg = '''
 <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none"><circle cx="48" cy="48" r="48" fill="#001024" fill-opacity="0.4"></circle><path fill-rule="evenodd" fill="url(#linear_border_2_521_0)" d="M48 96C74.5097 96 96 74.5097 96 48C96 21.4903 74.5097 0 48 0C21.4903 0 0 21.4903 0 48C0 74.5097 21.4903 96 48 96ZM48 2C73.4051 2 94 22.5949 94 48C94 73.4051 73.4051 94 48 94C22.5949 94 2 73.4051 2 48C2 22.5949 22.5949 2 48 2Z"></path><path fill-rule="evenodd" d="M46.9945 16C38.804 16.2514 31.3898 19.5764 25.8646 24.864L30.1166 29.116C34.5531 24.9131 40.4614 22.2498 46.9945 22.0027L46.9945 16ZM48.9955 22.0027L48.9955 16C57.186 16.2514 64.6102 19.5764 70.1354 24.864L65.8834 29.116C61.4469 24.9131 55.5286 22.2498 48.9955 22.0027ZM67.284 30.5466C71.2558 34.9319 73.7581 40.67 73.9972 46.9941L80 46.9941C79.755 39.013 76.5902 31.7721 71.536 26.2947L67.284 30.5466ZM80 48.995L73.9972 48.995C73.8475 52.9538 72.8129 56.6862 71.0858 60L77.6889 60C79.0714 56.5848 79.8808 52.8769 80 48.995ZM18.3111 60L24.9142 60C23.187 56.6862 22.1525 52.9538 22.0028 48.995L16 48.995C16.1192 52.8769 16.9287 56.5848 18.3111 60ZM16 46.9941L22.0028 46.9941C22.242 40.67 24.7441 34.9319 28.716 30.5466L24.464 26.2947C19.4097 31.7721 16.245 39.013 16 46.9941Z" fill="#EDF5FF"></path><g><text transform="translate(28, 58)"><tspan x="0" y="21.2" font-size="20" fill="#EDF5FF" font-family="PingFang SC">方向</tspan></text></g><defs><linearGradient id="linear_border_2_521_0" x1="48" y1="96" x2="48" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7EA2CF" stop-opacity="0.4"/><stop offset="0.2807" stop-color="#7DA2CE" stop-opacity="0.64"/><stop offset="0.5394" stop-color="#7DA2CE"/><stop offset="0.7815" stop-color="#7DA2CE" stop-opacity="0.64"/><stop offset="1" stop-color="#7DA2CE" stop-opacity="0.4"/></linearGradient></defs></svg>
 ''';
@@ -83,6 +85,7 @@ class _SteeringIndicatorDial extends StatelessWidget {
     final pointerHeight = 26 * scale;
     final pointerTop = 28 * scale;
     final pointerLeft = (size / 2) - (pointerWidth / 2);
+    final label = AppText.tr(type == _IndicatorType.throttle ? '油门' : '方向');
 
     return SizedBox(
       width: size,
@@ -95,6 +98,30 @@ class _SteeringIndicatorDial extends StatelessWidget {
                 : _indicatorDialSvg,
             width: size,
             height: size,
+          ),
+          // 原始仪表 SVG 内嵌中文文字；在其上覆盖可本地化且不换行的标签。
+          Positioned(
+            left: 8 * scale,
+            right: 8 * scale,
+            top: 63 * scale,
+            height: 22 * scale,
+            child: ColoredBox(
+              color: const Color(0x66001024),
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      color: const Color(0xFFEDF5FF),
+                      fontSize: 20 * scale,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
           Positioned(
             left: pointerLeft,

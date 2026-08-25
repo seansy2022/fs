@@ -806,7 +806,9 @@ class _ControlArea extends StatelessWidget {
   static const _floatingHorizontalZoneHeight = 100.0;
   static const _trimBottomClearance = 48.0;
   static const _trimRightClearance = 42.0;
-  static const _dualControlGap = 120.0;
+  static const _steeringTrimWidth = 204.0;
+  static const _throttleTrimHeight = 224.0;
+  static const _gyroDirectionVerticalControlHeight = 220.0;
 
   const _ControlArea({
     required this.leftPadIsThrottle,
@@ -906,6 +908,28 @@ class _ControlArea extends StatelessWidget {
     return controlOverride ?? _buildVerticalStick();
   }
 
+  /// 构建方向体感模式下的竖向油门控件，为上下按钮预留足够间距。
+  Widget _buildGyroDirectionVerticalArea() {
+    if (_useFloatingStickStyle) {
+      return VerticalFloatingControlZone(
+        width: _floatingVerticalZoneWidth,
+        height: _floatingVerticalZoneHeight,
+        controlHeight: _gyroDirectionVerticalControlHeight,
+        onChanged: (value) {
+          unawaited(controlController.setThrottle(value));
+        },
+      );
+    }
+
+    return Control(
+      direction: ControlSliderDirection.vertical,
+      height: _gyroDirectionVerticalControlHeight,
+      onChanged: (value) {
+        controlController.setThrottle(value / 100);
+      },
+    );
+  }
+
   /// 构建横向主控；微调由外层固定布局统一承载，避免重复显示。
   Widget _buildHorizontalArea({Widget? controlOverride}) {
     return controlOverride ?? _buildHorizontalStick();
@@ -925,7 +949,55 @@ class _ControlArea extends StatelessWidget {
     );
   }
 
-  /// 为所有控制布局固定微调位置，并在中间剩余区域承载主控制。
+  /// 将左侧操控的中心线对齐到固定水平微调，主控始终位于微调上方。
+  Widget _buildLeftAnchoredControl(Widget control) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _trimBottomClearance),
+      child: Align(
+        alignment: Alignment.bottomLeft,
+        child: SizedBox(
+          width: _steeringTrimWidth,
+          child: Align(alignment: Alignment.bottomCenter, child: control),
+        ),
+      ),
+    );
+  }
+
+  /// 将右侧操控放入与竖向微调等高的参考区，使两者中心 Y 轴对齐。
+  Widget _buildRightAnchoredControl(Widget control) {
+    return Align(
+      alignment: Alignment.bottomRight,
+      child: SizedBox(
+        height: _throttleTrimHeight,
+        child: Padding(
+          padding: const EdgeInsets.only(right: _trimRightClearance),
+          child: OverflowBox(
+            alignment: Alignment.centerRight,
+            minHeight: 0,
+            maxHeight: double.infinity,
+            child: control,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 使用固定微调作为左右锚点承载主控，双手模式不再使用屏幕居中布局。
+  Widget _buildAnchoredControlLayout({
+    Widget? leftControl,
+    Widget? rightControl,
+  }) {
+    return Stack(
+      fit: StackFit.expand,
+      clipBehavior: Clip.none,
+      children: [
+        if (leftControl != null) _buildLeftAnchoredControl(leftControl),
+        if (rightControl != null) _buildRightAnchoredControl(rightControl),
+      ],
+    );
+  }
+
+  /// 为所有控制布局固定左右微调位置，主控仅根据对应锚点变化。
   Widget _buildMainControlArea(Widget child) {
     return AbsorbPointer(
       absorbing: inputLocked,
@@ -955,48 +1027,26 @@ class _ControlArea extends StatelessWidget {
     switch (gyroHandMode) {
       case GyroHandMode.left:
         return _buildMainControlArea(
-          Padding(
-            padding: const EdgeInsets.only(bottom: _trimBottomClearance),
-            child: Align(
-              alignment: Alignment.bottomLeft,
-              child: _buildVerticalArea(),
-            ),
+          _buildAnchoredControlLayout(
+            leftControl: _buildGyroDirectionVerticalArea(),
           ),
         );
       case GyroHandMode.right:
         return _buildMainControlArea(
-          Padding(
-            padding: const EdgeInsets.only(
-              right: _trimRightClearance,
-              bottom: _trimBottomClearance,
-            ),
-            child: Align(
-              alignment: Alignment.bottomRight,
-              child: _buildVerticalArea(),
-            ),
+          _buildAnchoredControlLayout(
+            rightControl: _buildGyroDirectionVerticalArea(),
           ),
         );
       case GyroHandMode.dual:
         return _buildMainControlArea(
-          Padding(
-            padding: const EdgeInsets.only(bottom: _trimBottomClearance),
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _buildFixedDirectionalThrottleStick(
-                    positiveThrottle: false,
-                    showArrowHint: true,
-                  ),
-                  const SizedBox(width: _dualControlGap),
-                  _buildFixedDirectionalThrottleStick(
-                    positiveThrottle: true,
-                    showArrowHint: true,
-                  ),
-                ],
-              ),
+          _buildAnchoredControlLayout(
+            leftControl: _buildFixedDirectionalThrottleStick(
+              positiveThrottle: false,
+              showArrowHint: true,
+            ),
+            rightControl: _buildFixedDirectionalThrottleStick(
+              positiveThrottle: true,
+              showArrowHint: true,
             ),
           ),
         );
@@ -1008,48 +1058,22 @@ class _ControlArea extends StatelessWidget {
     switch (gyroHandMode) {
       case GyroHandMode.left:
         return _buildMainControlArea(
-          Padding(
-            padding: const EdgeInsets.only(bottom: _trimBottomClearance),
-            child: Align(
-              alignment: Alignment.bottomLeft,
-              child: _buildHorizontalArea(),
-            ),
-          ),
+          _buildAnchoredControlLayout(leftControl: _buildHorizontalArea()),
         );
       case GyroHandMode.right:
         return _buildMainControlArea(
-          Padding(
-            padding: const EdgeInsets.only(
-              right: _trimRightClearance,
-              bottom: _trimBottomClearance,
-            ),
-            child: Align(
-              alignment: Alignment.bottomRight,
-              child: _buildHorizontalArea(),
-            ),
-          ),
+          _buildAnchoredControlLayout(rightControl: _buildHorizontalArea()),
         );
       case GyroHandMode.dual:
         return _buildMainControlArea(
-          Padding(
-            padding: const EdgeInsets.only(bottom: _trimBottomClearance),
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  DirectionalSteeringButton(
-                    direction: -1,
-                    onChanged: controlController.setSteering,
-                  ),
-                  const SizedBox(width: _dualControlGap),
-                  DirectionalSteeringButton(
-                    direction: 1,
-                    onChanged: controlController.setSteering,
-                  ),
-                ],
-              ),
+          _buildAnchoredControlLayout(
+            leftControl: DirectionalSteeringButton(
+              direction: -1,
+              onChanged: controlController.setSteering,
+            ),
+            rightControl: DirectionalSteeringButton(
+              direction: 1,
+              onChanged: controlController.setSteering,
             ),
           ),
         );

@@ -169,14 +169,17 @@ class _ControlState extends State<Control> {
                 child: SizedBox(
                   width: widget.width,
                   height: widget.width,
-                  child: Transform.rotate(
-                    angle: -math.pi / 2,
-                    child: SvgPicture.asset(
-                      key: controlPositiveKey,
-                      _buttonAsset(positiveSide: true),
-                      width: widget.width,
-                      height: widget.width,
-                      fit: BoxFit.contain,
+                  // SVG 旋转后可能越过 100×100 的布局盒，必须裁剪避免侵入中间间距。
+                  child: ClipRect(
+                    child: Transform.rotate(
+                      angle: -math.pi / 2,
+                      child: SvgPicture.asset(
+                        key: controlPositiveKey,
+                        _buttonAsset(positiveSide: true),
+                        width: widget.width,
+                        height: widget.width,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                 ),
@@ -187,14 +190,17 @@ class _ControlState extends State<Control> {
                 child: SizedBox(
                   width: widget.width,
                   height: widget.width,
-                  child: Transform.rotate(
-                    angle: math.pi / 2,
-                    child: SvgPicture.asset(
-                      key: controlNegativeKey,
-                      _buttonAsset(positiveSide: false),
-                      width: widget.width,
-                      height: widget.width,
-                      fit: BoxFit.contain,
+                  // SVG 旋转后可能越过 100×100 的布局盒，必须裁剪避免侵入中间间距。
+                  child: ClipRect(
+                    child: Transform.rotate(
+                      angle: math.pi / 2,
+                      child: SvgPicture.asset(
+                        key: controlNegativeKey,
+                        _buttonAsset(positiveSide: false),
+                        width: widget.width,
+                        height: widget.width,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                 ),

@@ -21,100 +21,109 @@ class SettingsWorkspace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: TechShell(
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      context.tr('设置'),
-                      style: const TextStyle(
-                        color: AppColors.text,
-                        fontSize: AppFonts.s20,
-                        fontWeight: AppFonts.w600,
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    return MediaQuery(
+      // 英文文案整体缩小一号，保证各个设置子页的字号保持一致。
+      data: MediaQuery.of(context).copyWith(
+        textScaler: isEnglish
+            ? const TextScaler.linear(0.9285714286)
+            : MediaQuery.textScalerOf(context),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: TechShell(
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        context.tr('设置'),
+                        style: const TextStyle(
+                          color: AppColors.text,
+                          fontSize: AppFonts.s20,
+                          fontWeight: AppFonts.w600,
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    _SettingsStartButton(onTap: () => _goToControl(context)),
-                    const SizedBox(width: 16),
-                    if (onBack != null)
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: onBack,
-                        child: SizedBox(
-                          width: 40,
-                          height: 40,
-                          child: Center(
-                            child: SvgPicture.string(
-                              _backIconSvg,
-                              width: 24,
-                              height: 24,
+                      const Spacer(),
+                      _SettingsStartButton(onTap: () => _goToControl(context)),
+                      const SizedBox(width: 16),
+                      if (onBack != null)
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: onBack,
+                          child: SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: Center(
+                              child: SvgPicture.string(
+                                _backIconSvg,
+                                width: 24,
+                                height: 24,
+                              ),
                             ),
                           ),
                         ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    height: 2,
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        stops: [0, 0.3334, 0.5092, 0.678, 1],
+                        colors: [
+                          Color.fromRGBO(126, 162, 207, 1),
+                          Color.fromRGBO(0, 198, 255, 1),
+                          Color.fromRGBO(146, 254, 157, 1),
+                          Color.fromRGBO(0, 200, 255, 1),
+                          Color.fromRGBO(125, 162, 206, 1),
+                        ],
                       ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  height: 2,
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      stops: [0, 0.3334, 0.5092, 0.678, 1],
-                      colors: [
-                        Color.fromRGBO(126, 162, 207, 1),
-                        Color.fromRGBO(0, 198, 255, 1),
-                        Color.fromRGBO(146, 254, 157, 1),
-                        Color.fromRGBO(0, 200, 255, 1),
-                        Color.fromRGBO(125, 162, 206, 1),
-                      ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      const menuWidth = 112.0;
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: menuWidth,
-                            child: ListView.separated(
-                              padding: EdgeInsets.zero,
-                              itemCount: _menus.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 4),
-                              itemBuilder: (context, index) {
-                                final menu = _menus[index];
-                                return MenuItemWidget(
-                                  title: context.tr(menu.label),
-                                  width: menuWidth,
-                                  height: 44,
-                                  selected: menu.route == activeRoute,
-                                  onTap: () => _go(context, menu.route),
-                                );
-                              },
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        const menuWidth = 112.0;
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: menuWidth,
+                              child: ListView.separated(
+                                padding: EdgeInsets.zero,
+                                itemCount: _menus.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 4),
+                                itemBuilder: (context, index) {
+                                  final menu = _menus[index];
+                                  return MenuItemWidget(
+                                    title: context.tr(menu.label),
+                                    width: menuWidth,
+                                    height: 44,
+                                    selected: menu.route == activeRoute,
+                                    onTap: () => _go(context, menu.route),
+                                  );
+                                },
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 24),
-                          Expanded(child: content),
-                        ],
-                      );
-                    },
+                            const SizedBox(width: 24),
+                            Expanded(child: content),
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

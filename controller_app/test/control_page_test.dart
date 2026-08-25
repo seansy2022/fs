@@ -347,6 +347,62 @@ void main() {
     );
   });
 
+  testWidgets('方向体感左手布局拉开竖向按钮并与方向微调居中对齐', (tester) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final repository = _FakeReceiverRepository();
+    final settings = _TestSettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        controlMode: ControlMode.fixedPosition,
+        gyroMode: GyroMode.directionOnly,
+        gyroHandMode: GyroHandMode.left,
+      );
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: ControlPage()),
+      ),
+    );
+    await tester.pump();
+    await container
+        .read(controlControllerProvider.notifier)
+        .setGyroEnabled(true);
+    await tester.pump();
+
+    final verticalControl = find.byWidgetPredicate(
+      (widget) =>
+          widget is Control &&
+          widget.direction == ControlSliderDirection.vertical,
+    );
+    final steeringTrim = find.byKey(
+      const ValueKey<String>('control-steering-trim'),
+    );
+    final positiveButton = find.byKey(controlPositiveKey);
+    final negativeButton = find.byKey(controlNegativeKey);
+
+    expect(verticalControl, findsOneWidget);
+    expect(steeringTrim, findsOneWidget);
+    expect(
+      tester.getCenter(verticalControl).dx,
+      closeTo(tester.getCenter(steeringTrim).dx, 0.01),
+    );
+    expect(
+      tester.getRect(negativeButton).top -
+          tester.getRect(positiveButton).bottom,
+      greaterThanOrEqualTo(20),
+    );
+  });
+
   test('park lock zeros steering throttle and blocks control input', () async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     final repository = _FakeReceiverRepository();

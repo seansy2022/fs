@@ -605,6 +605,11 @@ class _HandModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizedTitle = context.tr(title);
+    final useCompactFont =
+        Localizations.localeOf(context).languageCode == 'en' &&
+        localizedTitle.length > 12;
+
     return IgnorePointer(
       ignoring: !enabled,
       child: Opacity(
@@ -639,10 +644,12 @@ class _HandModeCard extends StatelessWidget {
                 ),
           // 所有选项均由文字层显示，确保语言切换时不受 SVG 内嵌文字影响。
           textWidget: Text(
-            context.tr(title),
+            localizedTitle,
+            maxLines: 2,
+            textAlign: TextAlign.center,
             style: TextStyle(
               color: enabled && selected ? AppColors.text : AppColors.textDim,
-              fontSize: 8,
+              fontSize: useCompactFont ? 7 : 8,
             ),
           ),
         ),
