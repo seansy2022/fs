@@ -9,8 +9,8 @@ enum Handedness { singleRight, singleLeft, leftThrottle, rightThrottle }
 
 enum ControlMode { fixedPosition, floating }
 
-/// 体感输入覆盖的通道范围。
-enum GyroMode { off, directionOnly, throttleOnly, all }
+/// 体感输入覆盖的通道范围；是否启用由控制页陀螺仪开关决定。
+enum GyroMode { directionOnly, throttleOnly, all }
 
 /// 单通道体感模式下，剩余触控通道所在的操作区域。
 enum GyroHandMode { left, right, dual }
@@ -563,13 +563,13 @@ BatteryType _batteryTypeFromStorage(String raw) {
 GyroMode _gyroModeFromStorage(String raw) {
   switch (raw) {
     case 'off':
-      return GyroMode.off;
+      return GyroMode.throttleOnly;
     case 'directionOnly':
     case 'throttleOnly':
     case 'all':
       return GyroMode.values.byName(raw);
   }
-  return GyroMode.off;
+  return GyroMode.throttleOnly;
 }
 
 /// 兼容旧版本尚未保存体感手型时的默认布局。

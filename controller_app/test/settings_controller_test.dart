@@ -80,7 +80,7 @@ void main() {
     });
 
     expect(state.batteryType, BatteryType.other);
-    expect(state.gyroMode, GyroMode.off);
+    expect(state.gyroMode, GyroMode.throttleOnly);
     expect(state.gyroHandMode, GyroHandMode.left);
   });
 

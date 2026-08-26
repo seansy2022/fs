@@ -33,7 +33,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    controller.setGyroMode(GyroMode.off);
+    controller.setGyroMode(GyroMode.all);
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('gyro-hand-右手')),

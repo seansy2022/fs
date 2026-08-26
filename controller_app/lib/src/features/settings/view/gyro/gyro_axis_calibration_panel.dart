@@ -101,6 +101,9 @@ class GyroDegreeInput extends StatelessWidget {
     if (value == null) {
       return;
     }
+    if (!context.mounted) {
+      return;
+    }
 
     // 完成输入时先验证当前轴三点关系，失败时不覆盖原有草稿。
     if (isInputValid?.call(data.controller, value) == false) {

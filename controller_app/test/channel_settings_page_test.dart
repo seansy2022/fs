@@ -1,8 +1,10 @@
 import 'package:controller_app/src/core/providers.dart';
+import 'package:controller_app/src/core/localization/app_localizations.dart';
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
 import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
 import 'package:controller_app/src/features/settings/view/channel_settings_page.dart';
 import 'package:controller_app/src/features/settings/widgets/settings_workspace.dart';
+import 'package:controller_app/src/provider/app_locale_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +25,36 @@ void main() {
     expect(find.text('名称'), findsNWidgets(2));
     expect(find.text('辅助1'), findsOneWidget);
     expect(find.text('辅助2'), findsOneWidget);
+  });
+
+  testWidgets('切换语言时通道设置无需重新进入页面', (tester) async {
+    final localeController = AppLocaleController();
+    await localeController.setLanguage(AppLanguage.english);
+    final settingsController = _TestSettingsController(
+      AppSettingsState.defaults(),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appSettingsProvider.overrideWith((ref) => settingsController),
+          appLocaleProvider.overrideWith((ref) => localeController),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: [AppLocalizations.delegate],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: ChannelSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Steering (CH1)'), findsOneWidget);
+
+    await localeController.setLanguage(AppLanguage.chinese);
+    await tester.pump();
+
+    expect(find.text('方向(CH1)'), findsOneWidget);
+    expect(find.text('Steering (CH1)'), findsNothing);
   });
 
   testWidgets('control type selector includes only four new options', (

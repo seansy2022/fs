@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('205px 四方向控制区由四个 100px 单元组成', () {
+    expect(fourDirectionCellSideFor(const Size(205, 205)), 100);
+  });
+
   testWidgets('有方向和油门值时同时高亮对应方向，松手后清除', (tester) async {
     final values = <FourDirectionValue>[];
 

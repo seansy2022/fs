@@ -52,6 +52,7 @@ lib/src/provider/
 - `test/home_reconnect_flow_test.dart`：首页自动扫描上次蓝牙设备的启动链路测试。
 - `test/global_reconnect_provider_test.dart`：全局断线自动重连与取消链路测试。
 - `test/reconnect_overlay_view_test.dart`：重连遮罩在小尺寸屏幕下的布局测试。
+- `test/control_page_test.dart`：控制页倒计时、连接解锁和后台暂停的流程测试；3、2、1 每步为 500ms。
 - `test/tank_mixing_page_test.dart`：履带混控开关与数值输入禁用状态测试。
 - `../packages/rc_c_ble/lib/src/models/receiver_failsafe_config.dart`、`../packages/rc_c_ble/lib/src/protocol/receiver_failsafe_codec.dart`：失控保护配置与 0x07/0x08 编解码，使用 `0x0FFF` 表示保持；无效通道值规范化为 1500us 后全量回写。
 - `../packages/rc_c_ble/lib/src/transport/flutter_blue_receiver_transport.dart`、`../packages/rc_c_ble/test/flutter_blue_receiver_transport_test.dart`：BLE 接收帧转发；0x07、0x08、0x13 同帧回显也交由协议层处理。
@@ -72,7 +73,10 @@ lib/src/provider/
 - `features/control/controllers/channel_output_mapper.dart`：CH1/CH2 百分比到 us 的分段映射工具。
 - `features/control/controllers/tank_mixer.dart`：履带混控的油门、方向差速合成与 CH1/CH2 独立范围限制。
 - `features/control/controllers/control_aux_runtime_store.dart`：控制页 CH3/CH4 辅助通道选择状态本地保存。
+- `features/control/controllers/control_layout_policy.dart`：控制页手型、体感类型与操控模式的主控布局决策。
 - `features/control/widgets/`：控制页复用组件（转向按钮、顶部辅助按钮组等）。
+- `features/control/widgets/floating_single_direction_control.dart`：体感双手隐藏模式的单向浮动半控件。
+- `features/control/widgets/single_hand_control/floating_four_direction_control.dart`：单手隐藏可变位置的二维方向/油门控件。
 - `features/control/widgets/control_status_warning_text.dart`：控制页顶部居中报警提示文案。
 - `features/settings/view/`：设置主页与子页。
 - `features/settings/controllers/channel_value_constraints.dart`：通道设置低/高/中百分比输入范围约束。

@@ -192,10 +192,6 @@ class ControlController extends StateNotifier<ControlScreenState> {
     _ref.listen<AppSettingsState>(appSettingsProvider, (previous, next) {
       if (previous?.gyroMode != next.gyroMode) {
         _clearModeInputs();
-        if (next.gyroMode == GyroMode.off && state.gyroEnabled) {
-          state = state.copyWith(gyroEnabled: false);
-          unawaited(_saveInputRuntime());
-        }
         unawaited(_syncPromptAndPush());
         return;
       }
@@ -299,8 +295,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
     required double steering,
     required double throttle,
   }) async {
-    if (_controlOutputSuspended ||
-        _ref.read(appSettingsProvider).gyroMode == GyroMode.off) {
+    if (_controlOutputSuspended) {
       return;
     }
     _gyroSteering = steering.clamp(-1, 1);

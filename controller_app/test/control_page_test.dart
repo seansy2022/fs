@@ -39,45 +39,11 @@ void main() {
   });
 
   test('gyro override stays off when control-page gyro switch is off', () {
-    expect(
-      shouldUseGyroControlOverride(
-        gyroEnabled: false,
-        gyroMode: GyroMode.directionOnly,
-      ),
-      isFalse,
-    );
-    expect(
-      shouldUseGyroControlOverride(
-        gyroEnabled: false,
-        gyroMode: GyroMode.throttleOnly,
-      ),
-      isFalse,
-    );
+    expect(shouldUseGyroControlOverride(gyroEnabled: false), isFalse);
   });
 
-  test('gyro override applies for every enabled non-closed gyro mode', () {
-    expect(
-      shouldUseGyroControlOverride(
-        gyroEnabled: true,
-        gyroMode: GyroMode.directionOnly,
-      ),
-      isTrue,
-    );
-    expect(
-      shouldUseGyroControlOverride(
-        gyroEnabled: true,
-        gyroMode: GyroMode.throttleOnly,
-      ),
-      isTrue,
-    );
-    expect(
-      shouldUseGyroControlOverride(gyroEnabled: true, gyroMode: GyroMode.all),
-      isTrue,
-    );
-    expect(
-      shouldUseGyroControlOverride(gyroEnabled: true, gyroMode: GyroMode.off),
-      isFalse,
-    );
+  test('gyro override applies when control-page gyro switch is on', () {
+    expect(shouldUseGyroControlOverride(gyroEnabled: true), isTrue);
   });
 
   test('turn status follows animation state instead of button state', () {
@@ -231,18 +197,27 @@ void main() {
         gyroMode: GyroMode.all,
       );
 
+    final container = ProviderContainer(
+      overrides: [
+        receiverRepositoryProvider.overrideWith((ref) => repository),
+        appSettingsProvider.overrideWith((ref) => settings),
+        gyroPromptProvider.overrideWith(
+          (ref) => Stream.value(const GyroPrompt.zero()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          receiverRepositoryProvider.overrideWith((ref) => repository),
-          appSettingsProvider.overrideWith((ref) => settings),
-          gyroPromptProvider.overrideWith(
-            (ref) => Stream.value(const GyroPrompt.zero()),
-          ),
-        ],
+      UncontrolledProviderScope(
+        container: container,
         child: const MaterialApp(home: ControlPage()),
       ),
     );
+    await tester.pump();
+    await container
+        .read(controlControllerProvider.notifier)
+        .setGyroEnabled(true);
     await tester.pump();
 
     final steeringTrim = find.byKey(
@@ -575,15 +550,15 @@ void main() {
     expect(find.text('3'), findsOneWidget);
     expect(repository.callOrder, isEmpty);
 
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('2'), findsOneWidget);
     expect(repository.callOrder, isEmpty);
 
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('1'), findsOneWidget);
     expect(repository.callOrder, isEmpty);
 
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pump();
     expect(
       find.byKey(const ValueKey<String>('control-countdown')),

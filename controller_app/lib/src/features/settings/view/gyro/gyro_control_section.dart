@@ -356,7 +356,6 @@ void _showGyroTypePicker(
   SettingsController controller,
 ) {
   final options = <String>[
-    context.tr('关闭'),
     context.tr('方向'),
     context.tr('油门'),
     context.tr('all'),
@@ -369,7 +368,6 @@ void _showGyroTypePicker(
     selectedOption: _gyroModeLabel(context, current),
     onOptionSelected: (value) {
       controller.setGyroMode(switch (value) {
-        final off when off == context.tr('关闭') => GyroMode.off,
         final direction when direction == context.tr('方向') =>
           GyroMode.directionOnly,
         final throttle when throttle == context.tr('油门') =>
@@ -382,7 +380,6 @@ void _showGyroTypePicker(
 
 String _gyroModeLabel(BuildContext context, GyroMode mode) {
   return switch (mode) {
-    GyroMode.off => context.tr('关闭'),
     GyroMode.directionOnly => context.tr('方向'),
     GyroMode.throttleOnly => context.tr('油门'),
     GyroMode.all => context.tr('all'),

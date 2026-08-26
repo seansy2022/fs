@@ -42,12 +42,17 @@ void main() {
     await tester.tap(find.byKey(gyroTypeValueKey));
     await tester.pumpAndSettle();
 
+    expect(find.text('关闭'), findsNothing);
     expect(find.text('方向'), findsOneWidget);
     expect(find.text('油门'), findsOneWidget);
     await tester.tap(find.text('油门'));
     await tester.pumpAndSettle();
 
     expect(controller.state.gyroMode, GyroMode.throttleOnly);
+
+    await tester.tap(find.text('单手右边'));
+    await tester.pumpAndSettle();
+    expect(controller.state.handedness, Handedness.singleRight);
   });
 
   testWidgets('default background music label sits next to arrow', (

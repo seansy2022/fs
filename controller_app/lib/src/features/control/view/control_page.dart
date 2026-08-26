@@ -18,12 +18,16 @@ import '../../../provider/race_sound_player.dart';
 import '../../../provider/signal_strength_utils.dart';
 import '../../settings/models/app_settings_state.dart';
 import '../controllers/control_controller.dart';
+import '../controllers/control_layout_policy.dart';
 import '../widgets/bluetooth_svg_toggle_button.dart';
 import '../widgets/control_aux_action_panel.dart';
 import '../widgets/control_status_warning_text.dart';
 import '../widgets/directional_steering_button.dart';
+import '../widgets/floating_single_direction_control.dart';
 import '../widgets/gyro_svg_toggle_button.dart';
+import '../widgets/single_hand_control/four_direction_control.dart';
 import '../widgets/single_hand_control/single_hand_layouts.dart';
+import '../widgets/single_hand_control/floating_four_direction_control.dart';
 import '../widgets/steering_indicator_row.dart';
 import '../widgets/throttle_turn_signal_buttons.dart';
 
@@ -34,12 +38,7 @@ const gyroHintThumbKey = gyroDirectionalThrottleThumbKey;
 const gyroHintSliderProbeKey = ValueKey<String>('gyro-hint-slider-probe');
 const gyroHintStickProbeKey = ValueKey<String>('gyro-hint-stick-probe');
 
-bool shouldUseGyroControlOverride({
-  required bool gyroEnabled,
-  required GyroMode gyroMode,
-}) {
-  return gyroEnabled && gyroMode != GyroMode.off;
-}
+bool shouldUseGyroControlOverride({required bool gyroEnabled}) => gyroEnabled;
 
 bool isLeftTurnState(ControlAnimationState state) {
   return state == ControlAnimationState.forwardLeft ||
@@ -161,6 +160,7 @@ class _ControlPageState extends ConsumerState<ControlPage>
       'assets/wepb/control_bg_forward_loop.mp4';
   static const _overlayAnimationWidth = 136.0;
   static const _overlayAnimationHeight = 216.0;
+  static const _countdownStepDuration = Duration(milliseconds: 500);
 
   VideoPlayerController? _backgroundVideoController;
   bool _backgroundVideoReady = false;
@@ -255,12 +255,12 @@ class _ControlPageState extends ConsumerState<ControlPage>
     }
   }
 
-  /// 以每秒一次的节奏显示 3、2、1；完成前不允许发送控制帧。
+  /// 以每 500ms 一次的节奏显示 3、2、1；完成前不允许发送控制帧。
   void _startCountdown() {
     _countdownTimer?.cancel();
     _getControlController().pauseControlOutputForCountdown();
     var nextValue = 3;
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _countdownTimer = Timer.periodic(_countdownStepDuration, (timer) {
       if (!mounted) {
         timer.cancel();
         return;
@@ -454,8 +454,9 @@ class _ControlPageState extends ConsumerState<ControlPage>
     final rssi = connected ? connectedRssi : null;
 
     final showThrottleTurnSignals = leftTurnActive || rightTurnActive;
-    final gyroControlEnabled =
-        controlState.gyroEnabled && settings.gyroMode != GyroMode.off;
+    final gyroControlEnabled = shouldUseGyroControlOverride(
+      gyroEnabled: controlState.gyroEnabled,
+    );
     final leftPadIsThrottle = settings.handedness == Handedness.leftThrottle;
     const topControlAnchorTop = 65.0;
     const audioButtonsSize = 36.0;
@@ -574,11 +575,7 @@ class _ControlPageState extends ConsumerState<ControlPage>
                       },
                       onDirection: controlController.toggleSliderButtons,
                       directionOn: controlState.sliderButtonsVisible,
-                      onNetwork: () {
-                        if (settings.gyroMode != GyroMode.off) {
-                          unawaited(_handleGyroToggle());
-                        }
-                      },
+                      onNetwork: () => unawaited(_handleGyroToggle()),
                       networkOn: gyroControlEnabled,
                       showThrottleTurnSignals: showThrottleTurnSignals,
                       leftTurnOn: leftTurnActive,
@@ -594,6 +591,7 @@ class _ControlPageState extends ConsumerState<ControlPage>
                         handedness: settings.handedness,
                         controlMode: settings.controlMode,
                         gyroMode: settings.gyroMode,
+                        gyroEnabled: gyroControlEnabled,
                         gyroHandMode: settings.gyroHandMode,
                         controlState: controlState,
                         controlController: controlController,
@@ -821,14 +819,13 @@ const _settingsButtonSvg =
 class _ControlArea extends StatelessWidget {
   static const _verticalControlLeft = 40.0;
   static const _horizontalControlBottom = 20.0;
-  static const _floatingVerticalZoneWidth = 160.0;
-  static const _floatingVerticalZoneHeight = 260.0;
-  static const _floatingHorizontalZoneWidth = 260.0;
-  static const _floatingHorizontalZoneHeight = 100.0;
   static const _trimBottomClearance = 48.0;
-  static const _trimRightClearance = 42.0;
+  static const _verticalTrimWidth = 24.0;
+  static const _controlToVerticalTrimGap = 20.0;
+  static const _trimRightClearance =
+      _verticalTrimWidth + _controlToVerticalTrimGap;
   static const _steeringTrimWidth = 204.0;
-  static const _throttleTrimHeight = 200.0;
+  static const _throttleTrimHeight = 224.0;
   static const _gyroDirectionVerticalControlHeight = 200.0;
 
   const _ControlArea({
@@ -836,6 +833,7 @@ class _ControlArea extends StatelessWidget {
     required this.handedness,
     required this.controlMode,
     required this.gyroMode,
+    required this.gyroEnabled,
     required this.gyroHandMode,
     required this.controlState,
     required this.controlController,
@@ -846,21 +844,29 @@ class _ControlArea extends StatelessWidget {
   final Handedness handedness;
   final ControlMode controlMode;
   final GyroMode gyroMode;
+  final bool gyroEnabled;
   final GyroHandMode gyroHandMode;
   final ControlScreenState controlState;
   final ControlController controlController;
   final bool inputLocked;
 
-  bool get _useFloatingStickStyle => controlMode == ControlMode.floating;
+  bool get _useFloatingStickStyle => usesFloatingControl(controlMode);
+
+  /// 让浮动控件填满当前有效操控面，使用户可在该区域任意位置起控。
+  Widget _buildFloatingSurface(Widget Function(Size size) builder) {
+    return LayoutBuilder(
+      builder: (context, constraints) => builder(constraints.biggest),
+    );
+  }
 
   Widget _buildVerticalStick() {
     if (_useFloatingStickStyle) {
-      return VerticalFloatingControlZone(
-        width: _floatingVerticalZoneWidth,
-        height: _floatingVerticalZoneHeight,
-        onChanged: (value) {
-          unawaited(controlController.setThrottle(value));
-        },
+      return _buildFloatingSurface(
+        (size) => VerticalFloatingControlZone(
+          width: size.width,
+          height: size.height,
+          onChanged: (value) => unawaited(controlController.setThrottle(value)),
+        ),
       );
     }
 
@@ -874,13 +880,13 @@ class _ControlArea extends StatelessWidget {
 
   Widget _buildHorizontalStick() {
     if (_useFloatingStickStyle) {
-      return FloatingControlZone(
-        direction: FloatingControlDirection.horizontal,
-        width: _floatingHorizontalZoneWidth,
-        height: _floatingHorizontalZoneHeight,
-        onChanged: (value) {
-          unawaited(controlController.setSteering(value));
-        },
+      return _buildFloatingSurface(
+        (size) => FloatingControlZone(
+          direction: FloatingControlDirection.horizontal,
+          width: size.width,
+          height: size.height,
+          onChanged: (value) => unawaited(controlController.setSteering(value)),
+        ),
       );
     }
 
@@ -932,13 +938,13 @@ class _ControlArea extends StatelessWidget {
   /// 构建方向体感模式下的竖向油门控件，为上下按钮预留足够间距。
   Widget _buildGyroDirectionVerticalArea() {
     if (_useFloatingStickStyle) {
-      return VerticalFloatingControlZone(
-        width: _floatingVerticalZoneWidth,
-        height: _floatingVerticalZoneHeight,
-        controlHeight: _gyroDirectionVerticalControlHeight,
-        onChanged: (value) {
-          unawaited(controlController.setThrottle(value));
-        },
+      return _buildFloatingSurface(
+        (size) => VerticalFloatingControlZone(
+          width: size.width,
+          height: size.height,
+          controlHeight: _gyroDirectionVerticalControlHeight,
+          onChanged: (value) => unawaited(controlController.setThrottle(value)),
+        ),
       );
     }
 
@@ -967,6 +973,27 @@ class _ControlArea extends StatelessWidget {
       onChanged: (value) {
         controlController.setThrottle(value);
       },
+    );
+  }
+
+  /// 构建体感双手的单向油门浮动面，保留前进或倒车的方向约束。
+  Widget _buildFloatingDirectionalThrottleStick({
+    required bool positiveThrottle,
+  }) {
+    return FloatingSingleDirectionControl(
+      axis: FloatingControlAxis.vertical,
+      positive: positiveThrottle,
+      onChanged: (value) => unawaited(controlController.setThrottle(value)),
+    );
+  }
+
+  /// 按需将左右两块浮动操控面分配到整个主控区域。
+  Widget _buildFloatingSides({Widget? left, Widget? right}) {
+    return Row(
+      children: [
+        Expanded(child: left ?? const SizedBox.expand()),
+        Expanded(child: right ?? const SizedBox.expand()),
+      ],
     );
   }
 
@@ -1045,6 +1072,20 @@ class _ControlArea extends StatelessWidget {
 
   /// 体感控制方向时，按体感手型展示剩余的油门触控区域。
   Widget _buildGyroDirectionArea() {
+    if (_useFloatingStickStyle) {
+      return _buildMainControlArea(switch (gyroHandMode) {
+        GyroHandMode.left => _buildFloatingSides(
+          left: _buildGyroDirectionVerticalArea(),
+        ),
+        GyroHandMode.right => _buildFloatingSides(
+          right: _buildGyroDirectionVerticalArea(),
+        ),
+        GyroHandMode.dual => _buildFloatingSides(
+          left: _buildFloatingDirectionalThrottleStick(positiveThrottle: false),
+          right: _buildFloatingDirectionalThrottleStick(positiveThrottle: true),
+        ),
+      });
+    }
     switch (gyroHandMode) {
       case GyroHandMode.left:
         return _buildMainControlArea(
@@ -1076,6 +1117,18 @@ class _ControlArea extends StatelessWidget {
 
   /// 体感控制油门时，按体感手型展示剩余的方向触控区域。
   Widget _buildGyroThrottleArea() {
+    if (_useFloatingStickStyle) {
+      return _buildMainControlArea(switch (gyroHandMode) {
+        GyroHandMode.left => _buildFloatingSides(left: _buildHorizontalArea()),
+        GyroHandMode.right => _buildFloatingSides(
+          right: _buildHorizontalArea(),
+        ),
+        GyroHandMode.dual => _buildFloatingSides(
+          left: _buildFloatingSteeringSide(allowPositive: false),
+          right: _buildFloatingSteeringSide(allowNegative: false),
+        ),
+      });
+    }
     switch (gyroHandMode) {
       case GyroHandMode.left:
         return _buildMainControlArea(
@@ -1106,47 +1159,68 @@ class _ControlArea extends StatelessWidget {
     final singleHandRight = handedness == Handedness.singleRight;
     final singleHandLeft = handedness == Handedness.singleLeft;
     if (singleHandRight || singleHandLeft) {
+      if (_useFloatingStickStyle) {
+        return _buildMainControlArea(
+          _buildFloatingSides(
+            left: singleHandLeft
+                ? FloatingFourDirectionControl(onChanged: _setSingleHandValue)
+                : null,
+            right: singleHandRight
+                ? FloatingFourDirectionControl(onChanged: _setSingleHandValue)
+                : null,
+          ),
+        );
+      }
       return _buildMainControlArea(
         Padding(
           padding: EdgeInsets.only(
             right: singleHandRight ? _trimRightClearance : 0,
-            bottom: _trimBottomClearance,
+            // 右手单手控件与垂直微调共用底边，确保两者 Y 轴中心重合。
+            bottom: singleHandRight ? 0 : _trimBottomClearance,
           ),
-          child: singleHandRight
-              ? SingleHandRightControl(
-                  steeringTrim: controlState.trim,
-                  throttleTrim: controlState.throttleTrim,
-                  showTrimButtons: controlState.sliderButtonsVisible,
-                  showTrims: false,
-                  onControlChanged: (value) {
-                    // 双轴值复用原有主通道入口，确保发送链路保持一致。
-                    unawaited(controlController.setSteering(value.steering));
-                    unawaited(controlController.setThrottle(value.throttle));
-                  },
-                  onSteeringTrimChanged: (value) {
-                    unawaited(controlController.setSteeringTrim(value));
-                  },
-                  onThrottleTrimChanged: (value) {
-                    unawaited(controlController.setThrottleTrim(value));
-                  },
-                )
-              : SingleHandLeftControl(
-                  steeringTrim: controlState.trim,
-                  throttleTrim: controlState.throttleTrim,
-                  showTrimButtons: controlState.sliderButtonsVisible,
-                  showTrims: false,
-                  onControlChanged: (value) {
-                    // 双轴值复用原有主通道入口，确保发送链路保持一致。
-                    unawaited(controlController.setSteering(value.steering));
-                    unawaited(controlController.setThrottle(value.throttle));
-                  },
-                  onSteeringTrimChanged: (value) {
-                    unawaited(controlController.setSteeringTrim(value));
-                  },
-                  onThrottleTrimChanged: (value) {
-                    unawaited(controlController.setThrottleTrim(value));
-                  },
-                ),
+          // 避让微调时仍保持单手方向盘 205×205，避免左侧被底部留白压缩。
+          child: OverflowBox(
+            alignment: singleHandRight
+                ? Alignment.bottomRight
+                : Alignment.bottomLeft,
+            maxWidth: double.infinity,
+            maxHeight: double.infinity,
+            child: singleHandRight
+                ? SingleHandRightControl(
+                    steeringTrim: controlState.trim,
+                    throttleTrim: controlState.throttleTrim,
+                    showTrimButtons: controlState.sliderButtonsVisible,
+                    showTrims: false,
+                    onControlChanged: (value) {
+                      // 双轴值复用原有主通道入口，确保发送链路保持一致。
+                      unawaited(controlController.setSteering(value.steering));
+                      unawaited(controlController.setThrottle(value.throttle));
+                    },
+                    onSteeringTrimChanged: (value) {
+                      unawaited(controlController.setSteeringTrim(value));
+                    },
+                    onThrottleTrimChanged: (value) {
+                      unawaited(controlController.setThrottleTrim(value));
+                    },
+                  )
+                : SingleHandLeftControl(
+                    steeringTrim: controlState.trim,
+                    throttleTrim: controlState.throttleTrim,
+                    showTrimButtons: controlState.sliderButtonsVisible,
+                    showTrims: false,
+                    onControlChanged: (value) {
+                      // 双轴值复用原有主通道入口，确保发送链路保持一致。
+                      unawaited(controlController.setSteering(value.steering));
+                      unawaited(controlController.setThrottle(value.throttle));
+                    },
+                    onSteeringTrimChanged: (value) {
+                      unawaited(controlController.setSteeringTrim(value));
+                    },
+                    onThrottleTrimChanged: (value) {
+                      unawaited(controlController.setThrottleTrim(value));
+                    },
+                  ),
+          ),
         ),
       );
     }
@@ -1157,6 +1231,11 @@ class _ControlArea extends StatelessWidget {
     final rightArea = leftPadIsThrottle
         ? _buildHorizontalArea()
         : _buildVerticalArea();
+    if (_useFloatingStickStyle) {
+      return _buildMainControlArea(
+        _buildFloatingSides(left: leftArea, right: rightArea),
+      );
+    }
     return _buildMainControlArea(
       Padding(
         padding: const EdgeInsets.only(
@@ -1172,13 +1251,36 @@ class _ControlArea extends StatelessWidget {
     );
   }
 
+  /// 将单手二维输入继续交由既有控制器处理，保持发送链路一致。
+  void _setSingleHandValue(FourDirectionValue value) {
+    unawaited(controlController.setSteering(value.steering));
+    unawaited(controlController.setThrottle(value.throttle));
+  }
+
+  /// 构建体感双手的单向方向浮动面，左右侧分别限制为左转和右转。
+  Widget _buildFloatingSteeringSide({
+    bool allowPositive = true,
+    bool allowNegative = true,
+  }) {
+    return FloatingSingleDirectionControl(
+      axis: FloatingControlAxis.horizontal,
+      positive: allowPositive && !allowNegative,
+      onChanged: (value) => unawaited(controlController.setSteering(value)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return switch (gyroMode) {
-      GyroMode.off => _buildManualControlArea(),
-      GyroMode.directionOnly => _buildGyroDirectionArea(),
-      GyroMode.throttleOnly => _buildGyroThrottleArea(),
-      GyroMode.all => _buildMainControlArea(const SizedBox.shrink()),
+    return switch (resolveControlLayout(
+      gyroEnabled: gyroEnabled,
+      handedness: handedness,
+      gyroMode: gyroMode,
+    )) {
+      ControlLayoutKind.manualDual ||
+      ControlLayoutKind.manualSingle => _buildManualControlArea(),
+      ControlLayoutKind.gyroDirection => _buildGyroDirectionArea(),
+      ControlLayoutKind.gyroThrottle => _buildGyroThrottleArea(),
+      ControlLayoutKind.none => _buildMainControlArea(const SizedBox.shrink()),
     };
   }
 }

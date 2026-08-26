@@ -97,7 +97,6 @@ class BasicSettingsContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
     final controller = ref.read(appSettingsProvider.notifier);
-    final handSettingsEnabled = settings.gyroMode == GyroMode.off;
 
     return LayoutBuilder(
       builder: (context, _) {
@@ -140,7 +139,6 @@ class BasicSettingsContent extends ConsumerWidget {
                       children: [
                         _HandModeCard(
                           title: '单手右边',
-                          enabled: handSettingsEnabled,
                           selected:
                               settings.handedness == Handedness.singleRight,
                           iconAsset:
@@ -151,7 +149,6 @@ class BasicSettingsContent extends ConsumerWidget {
                         const SizedBox(width: 8),
                         _HandModeCard(
                           title: '单手左边',
-                          enabled: handSettingsEnabled,
                           selected:
                               settings.handedness == Handedness.singleLeft,
                           iconAsset:
@@ -162,7 +159,6 @@ class BasicSettingsContent extends ConsumerWidget {
                         const SizedBox(width: 8),
                         _HandModeCard(
                           title: '右手油门',
-                          enabled: handSettingsEnabled,
                           selected:
                               settings.handedness == Handedness.rightThrottle,
                           iconAsset: 'lib/src/assets/svg/r_youmen.svg',
@@ -173,7 +169,6 @@ class BasicSettingsContent extends ConsumerWidget {
                         const SizedBox(width: 8),
                         _HandModeCard(
                           title: '左手油门',
-                          enabled: handSettingsEnabled,
                           selected:
                               settings.handedness == Handedness.leftThrottle,
                           iconAsset: 'lib/src/assets/svg/l_youmen.svg',
@@ -587,16 +582,12 @@ const _kOptionCheckedSvg =
 class _HandModeCard extends StatelessWidget {
   const _HandModeCard({
     required this.title,
-    this.hasEmbeddedTitle = false,
-    this.enabled = true,
     required this.selected,
     required this.iconAsset,
     required this.onTap,
   });
 
   final String title;
-  final bool hasEmbeddedTitle;
-  final bool enabled;
   final bool selected;
   final String iconAsset;
   final VoidCallback onTap;
@@ -609,53 +600,33 @@ class _HandModeCard extends StatelessWidget {
         localizedTitle.length > 12;
     final iconWidget = SizedBox(
       height: 32,
-      child: hasEmbeddedTitle
-          ? ClipRect(
-              child: Align(
-                alignment: Alignment.topCenter,
-                heightFactor: 0.56,
-                child: SvgPicture.asset(
-                  iconAsset,
-                  width: 64,
-                  fit: BoxFit.contain,
-                ),
-              ),
-            )
-          : Center(
-              child: SvgPicture.asset(
-                iconAsset,
-                width: 40,
-                height: 22,
-                fit: BoxFit.contain,
-              ),
-            ),
+      child: Center(
+        child: SvgPicture.asset(
+          iconAsset,
+          width: 40,
+          height: 22,
+          fit: BoxFit.contain,
+        ),
+      ),
     );
 
-    return IgnorePointer(
-      ignoring: !enabled,
-      child: Opacity(
-        opacity: enabled ? 1 : 0.42,
-        child: RCButton(
-          onTap: onTap,
-          width: 64,
-          height: 58,
-          active: enabled && selected,
-          enableRepeat: false,
-          direction: Axis.vertical,
-          gap: 3,
-          padding: EdgeInsets.zero,
-          // 单手 SVG 底部带有中文图形文字；裁掉该区域后统一使用可本地化标题。
-          iconWidget: iconWidget,
-          // 所有选项均由文字层显示，确保语言切换时不受 SVG 内嵌文字影响。
-          textWidget: Text(
-            localizedTitle,
-            maxLines: 2,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: enabled && selected ? AppColors.text : AppColors.textDim,
-              fontSize: useCompactFont ? 7 : 8,
-            ),
-          ),
+    return RCButton(
+      onTap: onTap,
+      width: 64,
+      height: 58,
+      active: selected,
+      enableRepeat: false,
+      direction: Axis.vertical,
+      gap: 3,
+      padding: EdgeInsets.zero,
+      iconWidget: iconWidget,
+      textWidget: Text(
+        localizedTitle,
+        maxLines: 2,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: selected ? AppColors.text : AppColors.textDim,
+          fontSize: useCompactFont ? 7 : 8,
         ),
       ),
     );

@@ -26,11 +26,6 @@ final gyroPromptProvider = StreamProvider.autoDispose<GyroPrompt>((ref) async* {
   if (kDebugMode) {
     debugPrint('[gyro-prompt] start mode=${mode.name}');
   }
-  if (mode == GyroMode.off) {
-    yield const GyroPrompt.zero();
-    return;
-  }
-
   if (mode == GyroMode.directionOnly) {
     await for (final event in accelerometerEventStream(
       samplingPeriod: SensorInterval.gameInterval,

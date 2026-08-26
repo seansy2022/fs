@@ -16,6 +16,37 @@ class FourDirectionValue {
 enum _DirectionRegion { forward, reverse, left, right }
 
 const fourDirectionThumbKey = ValueKey<String>('four-direction-thumb');
+const _directionCellSide = 100.0;
+
+/// 返回单个方向单元的边长；标准 205px 控制区固定使用 100px 单元。
+double fourDirectionCellSideFor(Size controlSize) {
+  return math.min(
+    _directionCellSide,
+    math.min(controlSize.width, controlSize.height) / 2,
+  );
+}
+
+/// 在居中的 2×2 网格内计算四个方向单元的位置。
+Offset _directionCellOffset(
+  _DirectionRegion region,
+  Size controlSize,
+  double cellSide,
+) {
+  final gridLeft = (controlSize.width - cellSide * 2) / 2;
+  final gridTop = (controlSize.height - cellSide * 2) / 2;
+  return switch (region) {
+    _DirectionRegion.forward => Offset(gridLeft + cellSide / 2, gridTop),
+    _DirectionRegion.reverse => Offset(
+      gridLeft + cellSide / 2,
+      gridTop + cellSide,
+    ),
+    _DirectionRegion.left => Offset(gridLeft, gridTop + cellSide / 2),
+    _DirectionRegion.right => Offset(
+      gridLeft + cellSide,
+      gridTop + cellSide / 2,
+    ),
+  };
+}
 
 /// 单手模式的中间四方向控制区。
 ///
@@ -92,27 +123,10 @@ class _FourDirectionControlState extends State<FourDirectionControl> {
     String asset,
     Size controlSize,
   ) {
-    final cellSize = Size(controlSize.width * 0.36, controlSize.height * 0.37);
-    // 四个单元从外缘向中心内缩，减少四方向之间的视觉空白。
-    final inset = math.min(controlSize.width, controlSize.height) * 0.055;
-    final position = switch (region) {
-      _DirectionRegion.forward => Offset(
-        (controlSize.width - cellSize.width) / 2,
-        inset,
-      ),
-      _DirectionRegion.reverse => Offset(
-        (controlSize.width - cellSize.width) / 2,
-        controlSize.height - cellSize.height - inset,
-      ),
-      _DirectionRegion.left => Offset(
-        inset,
-        (controlSize.height - cellSize.height) / 2,
-      ),
-      _DirectionRegion.right => Offset(
-        controlSize.width - cellSize.width - inset,
-        (controlSize.height - cellSize.height) / 2,
-      ),
-    };
+    // 四个方向按 100×100 单元拼接；窄容器才等比收缩以避免溢出。
+    final cellSide = fourDirectionCellSideFor(controlSize);
+    final cellSize = Size.square(cellSide);
+    final position = _directionCellOffset(region, controlSize, cellSide);
     final angle = switch (region) {
       _DirectionRegion.left => 0.0,
       _DirectionRegion.forward => math.pi / 2,

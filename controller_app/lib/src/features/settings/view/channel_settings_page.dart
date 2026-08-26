@@ -9,6 +9,7 @@ import 'package:rc_ui/rc_ui.dart';
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../provider/app_locale_provider.dart';
 import '../controllers/aux_failsafe_sync.dart';
 import '../controllers/channel_value_constraints.dart';
 import '../models/aux_channel_value_rules.dart';
@@ -47,6 +48,8 @@ class _ChannelSettingsContentState
 
   @override
   Widget build(BuildContext context) {
+    // 依赖语言状态，确保静态翻译文案在切换语言后立即重新构建。
+    ref.watch(appLocaleProvider);
     final settings = ref.watch(appSettingsProvider);
     final controller = ref.read(appSettingsProvider.notifier);
 
