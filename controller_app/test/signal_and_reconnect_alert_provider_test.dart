@@ -76,7 +76,7 @@ void main() {
     rssi.add(-80);
     await Future<void>.delayed(const Duration(milliseconds: 55));
 
-    expect(player.assets.first, 'voice/signal_alert_en.m4a');
+    expect(player.assets.first, 'voice/接收信号低-英文.mp3');
     expect(player.assets.length, greaterThanOrEqualTo(2));
     expect(vibrateCount, greaterThanOrEqualTo(2));
   });
@@ -150,7 +150,7 @@ void main() {
     rssi.add(-91);
     await Future<void>.delayed(const Duration(milliseconds: 5));
 
-    expect(player.assets, <String>['voice/signal_alert_en.m4a']);
+    expect(player.assets, <String>['voice/接收信号低-英文.mp3']);
     expect(vibrateCount, 1);
   });
 
@@ -204,7 +204,7 @@ void main() {
 
     rssi.add(-90);
     await Future<void>.delayed(const Duration(milliseconds: 5));
-    expect(player.assets, <String>['voice/signal_alert_en.m4a']);
+    expect(player.assets, <String>['voice/接收信号低-英文.mp3']);
   });
 
   test(
@@ -251,7 +251,7 @@ void main() {
       rssi.add(null);
       await Future<void>.delayed(const Duration(milliseconds: 5));
 
-      expect(player.assets, <String>['voice/signal_alert_en.m4a']);
+      expect(player.assets, <String>['voice/接收信号低-英文.mp3']);
       expect(player.stopCount, greaterThan(0));
     },
   );
@@ -429,7 +429,7 @@ void main() {
     connection.add(ReceiverConnectionState.disconnected);
     await Future<void>.delayed(const Duration(milliseconds: 5));
 
-    expect(signalPlayer.assets, <String>['voice/signal_alert_en.m4a']);
+    expect(signalPlayer.assets, <String>['voice/接收信号低-英文.mp3']);
     expect(reconnectPlayer.assets.last, 'voice/reconnect_off_en.m4a');
   });
 }

@@ -36,7 +36,7 @@ void main() {
 
     expect(find.text('体感控制'), findsOneWidget);
     expect(find.text('体感类型'), findsOneWidget);
-    expect(find.text('方向+油门'), findsOneWidget);
+    expect(find.text('all'), findsOneWidget);
     expect(find.byType(RcMultiToggle<String>), findsNothing);
 
     await tester.tap(find.byKey(gyroTypeValueKey));
@@ -69,6 +69,27 @@ void main() {
     final labelRect = tester.getRect(find.text('默认'));
     final arrowRect = tester.getRect(find.byIcon(Icons.chevron_right).last);
     expect(arrowRect.left - labelRect.right, closeTo(8, 0.1));
+  });
+
+  testWidgets('hand mode card titles share one baseline', (tester) async {
+    final controller = _TestSettingsController(AppSettingsState.defaults());
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appSettingsProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: Scaffold(body: BasicSettingsContent())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final titleTops = <double>[
+      tester.getTopLeft(find.text('单手右边')).dy,
+      tester.getTopLeft(find.text('单手左边')).dy,
+      tester.getTopLeft(find.text('右手油门')).dy,
+      tester.getTopLeft(find.text('左手油门')).dy,
+    ];
+
+    expect(titleTops.toSet(), hasLength(1));
   });
 
   testWidgets('background music dialog matches bluetooth-style options', (

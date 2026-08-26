@@ -100,8 +100,13 @@ const _englishText = <String, String>{
   "体感控制行程校准": "Motion Calibration",
   "体感校准：可通过此功能，校准最大通道行程对应的陀螺仪角度":
       "Motion Calibration:Calibrate gyro angle for max channel travel.",
+  "体感校准：": "Motion Calibration:",
+  "可通过此功能，校准最大通道行程对应的陀螺仪角度":
+      "Calibrate the gyroscope angle for maximum channel travel.",
+  "保存": "Save",
   "保存失败": "Save failed.",
   "保存成功": "Save successful.",
+  "输入不符合规范，已恢复原值。": "Invalid input. The previous value was restored.",
   "保持": "Hold",
   "信号低！": "Signal Low",
   "信号强度": "Signal",
@@ -215,7 +220,6 @@ const _englishText = <String, String>{
       "Disconnect current receiver and pair with another?\nYes / No",
   "确定更新为旧版？": "Downgrade to an older version?",
   "禁用": "Disable",
-  "简体中文": "Simplified Chinese",
   "网络异常": "Network Error",
   "背景音乐设置": "Background Music",
   "背景音乐": "Background Music",
@@ -336,7 +340,6 @@ const _englishText = <String, String>{
   "状态 4": "State 4",
   "状态 5": "State 5",
   "自定义名称": "Custom Name",
-  "方向+油门": "Steering + Throttle",
   "前进最大角度": "Max Forward Angle",
   "后退最大角度": "Max Reverse Angle",
   "左转最大角度": "Max Left-turn Angle",
@@ -362,8 +365,8 @@ const _englishText = <String, String>{
   "取消配对": "Cancel Pairing",
   "正在配对，请确认接收机处于蓝牙模式\n（LED灯常亮2秒灭一秒）":
       "Pairing… Please make sure the receiver is in Bluetooth mode\n(LED on for 2 seconds, off for 1 second).",
-  "自定义X控制校准\n根据右图示意和实时旋转角度\n参考，请前后转动手机选择适\n合自己的控制角度，并输入对\n应控制角度完成自定义控制校\n准。":
-      "Custom X Control Calibration\nUse the diagram and live angle\nreference. Tilt the phone forward\nor backward to choose a suitable\ncontrol angle, then enter it to\ncomplete calibration.",
+  "自定义控制校准\n根据右图示意和实时旋转角度\n参考，请前后转动手机选择适\n合自己的控制角度，并输入对\n应控制角度完成自定义控制校\n准。":
+      "Custom Control Calibration\nUse the diagram and live angle reference. Tilt the phone forward or backward to choose a suitable control angle, then enter it to complete calibration.",
   "蓝牙接收机连接说明": "Bluetooth Receiver Connection Guide",
   "扫描、连接和控制前的准备步骤。":
       "Preparation steps before scanning, connecting, and controlling.",

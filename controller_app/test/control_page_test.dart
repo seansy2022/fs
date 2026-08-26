@@ -509,6 +509,36 @@ void main() {
     ]);
   });
 
+  test(
+    'countdown lock ignores gyro output without stopping the loop',
+    () async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final repository = _FakeReceiverRepository();
+      final container = ProviderContainer(
+        overrides: [
+          receiverRepositoryProvider.overrideWith((ref) => repository),
+          appSettingsProvider.overrideWith((ref) => _TestSettingsController()),
+          gyroPromptProvider.overrideWith(
+            (ref) => Stream.value(const GyroPrompt.zero()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(controlControllerProvider.notifier);
+
+      await controller.activate();
+      controller.pauseControlOutputForCountdown();
+      await controller.setGyroPrompt(steering: 1, throttle: 1);
+
+      expect(repository.callOrder, <String>[
+        'updateControlValues',
+        'startControlLoop',
+      ]);
+      expect(controller.state.steering, 0);
+      expect(controller.state.throttle, 0);
+    },
+  );
+
   testWidgets('control page starts the loop after countdown and connection', (
     tester,
   ) async {
@@ -806,6 +836,11 @@ void main() {
 
     await controller.setThrottleTrim(-3);
     expect(repository.lastControlValues?.throttle, 1494);
+
+    await controller.setSteeringTrim(99);
+    await controller.setThrottleTrim(-99);
+    expect(controller.state.trim, 60);
+    expect(controller.state.throttleTrim, -60);
   });
 
   test('pressAuxChannel toggles CH3 switch output', () async {

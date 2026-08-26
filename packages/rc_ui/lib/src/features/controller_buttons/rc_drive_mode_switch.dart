@@ -19,8 +19,8 @@ class RcDriveModeSwitch extends StatelessWidget {
     super.key,
     required this.mode,
     required this.onChanged,
-    this.lowLabel = 'Low Speed',
-    this.highLabel = 'High Speed',
+    this.lowLabel = 'LOW',
+    this.highLabel = 'HIGH',
   });
 
   @override
@@ -78,12 +78,21 @@ class _DriveModeTextButton extends StatelessWidget {
       height: RcDriveModeSwitch._sideButtonHeight,
       padding: EdgeInsets.zero,
       borderRadius: AppDimens.squareButtonRadius,
-      textWidget: Text(
-        label,
-        style: TextStyle(
-          fontSize: AppFonts.s14,
-          fontWeight: AppFonts.w600,
-          color: isSelected ? AppColors.onPrimary : const Color(0xFF7DA2CE),
+      textWidget: SizedBox(
+        width: 52,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            maxLines: 1,
+            softWrap: false,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: AppFonts.s14,
+              fontWeight: AppFonts.w600,
+              color: isSelected ? AppColors.onPrimary : const Color(0xFF7DA2CE),
+            ),
+          ),
         ),
       ),
     );

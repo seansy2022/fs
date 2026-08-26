@@ -171,30 +171,30 @@ class _SingleHandControlLayout extends StatelessWidget {
     );
   }
 
-  /// 构建油门微调，保持现有 -50 至 50 的保存与发送逻辑。
+  /// 构建油门微调，保持 -60 至 60 的步进范围。
   Widget _buildThrottleTrim(double trackMain) {
     return RCControllSider(
       direction: RCControllSiderDirection.vertical,
-      initialValue: throttleTrim / 50,
+      initialValue: throttleTrim / 60,
       step: 0.02,
       trackMain: trackMain,
       enabled: showTrimButtons,
       showButtons: showTrimButtons,
       lockSignUntilRelease: true,
-      onChanged: (value) => onThrottleTrimChanged((value * 50).round()),
+      onChanged: (value) => onThrottleTrimChanged((value * 60).round()),
     );
   }
 
-  /// 构建方向微调，保持现有 -50 至 50 的保存与发送逻辑。
+  /// 构建方向微调，保持 -60 至 60 的步进范围。
   Widget _buildSteeringTrim(double trackMain) {
     return RCControllSider(
       direction: RCControllSiderDirection.horizontal,
-      initialValue: steeringTrim / 50,
+      initialValue: steeringTrim / 60,
       step: 0.02,
       trackMain: trackMain,
       enabled: showTrimButtons,
       showButtons: showTrimButtons,
-      onChanged: (value) => onSteeringTrimChanged((value * 50).round()),
+      onChanged: (value) => onSteeringTrimChanged((value * 60).round()),
     );
   }
 }

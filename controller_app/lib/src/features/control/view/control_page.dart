@@ -7,7 +7,6 @@ import 'package:rc_ui/rc_ui.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../app/app_routes.dart';
-import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers.dart';
 import '../../../provider/alert_message_provider.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
@@ -78,6 +77,14 @@ Widget buildGyroDirectionVerticalAlignmentPreviewForTest({
 }
 
 void _noopDoubleControlChanged(double _) {}
+
+/// 返回当前语言下适合遥控器小按钮显示的紧凑挡位标签。
+String compactDriveModeLabel(BuildContext context, {required bool high}) {
+  if (Localizations.localeOf(context).languageCode == 'zh') {
+    return high ? '高速' : '低速';
+  }
+  return high ? 'HIGH' : 'LOW';
+}
 
 ChannelSetting channelSettingAt(List<ChannelSetting> channels, int index) {
   if (index < channels.length) {
@@ -251,6 +258,7 @@ class _ControlPageState extends ConsumerState<ControlPage>
   /// 以每秒一次的节奏显示 3、2、1；完成前不允许发送控制帧。
   void _startCountdown() {
     _countdownTimer?.cancel();
+    _getControlController().pauseControlOutputForCountdown();
     var nextValue = 3;
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
@@ -265,6 +273,7 @@ class _ControlPageState extends ConsumerState<ControlPage>
           _countdownValue = null;
           _countdownCompleted = true;
         });
+        _getControlController().prepareControlSession();
         unawaited(_activateWhenReady());
         return;
       }
@@ -528,8 +537,8 @@ class _ControlPageState extends ConsumerState<ControlPage>
                         : controlState.highGear
                         ? RcDriveMode.high
                         : RcDriveMode.low,
-                    lowLabel: AppText.tr('低速'),
-                    highLabel: AppText.tr('高速'),
+                    lowLabel: compactDriveModeLabel(context, high: false),
+                    highLabel: compactDriveModeLabel(context, high: true),
                     onChanged: (mode) => switch (mode) {
                       RcDriveMode.park => unawaited(
                         controlController.setParkLocked(true),
@@ -614,6 +623,18 @@ class _ControlPageState extends ConsumerState<ControlPage>
                 ),
               ),
             ),
+          if (_countdownValue != null)
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: GestureDetector(
+                  key: const ValueKey<String>('control-countdown-back'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const SizedBox(width: 129, height: 49),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -691,7 +712,11 @@ class _TopBar extends StatelessWidget {
             ),
             Row(
               children: [
-                _ControlSettingsButton(onTap: onSettings),
+                _CircleIconBtn.svg(
+                  assetPath: 'assets/icons/sync_arrows.svg',
+                  active: directionOn,
+                  onTap: onDirection,
+                ),
                 const SizedBox(width: 16),
                 if (showThrottleTurnSignals && (leftTurnOn || rightTurnOn)) ...[
                   ThrottleTurnSignalButtons(
@@ -705,11 +730,7 @@ class _TopBar extends StatelessWidget {
                 const SizedBox(width: 16),
                 SoundSvgToggleButton(value: soundOn, onTap: onSound),
                 const SizedBox(width: 16),
-                _CircleIconBtn.svg(
-                  assetPath: 'assets/icons/sync_arrows.svg',
-                  active: directionOn,
-                  onTap: onDirection,
-                ),
+                _ControlSettingsButton(onTap: onSettings),
                 const SizedBox(width: 16),
                 GyroSvgToggleButton(
                   value: networkOn,
@@ -807,8 +828,8 @@ class _ControlArea extends StatelessWidget {
   static const _trimBottomClearance = 48.0;
   static const _trimRightClearance = 42.0;
   static const _steeringTrimWidth = 204.0;
-  static const _throttleTrimHeight = 224.0;
-  static const _gyroDirectionVerticalControlHeight = 220.0;
+  static const _throttleTrimHeight = 200.0;
+  static const _gyroDirectionVerticalControlHeight = 200.0;
 
   const _ControlArea({
     required this.leftPadIsThrottle,
@@ -876,12 +897,12 @@ class _ControlArea extends StatelessWidget {
     return RCControllSider(
       key: const ValueKey<String>('control-steering-trim'),
       direction: RCControllSiderDirection.horizontal,
-      initialValue: controlState.trim / 50,
+      initialValue: controlState.trim / 60,
       step: 0.02,
       enabled: controlState.sliderButtonsVisible,
       showButtons: controlState.sliderButtonsVisible,
       onChanged: (value) {
-        unawaited(controlController.setSteeringTrim((value * 50).round()));
+        unawaited(controlController.setSteeringTrim((value * 60).round()));
       },
     );
   }
@@ -891,14 +912,14 @@ class _ControlArea extends StatelessWidget {
     return RCControllSider(
       key: const ValueKey<String>('control-throttle-trim'),
       direction: RCControllSiderDirection.vertical,
-      initialValue: controlState.throttleTrim / 50,
+      initialValue: controlState.throttleTrim / 60,
       step: 0.02,
       trackMain: 160,
       enabled: controlState.sliderButtonsVisible,
       showButtons: controlState.sliderButtonsVisible,
       lockSignUntilRelease: true,
       onChanged: (value) {
-        unawaited(controlController.setThrottleTrim((value * 50).round()));
+        unawaited(controlController.setThrottleTrim((value * 60).round()));
       },
     );
   }

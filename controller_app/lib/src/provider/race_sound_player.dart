@@ -35,8 +35,8 @@ class RaceSoundAssetMap {
     backgroundMusic: 'voice/background_music.mp3',
     launchLow: 'voice/launch_low.mp3',
     launchHigh: 'voice/launch_high.mp3',
-    // 循环素材已裁掉 MP3 编解码产生的首尾静音，避免油门音效循环停顿。
-    drivingLoop: 'voice/driving_loop_loop.wav',
+    // 新行驶音时长与交叉淡入淡出周期一致，避免循环时出现停顿。
+    drivingLoop: 'voice/汽车行驶中.mp3',
     reverseLoop: 'voice/reverse_loop.mp3',
     brake: 'voice/brake.mp3',
     turnSignal: 'voice/turn_signal.mp3',

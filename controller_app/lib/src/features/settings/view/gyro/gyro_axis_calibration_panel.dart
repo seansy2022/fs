@@ -6,6 +6,9 @@ import 'package:controller_app/src/core/localization/app_localizations.dart';
 
 import '../../widgets/numeric_input_dialog.dart';
 
+const _calibrationHintText =
+    '自定义控制校准\n根据右图示意和实时旋转角度\n参考，请前后转动手机选择适\n合自己的控制角度，并输入对\n应控制角度完成自定义控制校\n准。';
+
 /// 一个可复用的角度输入项；油门和方向校准共用相同外观。
 class GyroDegreeInputData {
   const GyroDegreeInputData({required this.label, required this.controller});
@@ -21,15 +24,14 @@ class GyroAxisCalibrationPanel extends StatelessWidget {
     required this.title,
     required this.currentDegree,
     required this.inputs,
-    required this.showInputError,
-    required this.onInputChanged,
+    required this.isInputValid,
   }) : assert(inputs.length == 3);
 
   final String title;
   final double currentDegree;
   final List<GyroDegreeInputData> inputs;
-  final bool showInputError;
-  final VoidCallback onInputChanged;
+  final bool Function(TextEditingController controller, String value)
+  isInputValid;
 
   @override
   Widget build(BuildContext context) {
@@ -52,8 +54,7 @@ class GyroAxisCalibrationPanel extends StatelessWidget {
               Expanded(
                 child: GyroDegreeInput(
                   data: inputs[index],
-                  showError: showInputError,
-                  onChanged: onInputChanged,
+                  isInputValid: isInputValid,
                 ),
               ),
               if (index < inputs.length - 1) const SizedBox(width: 8),
@@ -79,16 +80,11 @@ class GyroAxisCalibrationPanel extends StatelessWidget {
 }
 
 class GyroDegreeInput extends StatelessWidget {
-  const GyroDegreeInput({
-    super.key,
-    required this.data,
-    required this.showError,
-    required this.onChanged,
-  });
+  const GyroDegreeInput({super.key, required this.data, this.isInputValid});
 
   final GyroDegreeInputData data;
-  final bool showError;
-  final VoidCallback onChanged;
+  final bool Function(TextEditingController controller, String value)?
+  isInputValid;
 
   /// 打开通用数值弹窗；只有用户在弹窗内提交后，才回写当前校准草稿。
   Future<void> _editDegree(BuildContext context) async {
@@ -106,13 +102,19 @@ class GyroDegreeInput extends StatelessWidget {
       return;
     }
 
-    // 保持原有的延后校验规则：空值或非法格式会在点击页面保存时统一提示。
+    // 完成输入时先验证当前轴三点关系，失败时不覆盖原有草稿。
+    if (isInputValid?.call(data.controller, value) == false) {
+      RcToast.show(context, message: AppText.tr('输入不符合规范，已恢复原值。'));
+      return;
+    }
     data.controller.text = value;
-    onChanged();
   }
 
   @override
   Widget build(BuildContext context) {
+    final fontSize = Localizations.localeOf(context).languageCode == 'en'
+        ? 10.0
+        : 11.0;
     return Column(
       children: [
         Text(
@@ -120,7 +122,7 @@ class GyroDegreeInput extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.textDim, fontSize: 11),
+          style: TextStyle(color: AppColors.textDim, fontSize: fontSize),
         ),
         const SizedBox(height: 4),
         GestureDetector(
@@ -134,10 +136,7 @@ class GyroDegreeInput extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0x661B2D4D),
               borderRadius: BorderRadius.circular(3),
-              border: Border.all(
-                color: showError ? AppColors.tertiary : AppColors.primary,
-                width: 0.8,
-              ),
+              border: Border.all(color: AppColors.primary, width: 0.8),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -174,13 +173,41 @@ class _CalibrationHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizedHint = AppText.tr(_calibrationHintText);
+    final titleEnd = localizedHint.indexOf('\n');
+    final title = titleEnd < 0
+        ? localizedHint
+        : localizedHint.substring(0, titleEnd);
+    final description = titleEnd < 0
+        ? ''
+        : localizedHint.substring(titleEnd + 1);
+    final fontSize = Localizations.localeOf(context).languageCode == 'en'
+        ? 5.0
+        : 6.0;
     return Align(
       alignment: Alignment.centerLeft,
-      child: Text(
-        AppText.tr(
-          '自定义X控制校准\n根据右图示意和实时旋转角度\n参考，请前后转动手机选择适\n合自己的控制角度，并输入对\n应控制角度完成自定义控制校\n准。',
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: title,
+              style: const TextStyle(
+                color: AppColors.text,
+                fontSize: 12,
+                fontWeight: AppFonts.w700,
+              ),
+            ),
+            if (description.isNotEmpty)
+              TextSpan(
+                text: '\n$description',
+                style: TextStyle(
+                  color: AppColors.textDim,
+                  fontSize: fontSize,
+                  height: 1.35,
+                ),
+              ),
+          ],
         ),
-        style: TextStyle(color: AppColors.textDim, fontSize: 6, height: 1.35),
       ),
     );
   }

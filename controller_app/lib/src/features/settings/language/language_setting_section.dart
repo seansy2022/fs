@@ -105,7 +105,7 @@ class _LanguageSelectionDialog extends StatelessWidget {
               ),
               const Divider(height: 1, color: Color(0xFF233854)),
               _LanguageOption(
-                label: context.tr('简体中文'),
+                label: '简体中文',
                 selected: selectedLanguage == AppLanguage.chinese,
                 onTap: () => Navigator.of(context).pop(AppLanguage.chinese),
               ),

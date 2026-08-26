@@ -66,13 +66,13 @@ int mapSteeringInputToUs({
   required double highPercent,
   required int trimStep,
 }) {
-  final mapped = mapControlInputToUs(
+  return _mapPrimaryInputWithTrim(
     input: steering,
     lowPercent: lowPercent,
     centerPercent: centerPercent,
     highPercent: highPercent,
+    trimStep: trimStep,
   );
-  return (mapped + (trimStep * 2)).clamp(1000, 2000);
 }
 
 int mapThrottleInputToUs({
@@ -82,14 +82,53 @@ int mapThrottleInputToUs({
   required double highPercent,
   int trimStep = 0,
 }) {
-  final mapped = mapControlInputToUs(
+  return _mapPrimaryInputWithTrim(
     input: throttle,
     lowPercent: lowPercent,
     centerPercent: centerPercent,
     highPercent: highPercent,
+    trimStep: trimStep,
   );
-  // 控制页微调与方向通道保持相同的 2us 步进规则。
-  return (mapped + (trimStep * 2)).clamp(1000, 2000);
+}
+
+/// 在既有主通道映射后，按当前方向的通道行程缩放微调增量。
+int _mapPrimaryInputWithTrim({
+  required double input,
+  required double lowPercent,
+  required double centerPercent,
+  required double highPercent,
+  required int trimStep,
+}) {
+  final mapped = mapControlInputToUs(
+    input: input,
+    lowPercent: lowPercent,
+    centerPercent: centerPercent,
+    highPercent: highPercent,
+  );
+  final calibration = calibratePrimaryChannel(
+    lowPercent: lowPercent,
+    centerOffsetUs: centerPercent,
+    highPercent: highPercent,
+  );
+  final travelPercent = _trimTravelPercent(
+    input: input,
+    trimStep: trimStep,
+    lowPercent: lowPercent,
+    highPercent: highPercent,
+  );
+  final offsetUs = ((trimStep * 2) * travelPercent / 100).round();
+  return calibration.clamp(mapped + offsetUs);
+}
+
+/// 根据控制方向选择高端或低端行程；居中时由微调正负决定方向。
+double _trimTravelPercent({
+  required double input,
+  required int trimStep,
+  required double lowPercent,
+  required double highPercent,
+}) {
+  final useHighTravel = input > 0 || (input == 0 && trimStep >= 0);
+  return (useHighTravel ? highPercent : lowPercent).abs();
 }
 
 /// 将最终主通道 PWM 围绕 1500 us 对称反向，并保持在硬件输出范围内。

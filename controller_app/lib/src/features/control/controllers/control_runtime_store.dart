@@ -30,14 +30,14 @@ class StoredControlInputState {
     return StoredControlInputState(
       gyroEnabled: json['gyroEnabled'] as bool? ?? false,
       throttleTrim: ((json['throttleTrim'] as num?)?.toInt() ?? 0).clamp(
-        -50,
-        50,
+        -60,
+        60,
       ),
       steeringTrim:
           ((json['steeringTrim'] as num?)?.toInt() ??
                   (json['trim'] as num?)?.toInt() ??
                   0)
-              .clamp(-50, 50),
+              .clamp(-60, 60),
       sliderButtonsVisible: json['sliderButtonsVisible'] as bool? ?? false,
     );
   }

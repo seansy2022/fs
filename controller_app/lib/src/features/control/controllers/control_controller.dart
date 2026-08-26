@@ -242,6 +242,17 @@ class ControlController extends StateNotifier<ControlScreenState> {
     _controlOutputSuspended = false;
   }
 
+  /// 倒计时期间锁定所有控制输入，避免陀螺仪流绕过页面触摸遮罩。
+  void pauseControlOutputForCountdown() {
+    _controlOutputSuspended = true;
+    _cancelGyroSync();
+    _touchSteering = 0;
+    _touchThrottle = 0;
+    _gyroSteering = 0;
+    _gyroThrottle = 0;
+    state = state.copyWith(steering: 0, throttle: 0);
+  }
+
   Future<void> activate() async {
     if (_controlOutputSuspended) {
       return;
@@ -362,7 +373,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
 
   /// 设置油门微调值，并立刻按当前控制量刷新接收机输出。
   Future<void> setThrottleTrim(int value) async {
-    final trim = value.clamp(-50, 50);
+    final trim = value.clamp(-60, 60);
     if (state.throttleTrim == trim) {
       return;
     }
@@ -373,7 +384,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
 
   /// 设置方向微调值，并立刻按当前控制量刷新接收机输出。
   Future<void> setSteeringTrim(int value) async {
-    final trim = value.clamp(-50, 50);
+    final trim = value.clamp(-60, 60);
     if (state.trim == trim) {
       return;
     }

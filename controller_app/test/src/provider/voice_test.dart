@@ -8,6 +8,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('default driving sound uses the supplied vehicle audio asset', () {
+    expect(
+      RaceSoundAssetMap.defaults.assetForCue(SoundCue.drivingLoop),
+      'voice/汽车行驶中.mp3',
+    );
+  });
+
   group('deriveControlPresentationDecision', () {
     test('plays low launch when entering forward below 50%', () {
       final command = deriveControlPresentationDecision(

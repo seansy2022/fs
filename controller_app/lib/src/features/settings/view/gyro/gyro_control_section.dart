@@ -64,7 +64,7 @@ class GyroControlSection extends ConsumerWidget {
               ),
               _GyroTypeValue(
                 scale: scale,
-                label: _gyroModeLabel(mode),
+                label: _gyroModeLabel(context, mode),
                 onTap: () => _showGyroTypePicker(context, mode, controller),
               ),
               _GyroDivider(scale: scale),
@@ -119,7 +119,7 @@ class _GyroCalibrationButton extends StatelessWidget {
           ),
           child: Center(
             child: Text(
-              AppText.tr('体感控制校准'),
+              context.tr('体感控制校准'),
               style: TextStyle(
                 color: AppColors.bg,
                 fontSize: 24 * scale,
@@ -273,7 +273,7 @@ class _GyroHandModeSegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localizedLabel = AppText.tr(label);
+    final localizedLabel = context.tr(label);
     final useCompactFont =
         Localizations.localeOf(context).languageCode == 'en' &&
         localizedLabel.length > label.length;
@@ -343,7 +343,7 @@ class _GyroSvgText extends StatelessWidget {
       left: left,
       top: top,
       child: Text(
-        AppText.tr(text),
+        context.tr(text),
         style: TextStyle(color: color, fontSize: fontSize, height: 1),
       ),
     );
@@ -356,23 +356,23 @@ void _showGyroTypePicker(
   SettingsController controller,
 ) {
   final options = <String>[
-    AppText.tr('关闭'),
-    AppText.tr('方向'),
-    AppText.tr('油门'),
-    AppText.tr('方向+油门'),
+    context.tr('关闭'),
+    context.tr('方向'),
+    context.tr('油门'),
+    context.tr('all'),
   ];
   AlertListDialog.show(
     context,
-    title: AppText.tr('体感类型'),
+    title: context.tr('体感类型'),
     width: 280,
     options: options,
-    selectedOption: _gyroModeLabel(current),
+    selectedOption: _gyroModeLabel(context, current),
     onOptionSelected: (value) {
       controller.setGyroMode(switch (value) {
-        final off when off == AppText.tr('关闭') => GyroMode.off,
-        final direction when direction == AppText.tr('方向') =>
+        final off when off == context.tr('关闭') => GyroMode.off,
+        final direction when direction == context.tr('方向') =>
           GyroMode.directionOnly,
-        final throttle when throttle == AppText.tr('油门') =>
+        final throttle when throttle == context.tr('油门') =>
           GyroMode.throttleOnly,
         _ => GyroMode.all,
       });
@@ -380,11 +380,11 @@ void _showGyroTypePicker(
   );
 }
 
-String _gyroModeLabel(GyroMode mode) {
+String _gyroModeLabel(BuildContext context, GyroMode mode) {
   return switch (mode) {
-    GyroMode.off => AppText.tr('关闭'),
-    GyroMode.directionOnly => AppText.tr('方向'),
-    GyroMode.throttleOnly => AppText.tr('油门'),
-    GyroMode.all => AppText.tr('方向+油门'),
+    GyroMode.off => context.tr('关闭'),
+    GyroMode.directionOnly => context.tr('方向'),
+    GyroMode.throttleOnly => context.tr('油门'),
+    GyroMode.all => context.tr('all'),
   };
 }

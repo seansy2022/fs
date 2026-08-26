@@ -65,4 +65,14 @@ void main() {
     expect(saved.throttleTrim, 0);
     expect(saved.steeringTrim, 9);
   });
+
+  test('restored trims stay within the new plus or minus 60 steps', () {
+    final restored = StoredControlInputState.fromJson(<String, Object?>{
+      'throttleTrim': 99,
+      'steeringTrim': -99,
+    });
+
+    expect(restored.throttleTrim, 60);
+    expect(restored.steeringTrim, -60);
+  });
 }

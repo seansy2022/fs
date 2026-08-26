@@ -522,7 +522,7 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
         .map((device) {
           final item = AlertBlueItem(
             title: device.name,
-            status: device.isConnected ? AppText.tr('已连接') : AppText.tr('未连接'),
+            status: device.isConnected ? context.tr('已连接') : context.tr('未连接'),
             statusColor: device.isConnected
                 ? const Color(0xFF00C6FF)
                 : Colors.white.withValues(alpha: 0.65),
@@ -533,9 +533,9 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
         .toList(growable: false);
 
     return AlertBlueWidget(
-      title: AppText.tr('已配对设备列表'),
+      title: context.tr('已配对设备列表'),
       items: items,
-      emptyText: AppText.tr('暂无历史设备'),
+      emptyText: context.tr('暂无历史设备'),
       onTap: (item) async {
         final target = itemMap[item];
         if (target == null) {
@@ -589,7 +589,7 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
         }
       },
       onClose: () => Navigator.of(context).pop(),
-      footerText: AppText.tr('查找新设备'),
+      footerText: context.tr('查找新设备'),
       footerIcon: const Icon(Icons.add_box_outlined, size: 24),
       onFooterTap: () => Navigator.of(context).pop('scan_pairing'),
     );
@@ -720,9 +720,7 @@ class _ScanDevicesDialogContentState
         .map((device) {
           final item = AlertBlueItem(
             title: device.name,
-            status: device.isConnected
-                ? '\u5df2\u8fde\u63a5'
-                : '\u672a\u8fde\u63a5',
+            status: device.isConnected ? context.tr('已连接') : context.tr('未连接'),
             statusColor: device.isConnected
                 ? const Color(0xFF00C6FF)
                 : Colors.white.withValues(alpha: 0.65),
@@ -733,11 +731,11 @@ class _ScanDevicesDialogContentState
         .toList(growable: false);
 
     return AlertBlueWidget(
-      title: '\u53bb\u914d\u5bf9',
+      title: context.tr('去配对'),
       items: items,
       headerLoading: bluetoothState.isScanning || bluetoothState.isWorking,
       onRefresh: bluetoothState.isWorking ? null : _refreshScanWithFeedback,
-      emptyText: '\u6682\u65e0\u53ef\u7528\u84dd\u7259\u8bbe\u5907',
+      emptyText: context.tr('暂无可用蓝牙设备'),
       onTap: (item) async {
         final target = itemMap[item];
         if (target == null) {

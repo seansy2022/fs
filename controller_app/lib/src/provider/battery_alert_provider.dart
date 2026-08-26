@@ -134,9 +134,9 @@ class BatteryAlertMonitor {
 
 String _batteryAlertAsset(String languageCode) {
   if (languageCode.toLowerCase().startsWith('zh')) {
-    return 'voice/battery_alert_zh.m4a';
+    return 'voice/模型电压低-中文.mp3';
   }
-  return 'voice/battery_alert_en.m4a';
+  return 'voice/模型电压低-英文.mp3';
 }
 
 ReceiverInfo testReceiverInfo(int batteryLevel) {

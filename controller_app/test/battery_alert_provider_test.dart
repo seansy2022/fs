@@ -61,7 +61,7 @@ void main() {
       infoController.add(testReceiverInfo(10));
 
       await Future<void>.delayed(const Duration(milliseconds: 25));
-      expect(player.loopedAssets.first, 'voice/battery_alert_en.m4a');
+      expect(player.loopedAssets.first, 'voice/模型电压低-英文.mp3');
       expect(vibrationDurations.first, const Duration(milliseconds: 60));
 
       await Future<void>.delayed(const Duration(milliseconds: 70));
@@ -110,7 +110,7 @@ void main() {
     final before = player.loopedAssets.length;
     await Future<void>.delayed(const Duration(milliseconds: 40));
 
-    expect(player.loopedAssets.first, 'voice/battery_alert_zh.m4a');
+    expect(player.loopedAssets.first, 'voice/模型电压低-中文.mp3');
     expect(player.loopedAssets.length, before);
     expect(player.stopCalls, greaterThanOrEqualTo(1));
   });

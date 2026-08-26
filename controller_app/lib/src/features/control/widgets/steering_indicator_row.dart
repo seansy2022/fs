@@ -21,6 +21,18 @@ enum _IndicatorType { steering, throttle }
 
 enum SingleIndicatorType { steering, throttle }
 
+/// 删除 SVG 内嵌的中文标签，统一由 Flutter 绘制本地化文案。
+String removeEmbeddedDialLabel(String svg, {required bool throttle}) {
+  final start = throttle
+      ? '<g><g filter="url(#filter_2_537)">'
+      : '<g><text transform="translate(28, 58)">';
+  final end = throttle ? '</g></g>' : '</text></g>';
+  final startIndex = svg.indexOf(start);
+  final endIndex = svg.indexOf(end, startIndex);
+  if (startIndex < 0 || endIndex < 0) return svg;
+  return svg.replaceRange(startIndex, endIndex + end.length, '');
+}
+
 class SteeringIndicatorRow extends StatelessWidget {
   const SteeringIndicatorRow({
     super.key,
@@ -93,18 +105,21 @@ class _SteeringIndicatorDial extends StatelessWidget {
       child: Stack(
         children: [
           SvgPicture.string(
-            type == _IndicatorType.throttle
-                ? _throttleDialSvg
-                : _indicatorDialSvg,
+            removeEmbeddedDialLabel(
+              type == _IndicatorType.throttle
+                  ? _throttleDialSvg
+                  : _indicatorDialSvg,
+              throttle: type == _IndicatorType.throttle,
+            ),
             width: size,
             height: size,
           ),
-          // 原始仪表 SVG 内嵌中文文字；在其上覆盖可本地化且不换行的标签。
+          // 标签由 Flutter 统一绘制，确保本地化文本始终居中且不换行。
           Positioned(
-            left: 8 * scale,
-            right: 8 * scale,
-            top: 63 * scale,
-            height: 22 * scale,
+            left: 4 * scale,
+            right: 4 * scale,
+            top: 62 * scale,
+            height: 20 * scale,
             child: ColoredBox(
               color: const Color(0x66001024),
               child: Center(

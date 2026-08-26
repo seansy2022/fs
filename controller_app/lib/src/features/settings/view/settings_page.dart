@@ -140,7 +140,6 @@ class BasicSettingsContent extends ConsumerWidget {
                       children: [
                         _HandModeCard(
                           title: '单手右边',
-                          hasEmbeddedTitle: true,
                           enabled: handSettingsEnabled,
                           selected:
                               settings.handedness == Handedness.singleRight,
@@ -152,7 +151,6 @@ class BasicSettingsContent extends ConsumerWidget {
                         const SizedBox(width: 8),
                         _HandModeCard(
                           title: '单手左边',
-                          hasEmbeddedTitle: true,
                           enabled: handSettingsEnabled,
                           selected:
                               settings.handedness == Handedness.singleLeft,
@@ -187,8 +185,6 @@ class BasicSettingsContent extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-              const LanguageSettingSection(),
               const SizedBox(height: 8),
               SettingsStrip(
                 child: Row(
@@ -304,6 +300,8 @@ class BasicSettingsContent extends ConsumerWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              const LanguageSettingSection(),
             ],
           ),
         );
@@ -609,6 +607,29 @@ class _HandModeCard extends StatelessWidget {
     final useCompactFont =
         Localizations.localeOf(context).languageCode == 'en' &&
         localizedTitle.length > 12;
+    final iconWidget = SizedBox(
+      height: 32,
+      child: hasEmbeddedTitle
+          ? ClipRect(
+              child: Align(
+                alignment: Alignment.topCenter,
+                heightFactor: 0.56,
+                child: SvgPicture.asset(
+                  iconAsset,
+                  width: 64,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            )
+          : Center(
+              child: SvgPicture.asset(
+                iconAsset,
+                width: 40,
+                height: 22,
+                fit: BoxFit.contain,
+              ),
+            ),
+    );
 
     return IgnorePointer(
       ignoring: !enabled,
@@ -624,24 +645,7 @@ class _HandModeCard extends StatelessWidget {
           gap: 3,
           padding: EdgeInsets.zero,
           // 单手 SVG 底部带有中文图形文字；裁掉该区域后统一使用可本地化标题。
-          iconWidget: hasEmbeddedTitle
-              ? ClipRect(
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    heightFactor: 0.64,
-                    child: SvgPicture.asset(
-                      iconAsset,
-                      width: 64,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                )
-              : SvgPicture.asset(
-                  iconAsset,
-                  width: 40,
-                  height: 22,
-                  fit: BoxFit.contain,
-                ),
+          iconWidget: iconWidget,
           // 所有选项均由文字层显示，确保语言切换时不受 SVG 内嵌文字影响。
           textWidget: Text(
             localizedTitle,

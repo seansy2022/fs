@@ -242,7 +242,7 @@ class SignalAlertMonitor {
 
 String _signalAlertAsset(String languageCode) {
   if (languageCode.toLowerCase().startsWith('zh')) {
-    return 'voice/signal_alert_zh.m4a';
+    return 'voice/接收信号低-中文.mp3';
   }
-  return 'voice/signal_alert_en.m4a';
+  return 'voice/接收信号低-英文.mp3';
 }

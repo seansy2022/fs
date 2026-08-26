@@ -10,6 +10,7 @@ import '../../../../core/providers.dart';
 import '../../models/gyro_calibration_settings.dart';
 import '../../widgets/settings_action_button.dart';
 import 'gyro_axis_calibration_panel.dart';
+import 'gyro_calibration_exit_dialog.dart';
 import 'package:controller_app/src/core/localization/app_localizations.dart';
 
 /// 体感校准页面：编辑校准点，并实时展示手机前后、左右的姿态角。
@@ -26,7 +27,6 @@ class _GyroCalibrationPageState extends ConsumerState<GyroCalibrationPage> {
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
   double _throttleDegree = 0;
   double _steeringDegree = 0;
-  bool _showInputError = false;
 
   @override
   void initState() {
@@ -53,24 +53,43 @@ class _GyroCalibrationPageState extends ConsumerState<GyroCalibrationPage> {
   /// 仅恢复本页草稿到默认值，用户点击保存后才写入本地设置。
   void _resetDraft() {
     _controllers.setValue(GyroCalibrationSettings.defaults);
-    setState(() => _showInputError = false);
   }
 
-  /// 校验六个输入点，通过后持久化并回到设置页。
-  void _save() {
+  /// 校验六个输入点并持久化，返回是否成功保存。
+  bool _saveDraft() {
     final value = _controllers.value;
     if (value == null || !value.isValid) {
-      setState(() => _showInputError = true);
-      return;
+      return false;
     }
     ref.read(appSettingsProvider.notifier).updateGyroCalibration(value);
-    Navigator.of(context).pop();
+    return true;
   }
 
-  void _clearInputError() {
-    if (_showInputError) {
-      setState(() => _showInputError = false);
+  /// 点击保存按钮时，成功保存后退出校准页。
+  Future<void> _saveAndClose() async {
+    if (!_saveDraft()) {
+      return;
     }
+    await showGyroCalibrationSaveSuccessDialog(context);
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  /// 点击保存按钮时，异步展示成功提示后退出校准页。
+  void _save() => unawaited(_saveAndClose());
+
+  /// 只有草稿被修改时，才在退出前询问是否保存。
+  Future<void> _requestClose() async {
+    if (_controllers.matches(ref.read(appSettingsProvider).gyroCalibration)) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final shouldSave = await showGyroCalibrationExitDialog(context);
+    if (!mounted || !shouldSave) {
+      return;
+    }
+    await _saveAndClose();
   }
 
   @override
@@ -90,7 +109,7 @@ class _GyroCalibrationPageState extends ConsumerState<GyroCalibrationPage> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Column(
               children: [
-                _CalibrationTopBar(onClose: () => Navigator.of(context).pop()),
+                _CalibrationTopBar(onClose: () => unawaited(_requestClose())),
                 // 与设置页顶部栏保持同一组垂直节奏。
                 const SizedBox(height: 12),
                 const _CalibrationDivider(),
@@ -119,8 +138,7 @@ class _GyroCalibrationPageState extends ConsumerState<GyroCalibrationPage> {
                                 controller: _controllers.throttleReverse,
                               ),
                             ],
-                            showInputError: _showInputError,
-                            onInputChanged: _clearInputError,
+                            isInputValid: _controllers.isInputValid,
                           ),
                         ),
                         const SizedBox(width: 28),
@@ -142,21 +160,13 @@ class _GyroCalibrationPageState extends ConsumerState<GyroCalibrationPage> {
                                 controller: _controllers.steeringRight,
                               ),
                             ],
-                            showInputError: _showInputError,
-                            onInputChanged: _clearInputError,
+                            isInputValid: _controllers.isInputValid,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                if (_showInputError) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    AppText.tr('请输入合法角度，并确保正向值 > 居中值 > 负向值。'),
-                    style: TextStyle(color: AppColors.tertiary, fontSize: 12),
-                  ),
-                ],
                 const SizedBox(height: 12),
                 _CalibrationActions(onReset: _resetDraft, onSave: _save),
               ],
@@ -251,7 +261,7 @@ class _CalibrationActions extends StatelessWidget {
           SettingsActionButton(
             label: AppText.tr('复位'),
             onTap: onReset,
-            width: 76,
+            width: 106,
             height: 32,
           ),
           const SizedBox(width: 20),
@@ -272,11 +282,7 @@ class _CalibrationActions extends StatelessWidget {
               ),
               child: Text(
                 AppText.tr('保存'),
-                style: TextStyle(
-                  color: AppColors.bg,
-                  fontSize: 14,
-                  fontWeight: AppFonts.w600,
-                ),
+                style: TextStyle(color: AppColors.bg, fontSize: 14),
               ),
             ),
           ),
@@ -302,15 +308,36 @@ class _DegreeControllers {
   final TextEditingController steeringCenter;
   final TextEditingController steeringRight;
 
-  GyroCalibrationSettings? get value {
-    final values = [
-      throttleForward,
-      throttleCenter,
-      throttleReverse,
-      steeringLeft,
-      steeringCenter,
-      steeringRight,
-    ].map((controller) => double.tryParse(controller.text)).toList();
+  GyroCalibrationSettings? get value => _valueFor();
+
+  /// 用候选值替换单个输入框后，判断六个校准点是否仍满足约束。
+  bool isInputValid(TextEditingController controller, String candidate) {
+    return _valueFor(
+          replacement: controller,
+          replacementText: candidate,
+        )?.isValid ??
+        false;
+  }
+
+  /// 统一解析当前草稿或包含候选输入值的草稿，避免提前写入无效值。
+  GyroCalibrationSettings? _valueFor({
+    TextEditingController? replacement,
+    String? replacementText,
+  }) {
+    final values =
+        [
+          throttleForward,
+          throttleCenter,
+          throttleReverse,
+          steeringLeft,
+          steeringCenter,
+          steeringRight,
+        ].map((controller) {
+          final text = identical(controller, replacement)
+              ? replacementText
+              : controller.text;
+          return double.tryParse(text ?? '');
+        }).toList();
     if (values.any((value) => value == null)) {
       return null;
     }
@@ -322,6 +349,18 @@ class _DegreeControllers {
       steeringCenterDegree: values[4]!,
       steeringRightDegree: values[5]!,
     );
+  }
+
+  /// 判断当前六个编辑值是否仍与已保存的校准值相同。
+  bool matches(GyroCalibrationSettings saved) {
+    final draft = value;
+    return draft != null &&
+        draft.throttleForwardDegree == saved.throttleForwardDegree &&
+        draft.throttleCenterDegree == saved.throttleCenterDegree &&
+        draft.throttleReverseDegree == saved.throttleReverseDegree &&
+        draft.steeringLeftDegree == saved.steeringLeftDegree &&
+        draft.steeringCenterDegree == saved.steeringCenterDegree &&
+        draft.steeringRightDegree == saved.steeringRightDegree;
   }
 
   /// 将持久化值格式化回当前页面的六个编辑框。

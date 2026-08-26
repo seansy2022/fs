@@ -80,6 +80,42 @@ void main() {
     );
   });
 
+  test('trim uses the active high-side travel at center', () {
+    expect(
+      mapSteeringInputToUs(
+        steering: 0,
+        lowPercent: -60,
+        centerPercent: 0,
+        highPercent: 80,
+        trimStep: 50,
+      ),
+      1580,
+    );
+  });
+
+  test('trim selects the current direction travel and stays in endpoints', () {
+    expect(
+      mapThrottleInputToUs(
+        throttle: -0.2,
+        lowPercent: -40,
+        centerPercent: 0,
+        highPercent: 80,
+        trimStep: 50,
+      ),
+      1500,
+    );
+    expect(
+      mapThrottleInputToUs(
+        throttle: 1,
+        lowPercent: -40,
+        centerPercent: 0,
+        highPercent: 80,
+        trimStep: 60,
+      ),
+      1900,
+    );
+  });
+
   test('mapThrottleInputToUs maps positive throttle to higher PWM', () {
     expect(
       mapThrottleInputToUs(
