@@ -820,6 +820,10 @@ class _ControlArea extends StatelessWidget {
   static const _verticalControlLeft = 40.0;
   static const _horizontalControlBottom = 20.0;
   static const _trimBottomClearance = 48.0;
+  static const _horizontalTrimHeight = 24.0;
+  static const _singleHandTrimGap = 12.0;
+  static const _singleHandTrimClearance =
+      _horizontalTrimHeight + _singleHandTrimGap;
   static const _verticalTrimWidth = 24.0;
   static const _controlToVerticalTrimGap = 20.0;
   static const _trimRightClearance =
@@ -851,6 +855,12 @@ class _ControlArea extends StatelessWidget {
   final bool inputLocked;
 
   bool get _useFloatingStickStyle => usesFloatingControl(controlMode);
+
+  /// 固定单手左布局需让方向盘与底部水平微调条共用 X 轴中心。
+  bool get _usesFixedSingleLeftLayout =>
+      !gyroEnabled &&
+      handedness == Handedness.singleLeft &&
+      controlMode == ControlMode.fixedPosition;
 
   /// 让浮动控件填满当前有效操控面，使用户可在该区域任意位置起控。
   Widget _buildFloatingSurface(Widget Function(Size size) builder) {
@@ -899,8 +909,8 @@ class _ControlArea extends StatelessWidget {
   }
 
   /// 构建固定在左下角的水平转向微调条。
-  Widget _buildSteeringTrim() {
-    return RCControllSider(
+  Widget _buildSteeringTrim({double? width}) {
+    final trim = RCControllSider(
       key: const ValueKey<String>('control-steering-trim'),
       direction: RCControllSiderDirection.horizontal,
       initialValue: controlState.trim / 60,
@@ -911,6 +921,7 @@ class _ControlArea extends StatelessWidget {
         unawaited(controlController.setSteeringTrim((value * 60).round()));
       },
     );
+    return width == null ? trim : SizedBox(width: width, child: trim);
   }
 
   /// 构建固定在最右侧的竖向油门微调条。
@@ -1059,7 +1070,14 @@ class _ControlArea extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             child,
-            Align(alignment: Alignment.bottomLeft, child: _buildSteeringTrim()),
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: _buildSteeringTrim(
+                width: _usesFixedSingleLeftLayout
+                    ? singleHandControlSide
+                    : null,
+              ),
+            ),
             Align(
               alignment: Alignment.bottomRight,
               child: _buildThrottleTrim(),
@@ -1176,7 +1194,8 @@ class _ControlArea extends StatelessWidget {
           padding: EdgeInsets.only(
             right: singleHandRight ? _trimRightClearance : 0,
             // 右手单手控件与垂直微调共用底边，确保两者 Y 轴中心重合。
-            bottom: singleHandRight ? 0 : _trimBottomClearance,
+            // 左手方向盘与水平微调条仅保留 12px 可见间距。
+            bottom: singleHandRight ? 0 : _singleHandTrimClearance,
           ),
           // 避让微调时仍保持单手方向盘 200×200，避免左侧被底部留白压缩。
           child: OverflowBox(

@@ -1370,6 +1370,25 @@ void main() {
     }
   });
 
+  testWidgets('固定单手左方向盘与水平微调条中心对齐且间距为12px', (tester) async {
+    final container = await _pumpControlPage(
+      tester,
+      AppSettingsState.defaults().copyWith(
+        handedness: Handedness.singleLeft,
+        controlMode: ControlMode.fixedPosition,
+      ),
+    );
+    final control = find.byType(FourDirectionControl);
+    final trim = find.byKey(const ValueKey<String>('control-steering-trim'));
+
+    expect(
+      tester.getCenter(control).dx,
+      closeTo(tester.getCenter(trim).dx, 0.01),
+    );
+    expect(tester.getRect(trim).top - tester.getRect(control).bottom, 12);
+    await _disposeControlPage(tester, container);
+  });
+
   testWidgets('方向体感左中右手在两种模式使用对应控件', (tester) async {
     for (final hand in GyroHandMode.values) {
       for (final mode in ControlMode.values) {
