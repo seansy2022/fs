@@ -16,9 +16,11 @@ class FourDirectionValue {
 enum _DirectionRegion { forward, reverse, left, right }
 
 const fourDirectionThumbKey = ValueKey<String>('four-direction-thumb');
-const _directionCellSide = 100.0;
+/// 单手四方向控件的外框边长；固定与隐藏模式共用，避免视觉尺寸不一致。
+const singleHandControlSide = 180.0;
+const _directionCellSide = 80.0;
 
-/// 返回单个方向单元的边长；标准 205px 控制区固定使用 100px 单元。
+/// 返回单个方向单元的边长；标准 200px 控制区固定使用 90px 单元。
 double fourDirectionCellSideFor(Size controlSize) {
   return math.min(
     _directionCellSide,

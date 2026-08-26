@@ -2,6 +2,10 @@ import 'dart:async';
 
 import 'package:controller_app/src/features/control/controllers/control_controller.dart';
 import 'package:controller_app/src/features/control/view/control_page.dart';
+import 'package:controller_app/src/features/control/widgets/directional_steering_button.dart';
+import 'package:controller_app/src/features/control/widgets/floating_single_direction_control.dart';
+import 'package:controller_app/src/features/control/widgets/single_hand_control/floating_four_direction_control.dart';
+import 'package:controller_app/src/features/control/widgets/single_hand_control/four_direction_control.dart';
 import 'package:controller_app/src/provider/control_presentation_provider.dart';
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
 import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
@@ -1339,6 +1343,117 @@ void main() {
     expect(ch4Top.dx, lessThan(driveSwitchTop.dx));
   });
 
+  testWidgets('单手左和右在固定与隐藏模式切换四方向控件', (tester) async {
+    for (final testCase in <({Handedness hand, ControlMode mode})>[
+      (hand: Handedness.singleLeft, mode: ControlMode.fixedPosition),
+      (hand: Handedness.singleRight, mode: ControlMode.fixedPosition),
+      (hand: Handedness.singleLeft, mode: ControlMode.floating),
+      (hand: Handedness.singleRight, mode: ControlMode.floating),
+    ]) {
+      final container = await _pumpControlPage(
+        tester,
+        AppSettingsState.defaults().copyWith(
+          handedness: testCase.hand,
+          controlMode: testCase.mode,
+        ),
+      );
+
+      if (testCase.mode == ControlMode.fixedPosition) {
+        expect(find.byType(FourDirectionControl), findsOneWidget);
+        expect(find.byType(FloatingFourDirectionControl), findsNothing);
+      } else {
+        final floating = find.byType(FloatingFourDirectionControl);
+        expect(floating, findsOneWidget);
+        expect(find.byType(FourDirectionControl), findsNothing);
+      }
+      await _disposeControlPage(tester, container);
+    }
+  });
+
+  testWidgets('方向体感左中右手在两种模式使用对应控件', (tester) async {
+    for (final hand in GyroHandMode.values) {
+      for (final mode in ControlMode.values) {
+        final container = await _pumpControlPage(
+          tester,
+          AppSettingsState.defaults().copyWith(
+            controlMode: mode,
+            gyroMode: GyroMode.directionOnly,
+            gyroHandMode: hand,
+          ),
+          gyroEnabled: true,
+        );
+
+        final isDual = hand == GyroHandMode.dual;
+        if (mode == ControlMode.floating) {
+          expect(
+            find.byType(FloatingSingleDirectionControl),
+            isDual ? findsNWidgets(2) : findsNothing,
+          );
+          expect(
+            find.byType(VerticalFloatingControlZone),
+            isDual ? findsNothing : findsOneWidget,
+          );
+        } else {
+          expect(
+            find.byType(GyroDirectionalThrottleControl),
+            isDual ? findsNWidgets(2) : findsNothing,
+          );
+          expect(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is Control &&
+                  widget.direction == ControlSliderDirection.vertical,
+            ),
+            isDual ? findsNothing : findsOneWidget,
+          );
+        }
+        await _disposeControlPage(tester, container);
+      }
+    }
+  });
+
+  testWidgets('油门体感左中右手在两种模式使用对应控件', (tester) async {
+    for (final hand in GyroHandMode.values) {
+      for (final mode in ControlMode.values) {
+        final container = await _pumpControlPage(
+          tester,
+          AppSettingsState.defaults().copyWith(
+            controlMode: mode,
+            gyroMode: GyroMode.throttleOnly,
+            gyroHandMode: hand,
+          ),
+          gyroEnabled: true,
+        );
+
+        final isDual = hand == GyroHandMode.dual;
+        if (mode == ControlMode.floating) {
+          expect(
+            find.byType(FloatingSingleDirectionControl),
+            isDual ? findsNWidgets(2) : findsNothing,
+          );
+          expect(
+            find.byType(FloatingControlZone),
+            isDual ? findsNothing : findsOneWidget,
+          );
+        } else {
+          expect(
+            find.byType(DirectionalSteeringButton),
+            isDual ? findsNWidgets(2) : findsNothing,
+          );
+          expect(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is Control &&
+                  widget.direction == ControlSliderDirection.horizontal,
+            ),
+            isDual ? findsNothing : findsOneWidget,
+          );
+        }
+        await _disposeControlPage(tester, container);
+      }
+    }
+  });
+
   testWidgets('slider stays inactive until trim toggle is enabled', (
     tester,
   ) async {
@@ -1374,6 +1489,53 @@ void main() {
 }
 
 class _TestSettingsController extends SettingsController {}
+
+/// 使用指定设置渲染控制页，并按需开启体感模式。
+Future<ProviderContainer> _pumpControlPage(
+  WidgetTester tester,
+  AppSettingsState settingsState, {
+  bool gyroEnabled = false,
+}) async {
+  SharedPreferences.setMockInitialValues(const <String, Object>{});
+  final settings = _TestSettingsController()..state = settingsState;
+  final container = ProviderContainer(
+    overrides: [
+      receiverRepositoryProvider.overrideWith(
+        (ref) => _FakeReceiverRepository(),
+      ),
+      appSettingsProvider.overrideWith((ref) => settings),
+      gyroPromptProvider.overrideWith(
+        (ref) => Stream.value(const GyroPrompt.zero()),
+      ),
+    ],
+  );
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(home: ControlPage()),
+    ),
+  );
+  await tester.pump();
+  await container.read(controlControllerProvider.notifier).setParkLocked(false);
+  await tester.pump();
+  if (gyroEnabled) {
+    await container
+        .read(controlControllerProvider.notifier)
+        .setGyroEnabled(true);
+    await tester.pump();
+  }
+  return container;
+}
+
+/// 卸载控制页后释放容器，避免循环组合测试之间共享状态。
+Future<void> _disposeControlPage(
+  WidgetTester tester,
+  ProviderContainer container,
+) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pump();
+  container.dispose();
+}
 
 Future<_TestSettingsController> _settingsControllerWith(
   AppSettingsState state,

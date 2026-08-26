@@ -1178,7 +1178,7 @@ class _ControlArea extends StatelessWidget {
             // 右手单手控件与垂直微调共用底边，确保两者 Y 轴中心重合。
             bottom: singleHandRight ? 0 : _trimBottomClearance,
           ),
-          // 避让微调时仍保持单手方向盘 205×205，避免左侧被底部留白压缩。
+          // 避让微调时仍保持单手方向盘 200×200，避免左侧被底部留白压缩。
           child: OverflowBox(
             alignment: singleHandRight
                 ? Alignment.bottomRight

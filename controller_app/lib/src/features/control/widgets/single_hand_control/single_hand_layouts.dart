@@ -94,7 +94,7 @@ class _SingleHandControlLayout extends StatelessWidget {
   static const _gap = 8.0;
   static const _buttonSize = 24.0;
   static const _trimReservedSize = (_buttonSize * 2) + (_gap * 2);
-  static const _designControlSide = 205.0;
+  static const _designControlSide = singleHandControlSide;
   static const _minimumControlSide = 84.0;
 
   final bool rightHand;

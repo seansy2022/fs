@@ -21,7 +21,7 @@ class FloatingFourDirectionControl extends StatefulWidget {
 
 class _FloatingFourDirectionControlState
     extends State<FloatingFourDirectionControl> {
-  static const _side = 205.0;
+  static const _side = singleHandControlSide;
   static const _thumb = 44.0;
   Offset? _origin;
   Offset _value = Offset.zero;
