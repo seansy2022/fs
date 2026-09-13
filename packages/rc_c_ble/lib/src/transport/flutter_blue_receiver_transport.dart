@@ -289,22 +289,8 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
         scope: 'FlutterBlueReceiverTransport',
       );
     }
-    try {
-      await notifyTarget.setNotifyValue(true);
-    } catch (error, stackTrace) {
-      ReceiverLogging.link(
-        'enable notify failed remoteId=${device.remoteId.str} '
-        'char=${notifyTarget.characteristicUuid.str} '
-        'error=$error\n$stackTrace',
-        scope: 'FlutterBlueReceiverTransport',
-      );
-      rethrow;
-    }
-    ReceiverLogging.link(
-      'notify enabled=${notifyTarget.isNotifying}',
-      scope: 'FlutterBlueReceiverTransport',
-    );
     await _notifySub?.cancel();
+    // 必须先监听再开启通知，避免部分 Android 机型在 CCCD 生效瞬间漏掉首包。
     _notifySub = notifyTarget.onValueReceived.listen((value) {
       if (value.isNotEmpty) {
         final possibleEcho =
@@ -328,6 +314,23 @@ class FlutterBlueReceiverTransport implements ReceiverBluetoothTransport {
         _incomingCtrl.add(value);
       }
     });
+    try {
+      await notifyTarget.setNotifyValue(true);
+    } catch (error, stackTrace) {
+      await _notifySub?.cancel();
+      _notifySub = null;
+      ReceiverLogging.link(
+        'enable notify failed remoteId=${device.remoteId.str} '
+        'char=${notifyTarget.characteristicUuid.str} '
+        'error=$error\n$stackTrace',
+        scope: 'FlutterBlueReceiverTransport',
+      );
+      rethrow;
+    }
+    ReceiverLogging.link(
+      'notify enabled=${notifyTarget.isNotifying}',
+      scope: 'FlutterBlueReceiverTransport',
+    );
     ReceiverLogging.link(
       'io write=${writeTarget.characteristicUuid.str} notify=${notifyTarget.characteristicUuid.str}',
       scope: 'FlutterBlueReceiverTransport',

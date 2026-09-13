@@ -45,6 +45,7 @@ class ReceiverBleClient {
   static const Duration _bootReconnectTimeout = Duration(seconds: 20);
   static const Duration _bootReconnectRetryDelay = Duration(milliseconds: 700);
   static const Duration _upgradeLengthRetryDelay = Duration(milliseconds: 100);
+  static const int _maxUpgradeLengthTimeoutAttempts = 3;
   static const int _maxFinalUpgradeChunkAttempts = 10;
 
   StreamSubscription<AdapterState>? _adapterSub;
@@ -533,13 +534,31 @@ class ReceiverBleClient {
   /// 循环发送 0x13 固件长度，直到接收器以 data[4] = 1 确认。
   Future<void> _sendUpgradeLengthUntilAccepted(int length) async {
     var attempt = 0;
+    var timeoutAttempts = 0;
     while (true) {
       attempt++;
-      final lengthFrame = await _sendRequest(
-        buildUpgradeLengthRequest(length),
-        matcher: (response) =>
-            response.command == ReceiverCommand.setUpgradeLength.id,
-      );
+      ReceiverFrame lengthFrame;
+      try {
+        lengthFrame = await _sendRequest(
+          buildUpgradeLengthRequest(length),
+          matcher: (response) =>
+              response.command == ReceiverCommand.setUpgradeLength.id,
+        );
+        timeoutAttempts = 0;
+      } on TimeoutException {
+        timeoutAttempts++;
+        ReceiverLogging.device(
+          '[upgrade][0x13] attempt=$attempt response timeout '
+          '($timeoutAttempts/$_maxUpgradeLengthTimeoutAttempts)',
+          scope: 'ReceiverBleClient',
+        );
+        if (timeoutAttempts >= _maxUpgradeLengthTimeoutAttempts) {
+          rethrow;
+        }
+        // Boot 重连后的首个通知可能延迟，短暂等待后安全重发长度指令。
+        await Future<void>.delayed(_upgradeLengthRetryDelay);
+        continue;
+      }
       final lengthState = parseUpgradeState(lengthFrame, stateIndex: 4);
       ReceiverLogging.device(
         '[upgrade][0x13] attempt=$attempt state=$lengthState '

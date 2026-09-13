@@ -50,6 +50,7 @@ lib/src/provider/
 - `test/`：单元与 Widget 测试。
 - `test/fakes/`：测试用蓝牙仓库等替身对象，避免测试文件膨胀。
 - `test/bluetooth/`：蓝牙设备删除等独立交互流程测试。
+- `../packages/rc_c_ble/test/receiver_upgrade_retry_test.dart`：升级长度指令 0x13 的超时重试与失败上限测试。
 - `test/home_reconnect_flow_test.dart`：首页自动扫描上次蓝牙设备的启动链路测试。
 - `test/global_reconnect_provider_test.dart`：全局断线自动重连与取消链路测试。
 - `test/reconnect_overlay_view_test.dart`：重连遮罩在小尺寸屏幕下的布局测试。
