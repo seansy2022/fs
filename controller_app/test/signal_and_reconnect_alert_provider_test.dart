@@ -4,6 +4,7 @@ import 'package:controller_app/src/core/providers.dart';
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
 import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
 import 'package:controller_app/src/provider/alert_audio_player.dart';
+import 'package:controller_app/src/provider/app_provider.dart';
 import 'package:controller_app/src/provider/reconnect_alert_provider.dart';
 import 'package:controller_app/src/provider/signal_alert_provider.dart';
 import 'package:controller_app/src/provider/signal_strength_utils.dart';
@@ -382,6 +383,95 @@ void main() {
       'voice/reconnect_on_zh.m4a',
     ]);
     expect(vibrateCount, 3);
+  });
+
+  test('background suppresses reconnect voice but keeps vibration', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final connection = StreamController<ReceiverConnectionState>.broadcast();
+    final player = _FakeAlertAudioPlayer();
+    var vibrateCount = 0;
+    final settings = SettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        reconnectVoice: true,
+        reconnectVibration: true,
+      );
+    final container = ProviderContainer(
+      overrides: [
+        appSettingsProvider.overrideWith((ref) => settings),
+        appSettingsLoadedProvider.overrideWith((ref) => true),
+        simulatedBluetoothEnabledProvider.overrideWith((ref) => false),
+        receiverConnectionProvider.overrideWith((ref) => connection.stream),
+        alertAudioPlayerProvider.overrideWithValue(player),
+        reconnectAlertVibrationProvider.overrideWith((ref) {
+          return () async => vibrateCount++;
+        }),
+      ],
+    );
+    addTearDown(() async {
+      await connection.close();
+      container.dispose();
+    });
+
+    container.read(reconnectAlertMonitorProvider);
+    connection.add(ReceiverConnectionState.connected);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    expect(player.assets, hasLength(1));
+
+    container.read(appForegroundProvider.notifier).state = false;
+    await Future<void>.delayed(Duration.zero);
+    connection.add(ReceiverConnectionState.disconnected);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+
+    expect(player.stopCount, greaterThanOrEqualTo(1));
+    expect(player.assets, hasLength(1));
+    expect(vibrateCount, 2);
+  });
+
+  test('background suppresses low signal voice but keeps vibration', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final connection = StreamController<ReceiverConnectionState>.broadcast();
+    final rssi = StreamController<int?>.broadcast();
+    final player = _FakeAlertAudioPlayer();
+    var vibrateCount = 0;
+    final settings = SettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        lowSignalEnabled: true,
+        signalThreshold: 80,
+        signalVoice: true,
+        signalVibration: true,
+      );
+    final container = ProviderContainer(
+      overrides: [
+        appSettingsProvider.overrideWith((ref) => settings),
+        appSettingsLoadedProvider.overrideWith((ref) => true),
+        appForegroundProvider.overrideWith((ref) => false),
+        simulatedBluetoothEnabledProvider.overrideWith((ref) => false),
+        receiverConnectionProvider.overrideWith((ref) => connection.stream),
+        connectedRssiProvider.overrideWith((ref) => rssi.stream),
+        signalAlertAudioPlayerProvider.overrideWithValue(player),
+        signalAlertConnectionGraceProvider.overrideWith((ref) => Duration.zero),
+        signalAlertRequiredConsecutiveLowReadingsProvider.overrideWith((ref) {
+          return 1;
+        }),
+        signalAlertVibrationProvider.overrideWith((ref) {
+          return () async => vibrateCount++;
+        }),
+      ],
+    );
+    addTearDown(() async {
+      await connection.close();
+      await rssi.close();
+      container.dispose();
+    });
+
+    container.read(signalAlertMonitorProvider);
+    connection.add(ReceiverConnectionState.connected);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    rssi.add(-90);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+
+    expect(player.assets, isEmpty);
+    expect(vibrateCount, 1);
   });
 
   test('signal alert cannot replace disconnect voice', () async {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
 import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
 import 'package:controller_app/src/provider/alert_audio_player.dart';
+import 'package:controller_app/src/provider/app_provider.dart';
 import 'package:controller_app/src/provider/app_settings_provider.dart';
 import 'package:controller_app/src/provider/battery_alert_provider.dart';
 import 'package:controller_app/src/provider/effective_bluetooth_provider.dart';
@@ -14,13 +15,86 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('disabled battery feature does not start alert outputs', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final infoController = StreamController<ReceiverInfo?>.broadcast();
+    final player = _FakeAlertAudioPlayer();
+    var vibrationCount = 0;
+    final container = ProviderContainer(
+      overrides: [
+        _testReceiverInfoProvider.overrideWith((ref) => infoController.stream),
+        effectiveReceiverInfoProvider.overrideWith((ref) {
+          return ref.watch(_testReceiverInfoProvider).valueOrNull;
+        }),
+        batteryAlertAudioPlayerProvider.overrideWithValue(player),
+        batteryAlertVibrationProvider.overrideWith((ref) {
+          return () async => vibrationCount++;
+        }),
+      ],
+    );
+    addTearDown(() async {
+      await infoController.close();
+      container.dispose();
+    });
+
+    container.read(batteryAlertMonitorProvider);
+    infoController.add(testReceiverInfo(0));
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+
+    expect(player.loopedAssets, isEmpty);
+    expect(vibrationCount, 0);
+  });
+
+  test('background suppresses battery voice but keeps vibration', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final infoController = StreamController<ReceiverInfo?>.broadcast();
+    final player = _FakeAlertAudioPlayer();
+    var vibrationCount = 0;
+    final settings = SettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        lowVoltageEnabled: true,
+        batteryAlertPercent: 15,
+        batteryVoice: true,
+        batteryVibration: true,
+      );
+    final container = ProviderContainer(
+      overrides: [
+        appFeatureFlagsProvider.overrideWithValue(
+          const AppFeatureFlags(receiverBatteryEnabled: true),
+        ),
+        appForegroundProvider.overrideWith((ref) => false),
+        appSettingsProvider.overrideWith((ref) => settings),
+        appSettingsLoadedProvider.overrideWith((ref) => true),
+        _testReceiverInfoProvider.overrideWith((ref) => infoController.stream),
+        effectiveReceiverInfoProvider.overrideWith((ref) {
+          return ref.watch(_testReceiverInfoProvider).valueOrNull;
+        }),
+        batteryAlertAudioPlayerProvider.overrideWithValue(player),
+        batteryAlertVibrationProvider.overrideWith((ref) {
+          return () async => vibrationCount++;
+        }),
+      ],
+    );
+    addTearDown(() async {
+      await infoController.close();
+      container.dispose();
+    });
+
+    container.read(batteryAlertMonitorProvider);
+    infoController.add(testReceiverInfo(0));
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+
+    expect(player.loopedAssets, isEmpty);
+    expect(vibrationCount, 1);
+  });
+
   test(
     'battery alert starts immediately and repeats while battery stays low',
     () async {
       SharedPreferences.setMockInitialValues(const <String, Object>{});
       final infoController = StreamController<ReceiverInfo?>.broadcast();
       final player = _FakeAlertAudioPlayer();
-      final vibrationDurations = <Duration>[];
+      var vibrationCount = 0;
       var stopVibrationCount = 0;
       final settings = SettingsController()
         ..state = AppSettingsState.defaults().copyWith(
@@ -31,6 +105,9 @@ void main() {
         );
       final container = ProviderContainer(
         overrides: [
+          appFeatureFlagsProvider.overrideWithValue(
+            const AppFeatureFlags(receiverBatteryEnabled: true),
+          ),
           appSettingsProvider.overrideWith((ref) => settings),
           appSettingsLoadedProvider.overrideWith((ref) => true),
           _testReceiverInfoProvider.overrideWith(
@@ -45,7 +122,7 @@ void main() {
             return const Duration(milliseconds: 60);
           }),
           batteryAlertVibrationProvider.overrideWith((ref) {
-            return (duration) async => vibrationDurations.add(duration);
+            return () async => vibrationCount++;
           }),
           batteryAlertStopVibrationProvider.overrideWith((ref) {
             return () async => stopVibrationCount++;
@@ -62,13 +139,13 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 25));
       expect(player.loopedAssets.first, 'voice/模型电压低-英文.mp3');
-      expect(vibrationDurations.first, const Duration(milliseconds: 60));
+      expect(vibrationCount, 1);
 
       await Future<void>.delayed(const Duration(milliseconds: 70));
       expect(player.stopCalls, greaterThanOrEqualTo(1));
       expect(stopVibrationCount, greaterThanOrEqualTo(1));
       expect(player.loopedAssets.length, greaterThanOrEqualTo(2));
-      expect(vibrationDurations.length, greaterThanOrEqualTo(2));
+      expect(vibrationCount, greaterThanOrEqualTo(2));
     },
   );
 
@@ -85,6 +162,9 @@ void main() {
       );
     final container = ProviderContainer(
       overrides: [
+        appFeatureFlagsProvider.overrideWithValue(
+          const AppFeatureFlags(receiverBatteryEnabled: true),
+        ),
         appSettingsProvider.overrideWith((ref) => settings),
         appSettingsLoadedProvider.overrideWith((ref) => true),
         _testReceiverInfoProvider.overrideWith((ref) => infoController.stream),

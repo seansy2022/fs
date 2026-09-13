@@ -5,6 +5,7 @@ import 'package:rc_ui/rc_ui.dart';
 
 import '../core/localization/app_localizations.dart';
 import '../provider/app_locale_provider.dart';
+import '../provider/app_provider.dart';
 import '../provider/battery_alert_provider.dart';
 import '../provider/bluetooth_domain_provider.dart';
 import '../provider/global_reconnect_provider.dart';
@@ -20,13 +21,41 @@ import '../features/startup/view/startup_page.dart';
 import '../shared/widgets/global_reconnect_overlay.dart';
 import 'app_routes.dart';
 
-class ControllerApp extends ConsumerWidget {
+class ControllerApp extends ConsumerStatefulWidget {
   const ControllerApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ControllerApp> createState() => _ControllerAppState();
+}
+
+class _ControllerAppState extends ConsumerState<ControllerApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// 将系统生命周期统一映射为声音模块使用的前台可见状态。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    ref.read(appForegroundProvider.notifier).state =
+        state == AppLifecycleState.resumed;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final language = ref.watch(appLocaleProvider);
-    ref.watch(batteryAlertMonitorProvider);
+    final featureFlags = ref.watch(appFeatureFlagsProvider);
+    if (featureFlags.receiverBatteryEnabled) {
+      ref.watch(batteryAlertMonitorProvider);
+    }
     ref.watch(signalAlertMonitorProvider);
     ref.watch(reconnectAlertMonitorProvider);
     ref.watch(bluetoothDomainControllerProvider);

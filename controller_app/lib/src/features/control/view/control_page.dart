@@ -9,6 +9,7 @@ import 'package:video_player/video_player.dart';
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
 import '../../../provider/alert_message_provider.dart';
+import '../../../provider/app_provider.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
 import '../../../provider/control_presentation_provider.dart';
 import '../../../provider/control_provider.dart';
@@ -449,7 +450,12 @@ class _ControlPageState extends ConsumerState<ControlPage>
     final alertMessage = ref.watch(controlPageAlertMessageProvider);
 
     final connected = connectionState == ReceiverConnectionState.connected;
-    final batteryStatus = ref.watch(receiverBatteryStatusProvider);
+    final batteryEnabled = ref.watch(
+      appFeatureFlagsProvider.select((flags) => flags.receiverBatteryEnabled),
+    );
+    final batteryStatus = batteryEnabled
+        ? ref.watch(receiverBatteryStatusProvider)
+        : null;
     final batteryLevel = connected ? (batteryStatus?.iconPercent ?? 0) : 0;
     final rssi = connected ? connectedRssi : null;
 
@@ -559,6 +565,7 @@ class _ControlPageState extends ConsumerState<ControlPage>
                     _TopBar(
                       alertMessage: alertMessage,
                       battery: batteryLevel,
+                      batteryEnabled: batteryEnabled,
                       rssi: rssi,
                       onSettings: () {
                         Navigator.of(context).pushNamed(AppRoutes.settings);
@@ -643,6 +650,7 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.alertMessage,
     required this.battery,
+    required this.batteryEnabled,
     required this.rssi,
     required this.onSettings,
     required this.musicOn,
@@ -660,6 +668,7 @@ class _TopBar extends StatelessWidget {
 
   final String? alertMessage;
   final int battery;
+  final bool batteryEnabled;
   final int? rssi;
   final VoidCallback onSettings;
   final bool musicOn;
@@ -691,8 +700,14 @@ class _TopBar extends StatelessWidget {
                   width: 29,
                   height: 16,
                 ),
-                const SizedBox(width: 16),
-                BatteryWidget(value: battery.toDouble(), width: 29, height: 16),
+                if (batteryEnabled) ...[
+                  const SizedBox(width: 16),
+                  BatteryWidget(
+                    value: battery.toDouble(),
+                    width: 29,
+                    height: 16,
+                  ),
+                ],
               ],
             ),
             Expanded(
@@ -710,12 +725,6 @@ class _TopBar extends StatelessWidget {
             ),
             Row(
               children: [
-                _CircleIconBtn.svg(
-                  assetPath: 'assets/icons/sync_arrows.svg',
-                  active: directionOn,
-                  onTap: onDirection,
-                ),
-                const SizedBox(width: 16),
                 if (showThrottleTurnSignals && (leftTurnOn || rightTurnOn)) ...[
                   ThrottleTurnSignalButtons(
                     leftOn: leftTurnOn,
@@ -724,6 +733,12 @@ class _TopBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 16),
                 ],
+                _CircleIconBtn.svg(
+                  assetPath: 'assets/icons/sync_arrows.svg',
+                  active: directionOn,
+                  onTap: onDirection,
+                ),
+                const SizedBox(width: 16),
                 BluetoothSvgToggleButton(value: musicOn, onTap: onMusic),
                 const SizedBox(width: 16),
                 SoundSvgToggleButton(value: soundOn, onTap: onSound),

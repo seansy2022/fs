@@ -93,4 +93,30 @@ void main() {
 
     expect(values, <int>[0]);
   });
+
+  testWidgets('fixed control resets output after an endpoint tap', (
+    tester,
+  ) async {
+    final values = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Control(
+              direction: ControlSliderDirection.horizontal,
+              onChanged: values.add,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final control = find.byType(Control);
+    await tester.tapAt(tester.getCenter(control) + const Offset(80, 0));
+
+    expect(values, hasLength(2));
+    expect(values.first, greaterThan(0));
+    expect(values.last, 0);
+    expect(find.byKey(controlThumbKey), findsNothing);
+  });
 }

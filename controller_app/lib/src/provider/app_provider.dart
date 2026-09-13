@@ -2,6 +2,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/permissions.dart';
 
+/// 应用级功能开关，集中控制暂时下线但需要保留代码的能力。
+class AppFeatureFlags {
+  const AppFeatureFlags({this.receiverBatteryEnabled = false});
+
+  /// 接收机电量功能默认关闭，后续恢复时只需修改默认值。
+  final bool receiverBatteryEnabled;
+}
+
+final appFeatureFlagsProvider = Provider<AppFeatureFlags>((ref) {
+  return const AppFeatureFlags();
+});
+
+/// App 仅在前台可见时允许播放声音；息屏和后台状态统一设为 false。
+final appForegroundProvider = StateProvider<bool>((ref) => true);
+
 enum AppBootstrapStatus { idle, loading, ready, permissionRequired }
 
 class AppBootstrapState {

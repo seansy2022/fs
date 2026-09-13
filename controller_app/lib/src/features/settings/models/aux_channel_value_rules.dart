@@ -4,6 +4,7 @@ const int auxMultiStateMinCount = 3;
 const int auxMultiStateMaxCount = 5;
 const List<double> defaultAuxSwitchValues = <double>[100, -100];
 const List<double> defaultAuxMultiStateValues = <double>[-100, 0, 100];
+const int auxChannelNameMaxLength = 5;
 const int auxMultiStateLabelMaxLength = 5;
 
 /// 将辅助通道百分比限制在接收机允许配置的范围内。

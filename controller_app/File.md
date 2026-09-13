@@ -49,6 +49,7 @@ lib/src/provider/
 - `doc/`：需求、协议、问题记录。
 - `test/`：单元与 Widget 测试。
 - `test/fakes/`：测试用蓝牙仓库等替身对象，避免测试文件膨胀。
+- `test/bluetooth/`：蓝牙设备删除等独立交互流程测试。
 - `test/home_reconnect_flow_test.dart`：首页自动扫描上次蓝牙设备的启动链路测试。
 - `test/global_reconnect_provider_test.dart`：全局断线自动重连与取消链路测试。
 - `test/reconnect_overlay_view_test.dart`：重连遮罩在小尺寸屏幕下的布局测试。
@@ -68,6 +69,7 @@ lib/src/provider/
 - `features/startup/view/`：启动页。
 - `features/home/view/`：首页。
 - `features/bluetooth/view/`：设备列表、配对页。
+- `features/bluetooth/widgets/paired_device_delete_flow.dart`：已配对设备删除流程；连接中的设备确认并断开后删除，未连接设备直接删除。
 - `features/control/view/`：控制页。
 - `features/control/controllers/`：控制页状态编排与通道输出映射。
 - `features/control/controllers/channel_output_mapper.dart`：CH1/CH2 百分比到 us 的分段映射工具。
@@ -92,6 +94,7 @@ lib/src/provider/
 - `features/help/view/`：帮助页。
 
 ### provider（统一收口）
+- `app_provider.dart`：应用启动状态、前后台可见状态与集中功能开关；接收机电量功能当前默认关闭。
 - `alert_audio_player.dart`：报警语音播放能力。
 - `alert_message_provider.dart`：控制页报警文案显示状态。
 - `app_settings_provider.dart`：设置状态。

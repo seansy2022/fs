@@ -2,12 +2,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rc_c_ble/rc_c_ble.dart';
 
 import '../core/localization/app_localizations.dart';
+import 'app_provider.dart';
 import 'app_settings_provider.dart';
 import 'device_status_provider.dart';
 import 'effective_bluetooth_provider.dart';
 import 'signal_strength_utils.dart';
 
 final batteryLowAlertVisibleProvider = Provider<bool>((ref) {
+  if (!ref.watch(appFeatureFlagsProvider).receiverBatteryEnabled) {
+    return false;
+  }
   if (!ref.watch(appSettingsLoadedProvider)) {
     return false;
   }

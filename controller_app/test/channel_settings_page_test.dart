@@ -6,6 +6,7 @@ import 'package:controller_app/src/features/settings/view/channel_settings_page.
 import 'package:controller_app/src/features/settings/widgets/settings_workspace.dart';
 import 'package:controller_app/src/provider/app_locale_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rc_ui/rc_ui.dart';
@@ -15,7 +16,10 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    SharedPreferences.setMockInitialValues(const <String, Object>{
+      'controller_app.locale.v1': 'zh',
+    });
+    AppText.setLanguage(AppLanguage.chinese);
   });
 
   testWidgets('CH3 and CH4 render aux card fields by default', (tester) async {
@@ -41,7 +45,10 @@ void main() {
           appLocaleProvider.overrideWith((ref) => localeController),
         ],
         child: const MaterialApp(
-          localizationsDelegates: [AppLocalizations.delegate],
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
           supportedLocales: AppLocalizations.supportedLocales,
           home: ChannelSettingsPage(),
         ),
@@ -209,7 +216,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appSettingsProvider.overrideWith((ref) => controller)],
-        child: const MaterialApp(home: ChannelSettingsPage()),
+        child: _localizedApp(const ChannelSettingsPage()),
       ),
     );
     await tester.pumpAndSettle();
@@ -261,7 +268,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appSettingsProvider.overrideWith((ref) => controller)],
-        child: const MaterialApp(home: ChannelSettingsPage()),
+        child: _localizedApp(const ChannelSettingsPage()),
       ),
     );
     await tester.pumpAndSettle();
@@ -351,32 +358,45 @@ void main() {
     );
   });
 
-  testWidgets('editing name persists after rebuild', (tester) async {
+  testWidgets('CH3 and CH4 names edit in dialogs and persist', (tester) async {
     final controller = _TestSettingsController(AppSettingsState.defaults());
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appSettingsProvider.overrideWith((ref) => controller)],
-        child: const MaterialApp(home: ChannelSettingsPage()),
+        child: _localizedApp(const ChannelSettingsPage()),
       ),
     );
     await tester.pumpAndSettle();
 
-    final textField = find.byType(TextField).first;
-    await tester.enterText(textField, '机械臂');
+    expect(find.byType(TextField), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey<String>('aux-name-2')));
+    await tester.pumpAndSettle();
+    expect(find.text('修改名称'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '机械臂');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey<String>('aux-name-3')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '灯光');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
     expect(controller.state.channels[2].displayName, '机械臂');
+    expect(controller.state.channels[3].displayName, '灯光');
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appSettingsProvider.overrideWith((ref) => controller)],
-        child: const MaterialApp(home: ChannelSettingsPage()),
+        child: _localizedApp(const ChannelSettingsPage()),
       ),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('机械臂'), findsOneWidget);
+    expect(find.text('灯光'), findsOneWidget);
   });
 
   testWidgets('CH1 and CH2 value buttons use 60 width', (tester) async {
@@ -396,7 +416,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appSettingsProvider.overrideWith((ref) => controller)],
-        child: const MaterialApp(home: ChannelSettingsPage()),
+        child: _localizedApp(const ChannelSettingsPage()),
       ),
     );
     await tester.pumpAndSettle();
@@ -432,7 +452,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appSettingsProvider.overrideWith((ref) => controller)],
-        child: const MaterialApp(home: ChannelSettingsPage()),
+        child: _localizedApp(const ChannelSettingsPage()),
       ),
     );
     await tester.pumpAndSettle();
@@ -461,7 +481,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appSettingsProvider.overrideWith((ref) => controller)],
-        child: const MaterialApp(home: ChannelSettingsPage()),
+        child: _localizedApp(const ChannelSettingsPage()),
       ),
     );
     await tester.pumpAndSettle();
@@ -489,7 +509,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appSettingsProvider.overrideWith((ref) => controller)],
-        child: const MaterialApp(home: ChannelSettingsPage()),
+        child: _localizedApp(const ChannelSettingsPage()),
       ),
     );
     await tester.pumpAndSettle();
@@ -511,13 +531,31 @@ void main() {
   });
 }
 
+/// 为设置页测试补齐应用实际使用的本地化上下文。
+Widget _localizedApp(Widget home) {
+  return ProviderScope(
+    overrides: [
+      appLocaleProvider.overrideWith((ref) => _ChineseLocaleController()),
+    ],
+    child: MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        ...GlobalMaterialLocalizations.delegates,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: home,
+    ),
+  );
+}
+
 Future<void> _pumpPage(WidgetTester tester, AppSettingsState state) async {
   final controller = _TestSettingsController(state);
 
   await tester.pumpWidget(
     ProviderScope(
       overrides: [appSettingsProvider.overrideWith((ref) => controller)],
-      child: const MaterialApp(home: ChannelSettingsPage()),
+      child: _localizedApp(const ChannelSettingsPage()),
     ),
   );
 
@@ -545,5 +583,12 @@ Finder _auxCardFor(String name) {
 class _TestSettingsController extends SettingsController {
   _TestSettingsController(AppSettingsState initialState) : super() {
     state = initialState;
+  }
+}
+
+class _ChineseLocaleController extends AppLocaleController {
+  _ChineseLocaleController() : super() {
+    state = AppLanguage.chinese;
+    AppText.setLanguage(state);
   }
 }

@@ -7,6 +7,7 @@ import 'package:rc_c_ble/rc_c_ble.dart';
 import '../core/app_vibration.dart';
 import '../features/settings/models/app_settings_state.dart';
 import 'alert_audio_player.dart';
+import 'app_provider.dart';
 import 'app_settings_provider.dart';
 import 'effective_bluetooth_provider.dart';
 import 'signal_strength_utils.dart';
@@ -43,6 +44,9 @@ final signalAlertMonitorProvider = Provider<SignalAlertMonitor>((ref) {
     (_, next) => monitor.updateRssi(next),
   );
   ref.listen<AppSettingsState>(appSettingsProvider, (_, __) => monitor.sync());
+  ref.listen<bool>(appForegroundProvider, (_, foreground) {
+    monitor.updateAppForeground(foreground);
+  });
   ref.onDispose(monitor.dispose);
   return monitor;
 });
@@ -63,6 +67,13 @@ class SignalAlertMonitor {
   bool _awaitingFreshRssi = true;
   int _connectionSession = 0;
   int _notificationVersion = 0;
+
+  /// 息屏时立即停止当前语音；报警计时和震动仍按原配置运行。
+  void updateAppForeground(bool foreground) {
+    if (!foreground) {
+      unawaited(_player.stop());
+    }
+  }
 
   void updateConnection(ReceiverConnectionState connection) {
     // 连接状态与 RSSI 分属两个异步流；每次状态变化都必须废弃上一连接的 RSSI。
@@ -169,7 +180,7 @@ class SignalAlertMonitor {
       return;
     }
     final settings = _ref.read(appSettingsProvider);
-    if (settings.signalVoice) {
+    if (settings.signalVoice && _ref.read(appForegroundProvider)) {
       _log(
         'notify play session=$connectionSession notification=$notificationVersion '
         'asset=${_signalAlertAsset(_ref.read(signalAlertLanguageCodeProvider))}',

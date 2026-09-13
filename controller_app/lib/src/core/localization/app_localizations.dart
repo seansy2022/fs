@@ -264,6 +264,8 @@ const _englishText = <String, String>{
   "扫描启动失败，请稍后重试。": "Failed to start scanning. Please try again later.",
   "当前连接接收机断开失败，请重试。":
       "Failed to disconnect the current receiver. Please try again.",
+  "删除失败": "Delete Failed",
+  "删除历史设备失败，请重试。": "Failed to delete the paired device. Please try again.",
   "确定放弃当前连接接收机去配对其它接收机？":
       "Disconnect the current receiver and pair another one?",
   "辅助通道": "AUX Channel",
@@ -319,6 +321,7 @@ const _englishText = <String, String>{
   "通道已设为禁用，但失控保护参数未能同步到接收机，请检查蓝牙连接后重试。":
       "The channel was disabled, but its fail-safe setting could not be synced to the receiver. Check Bluetooth and try again.",
   "修改状态名称": "Edit State Name",
+  "修改名称": "Edit Name",
   "大灯": "Headlights",
   "刹车灯": "Brake Lights",
   "倒车灯": "Reverse Lights",
@@ -370,8 +373,8 @@ const _englishText = <String, String>{
   "蓝牙接收机连接说明": "Bluetooth Receiver Connection Guide",
   "扫描、连接和控制前的准备步骤。":
       "Preparation steps before scanning, connecting, and controlling.",
-  "1. 给接收机上电并确认蓝牙模式已经打开。\n2. 在 App 首页进入“去配对”或“已配对设备列表”。\n3. 连接成功后，首页会显示接收机型号和电量信息。\n4. 进入控制页后会以 10ms 周期持续发送控制心跳。":
-      "1. Power on the receiver and make sure Bluetooth mode is enabled.\n2. From the Home page, open Pair or the Paired Device List.\n3. After connecting, the Home page shows receiver model and battery information.\n4. The Control page continuously sends control heartbeats every 10 ms.",
+  "1. 给接收机上电并确认蓝牙模式已经打开。\n2. 在 App 首页进入“去配对”或“已配对设备列表”。\n3. 连接成功后，首页会显示接收机型号和信号信息。\n4. 进入控制页后会以 10ms 周期持续发送控制心跳。":
+      "1. Power on the receiver and make sure Bluetooth mode is enabled.\n2. From the Home page, open Pair or the Paired Device List.\n3. After connecting, the Home page shows receiver model and signal information.\n4. The Control page continuously sends control heartbeats every 10 ms.",
   "失控保护说明": "Fail-safe Guide",
   "固定值与保持模式的区别。": "Difference between Fixed Value and Hold modes.",
   "失控保护支持“固定值”和“保持”两种模式。\n固定值会在链路断开后输出你设置的 PWM 值。\n保持模式会让接收机维持当前通道输出。\n修改前请确保车辆处于安全状态。":

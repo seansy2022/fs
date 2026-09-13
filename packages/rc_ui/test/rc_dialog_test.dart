@@ -57,4 +57,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(RcSuccessDialog), findsNothing);
   });
+
+  testWidgets('confirm dialog supports an optional status icon', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => RcConfirmDialog.show(
+              context,
+              message: 'Warning',
+              cancelText: 'No',
+              confirmText: 'Yes',
+              icon: const Icon(Icons.warning),
+            ),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.warning), findsOneWidget);
+    expect(tester.widget<RcDialogShell>(find.byType(RcDialogShell)).height, 200);
+  });
 }

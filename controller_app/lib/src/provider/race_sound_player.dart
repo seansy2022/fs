@@ -123,6 +123,9 @@ class AudioplayersRaceSoundPlayer implements RaceSoundPlayer {
   AudioPlayer? _activeDrivingLoopPlayer;
   AudioPlayer? _standbyDrivingLoopPlayer;
   int _drivingLoopSession = 0;
+  // 停止操作递增版本号，阻止已经排队的异步播放在息屏后重新发声。
+  int _backgroundRequestVersion = 0;
+  int _effectRequestVersion = 0;
 
   @override
   Stream<void> get onEffectComplete =>
@@ -130,6 +133,7 @@ class AudioplayersRaceSoundPlayer implements RaceSoundPlayer {
 
   @override
   Future<bool> playBackground() async {
+    final requestVersion = ++_backgroundRequestVersion;
     final assetPath = _assets.assetForCue(SoundCue.backgroundMusic);
     if (assetPath == null) {
       await _backgroundPlayer.stop();
@@ -137,9 +141,13 @@ class AudioplayersRaceSoundPlayer implements RaceSoundPlayer {
     }
     try {
       await _backgroundPlayer.stop();
+      if (!_isBackgroundRequestCurrent(requestVersion)) return false;
       await _backgroundPlayer.setAudioContext(_mixAudioContext);
+      if (!_isBackgroundRequestCurrent(requestVersion)) return false;
       await _backgroundPlayer.setVolume(_backgroundVolume);
+      if (!_isBackgroundRequestCurrent(requestVersion)) return false;
       await _backgroundPlayer.setReleaseMode(ReleaseMode.loop);
+      if (!_isBackgroundRequestCurrent(requestVersion)) return false;
       await _backgroundPlayer.play(AssetSource(assetPath));
       return true;
     } catch (error, stackTrace) {
@@ -151,26 +159,35 @@ class AudioplayersRaceSoundPlayer implements RaceSoundPlayer {
   }
 
   @override
-  Future<void> stopBackground() => _backgroundPlayer.stop();
+  Future<void> stopBackground() {
+    _backgroundRequestVersion++;
+    return _backgroundPlayer.stop();
+  }
 
   @override
   Future<bool> playEffect(SoundCue cue, {required bool loop}) async {
+    final requestVersion = ++_effectRequestVersion;
     final assetPath = _assets.assetForCue(cue);
     if (assetPath == null) {
       await stopEffect();
       return false;
     }
     if (cue == SoundCue.drivingLoop && loop) {
-      return _playDrivingLoopGaplessly(assetPath);
+      return _playDrivingLoopGaplessly(assetPath, requestVersion);
     }
     try {
       await _stopDrivingLoop();
+      if (!_isEffectRequestCurrent(requestVersion)) return false;
       await _effectPlayer.stop();
+      if (!_isEffectRequestCurrent(requestVersion)) return false;
       await _effectPlayer.setAudioContext(_mixAudioContext);
+      if (!_isEffectRequestCurrent(requestVersion)) return false;
       await _effectPlayer.setVolume(_effectVolume);
+      if (!_isEffectRequestCurrent(requestVersion)) return false;
       await _effectPlayer.setReleaseMode(
         loop ? ReleaseMode.loop : ReleaseMode.stop,
       );
+      if (!_isEffectRequestCurrent(requestVersion)) return false;
       await _effectPlayer.play(AssetSource(assetPath));
       return true;
     } catch (error, stackTrace) {
@@ -186,12 +203,15 @@ class AudioplayersRaceSoundPlayer implements RaceSoundPlayer {
 
   @override
   Future<void> stopEffect() async {
+    _effectRequestVersion++;
     await _stopDrivingLoop();
     await _effectPlayer.stop();
   }
 
   @override
   Future<void> dispose() async {
+    _backgroundRequestVersion++;
+    _effectRequestVersion++;
     await _stopDrivingLoop();
     await Future.wait<void>([
       _backgroundPlayer.dispose(),
@@ -201,16 +221,22 @@ class AudioplayersRaceSoundPlayer implements RaceSoundPlayer {
   }
 
   /// 使用两个播放器交替播放行驶音，避开 Android 原生循环的间隔。
-  Future<bool> _playDrivingLoopGaplessly(String assetPath) async {
+  Future<bool> _playDrivingLoopGaplessly(
+    String assetPath,
+    int requestVersion,
+  ) async {
     await _stopDrivingLoop();
+    if (!_isEffectRequestCurrent(requestVersion)) return false;
     await _effectPlayer.stop();
+    if (!_isEffectRequestCurrent(requestVersion)) return false;
     final session = ++_drivingLoopSession;
     try {
       await Future.wait<void>([
         _prepareDrivingLoopPlayer(_effectPlayer, assetPath, _effectVolume),
         _prepareDrivingLoopPlayer(_loopEffectPlayer, assetPath, 0),
       ]);
-      if (session != _drivingLoopSession) {
+      if (session != _drivingLoopSession ||
+          !_isEffectRequestCurrent(requestVersion)) {
         return false;
       }
       // 先建立循环会话，再调用播放；否则激活校验会使首次播放提前返回。
@@ -320,6 +346,12 @@ class AudioplayersRaceSoundPlayer implements RaceSoundPlayer {
 
   bool _isDrivingLoopActive(int session) =>
       session == _drivingLoopSession && _activeDrivingLoopPlayer != null;
+
+  bool _isBackgroundRequestCurrent(int requestVersion) =>
+      requestVersion == _backgroundRequestVersion;
+
+  bool _isEffectRequestCurrent(int requestVersion) =>
+      requestVersion == _effectRequestVersion;
 }
 
 typedef RaceSoundPlayerFactory = RaceSoundPlayer Function();

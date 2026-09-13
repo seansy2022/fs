@@ -5,6 +5,7 @@ import 'package:rc_ui/rc_ui.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
 import '../../../shared/widgets/app_page_scaffold.dart';
 import '../widgets/bluetooth_connect_feedback.dart';
+import '../widgets/paired_device_delete_flow.dart';
 
 class DeviceListPage extends ConsumerWidget {
   const DeviceListPage({super.key});
@@ -49,34 +50,17 @@ class DeviceListPage extends ConsumerWidget {
         },
         onDelete: (item) async {
           final target = devices.firstWhere((d) => d.name == item.title);
-          final confirmed = await AlertIconWidget.show(
+          final currentState = ref.read(bluetoothDomainControllerProvider);
+          final isConnected =
+              target.isConnected ||
+              currentState.connectedDevice?.remoteId == target.remoteId;
+          await deletePairedDeviceWithFeedback(
             context,
-            title: '\u5220\u9664\u8bbe\u5907',
-            message:
-                '\u786e\u5b9a\u5220\u9664\u8bbe\u5907 ${target.name} \u5417\uff1f',
-            cancelText: '\u53d6\u6d88',
-            confirmText: '\u786e\u5b9a',
+            isConnected: isConnected,
+            disconnect: bluetoothController.disconnect,
+            remove: () =>
+                bluetoothController.removeRememberedDevice(target.remoteId),
           );
-          if (confirmed != true) {
-            return;
-          }
-          try {
-            if (target.isConnected) {
-              await bluetoothController.disconnect();
-            }
-            await bluetoothController.removeRememberedDevice(target.remoteId);
-          } catch (_) {
-            if (!context.mounted) {
-              return;
-            }
-            await AlertIconWidget.show(
-              context,
-              title: '\u5220\u9664\u5931\u8d25',
-              message:
-                  '\u5220\u9664\u5386\u53f2\u8bbe\u5907\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5\u3002',
-              confirmText: '\u77e5\u9053\u4e86',
-            );
-          }
         },
         onClose: () => Navigator.of(context).pop(),
       ),

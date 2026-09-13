@@ -7,6 +7,7 @@ import 'package:rc_c_ble/rc_c_ble.dart';
 import '../core/app_vibration.dart';
 import '../features/settings/models/app_settings_state.dart';
 import 'alert_audio_player.dart';
+import 'app_provider.dart';
 import 'app_settings_provider.dart';
 import 'effective_bluetooth_provider.dart';
 
@@ -27,6 +28,9 @@ final reconnectAlertMonitorProvider = Provider<ReconnectAlertMonitor>((ref) {
   ref.listen(effectiveReceiverConnectionProvider, (previous, next) {
     unawaited(monitor.handleTransition(previous, next));
   });
+  ref.listen<bool>(appForegroundProvider, (_, foreground) {
+    monitor.updateAppForeground(foreground);
+  });
   ref.onDispose(monitor.dispose);
   return monitor;
 });
@@ -35,6 +39,13 @@ class ReconnectAlertMonitor {
   ReconnectAlertMonitor(this._ref);
 
   final Ref _ref;
+
+  /// 息屏时停止已经开始的连接提示音，亮屏后不补播旧提示。
+  void updateAppForeground(bool foreground) {
+    if (!foreground) {
+      unawaited(_ref.read(alertAudioPlayerProvider).stop());
+    }
+  }
 
   Future<void> handleTransition(
     ReceiverConnectionState? previous,
@@ -67,7 +78,7 @@ class ReconnectAlertMonitor {
     AppSettingsState settings, {
     required bool connected,
   }) async {
-    if (settings.reconnectVoice) {
+    if (settings.reconnectVoice && _ref.read(appForegroundProvider)) {
       await _ref
           .read(alertAudioPlayerProvider)
           .play(

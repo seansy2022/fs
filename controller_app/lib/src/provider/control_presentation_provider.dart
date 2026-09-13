@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'race_sound_player.dart';
 import '../features/control/controllers/control_controller.dart';
 import '../features/control/controllers/control_runtime_store.dart';
+import 'app_provider.dart';
 
 enum ControlDriveState {
   idle,
@@ -103,10 +104,14 @@ final controlPresentationProvider =
       ControlPresentationController,
       ControlPresentationState
     >((ref) {
-      return ControlPresentationController(
+      final controller = ControlPresentationController(
         soundPlayer: ref.watch(raceSoundPlayerFactoryProvider)(),
         runtimeStore: ControlRuntimeStore(),
       );
+      ref.listen<bool>(appForegroundProvider, (_, foreground) {
+        unawaited(controller.setAppForeground(foreground));
+      }, fireImmediately: true);
+      return controller;
     });
 
 class ControlPresentationController
@@ -139,6 +144,7 @@ class ControlPresentationController
   DateTime? _lastOneShotAt;
   Future<void> _decisionQueue = Future<void>.value();
   int _decisionVersion = 0;
+  bool _appForeground = true;
 
   Future<void> enterPage() async {
     await _restoreRuntimeFuture;
@@ -171,6 +177,25 @@ class ControlPresentationController
       _soundPlayer.stopBackground(),
       _soundPlayer.stopEffect(),
     ]);
+  }
+
+  /// 息屏或进入后台时立即停止声音，亮屏后只恢复用户开启的背景音乐。
+  Future<void> setAppForeground(bool foreground) async {
+    if (_appForeground == foreground) {
+      return;
+    }
+    _appForeground = foreground;
+    _decisionVersion++;
+    _activeEffectCue = SoundCue.none;
+    _activeEffectLoop = false;
+    if (!foreground) {
+      await Future.wait<void>([
+        _soundPlayer.stopBackground(),
+        _soundPlayer.stopEffect(),
+      ]);
+      return;
+    }
+    await _syncBackgroundSound();
   }
 
   Future<void> toggleBackgroundSound() async {
@@ -259,7 +284,7 @@ class ControlPresentationController
       effectCue: decision.effectCue,
     );
 
-    if (!state.isPageActive) {
+    if (!state.isPageActive || !_appForeground) {
       return;
     }
 
@@ -314,7 +339,9 @@ class ControlPresentationController
   }
 
   Future<void> _syncBackgroundSound() async {
-    if (!state.isPageActive || !state.backgroundSoundEnabled) {
+    if (!state.isPageActive ||
+        !_appForeground ||
+        !state.backgroundSoundEnabled) {
       await _soundPlayer.stopBackground();
       return;
     }
