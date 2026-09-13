@@ -86,7 +86,7 @@ void main() {
     expect(parseExitBleModeState(frame), 1);
   });
 
-  test('builds cmd 0x02 with steering before throttle', () {
+  test('builds cmd 0x02 with CH1 steering before CH2 throttle', () {
     final frame = buildControlHeartbeatFrame(
       Uint8List.fromList(const [0x11, 0x22, 0x33, 0x44]),
       const ReceiverControlValues(throttle: 1400, steering: 1600),

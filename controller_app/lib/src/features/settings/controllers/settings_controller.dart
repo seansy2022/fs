@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -50,6 +51,12 @@ class SettingsController extends StateNotifier<AppSettingsState> {
   void updateChannel(int index, ChannelSetting value) {
     final updated = state.channels.toList(growable: true);
     updated[index] = value;
+    // 真机排查时记录设置页实际写入的通道行程，确认配置没有停留在旧值。
+    debugPrint(
+      '[ChannelSettings] index=$index label=${value.channelLabel} '
+      'low=${value.lowPercent}% high=${value.highPercent}% '
+      'center=${value.trimPercent}us',
+    );
     state = state.copyWith(channels: updated);
     _persist();
   }

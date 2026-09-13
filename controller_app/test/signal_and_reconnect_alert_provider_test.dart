@@ -378,9 +378,9 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 5));
 
     expect(player.assets, <String>[
-      'voice/reconnect_on_zh.m4a',
-      'voice/reconnect_off_zh.m4a',
-      'voice/reconnect_on_zh.m4a',
+      'voice/reconnect_on_zh.mp3',
+      'voice/reconnect_off_zh.mp3',
+      'voice/reconnect_on_zh.mp3',
     ]);
     expect(vibrateCount, 3);
   });
@@ -520,7 +520,7 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 5));
 
     expect(signalPlayer.assets, <String>['voice/接收信号低-英文.mp3']);
-    expect(reconnectPlayer.assets.last, 'voice/reconnect_off_en.m4a');
+    expect(reconnectPlayer.assets.last, 'voice/reconnect_off_en.mp3');
   });
 }
 

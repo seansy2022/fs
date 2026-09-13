@@ -91,7 +91,6 @@ class ReceiverBleClient {
   bool _receiverInfoPollingEnabled = false;
   bool _receiverInfoReadInFlight = false;
   DateTime? _lastScanStopAt;
-  DateTime? _lastControlLogAt;
   Completer<void>? _scanAndConnectCancelCompleter;
 
   ReceiverConnectionState get connectionState => _connectionState;
@@ -313,7 +312,8 @@ class ReceiverBleClient {
     _controlBuffer.updateBase(values);
     if (ReceiverLogging.controlEnabled) {
       ReceiverLogging.phone(
-        '[control][base] ch1=${values.throttle} ch2=${values.steering} '
+        '[control][base] ch1(direction)=${values.steering} '
+        'ch2(throttle)=${values.throttle} '
         'ch3=${values.auxChannels[0]} ch4=${values.auxChannels[1]}',
         scope: 'ReceiverBleClient',
       );
@@ -758,17 +758,12 @@ class ReceiverBleClient {
   Future<void> _sendControlHeartbeat() async {
     final rfmId = _receiverInfo?.rfmId ?? _zeroRfmId;
     final values = _controlBuffer.consumeNextValues();
-    final now = DateTime.now();
-    if (ReceiverLogging.controlEnabled &&
-        (_lastControlLogAt == null ||
-            now.difference(_lastControlLogAt!) >= const Duration(seconds: 1))) {
-      _lastControlLogAt = now;
-      ReceiverLogging.phone(
-        '[control][heartbeat] ch1=${values.throttle} ch2=${values.steering} '
-        'ch3=${values.auxChannels[0]} ch4=${values.auxChannels[1]}',
-        scope: 'ReceiverBleClient',
-      );
-    }
+    // 真机调试时按协议通道顺序打印最终值，便于核对行程与微调后的实际输出。
+    ReceiverLogging.phone(
+      '[control][tx][0x02] ch1(direction)=${values.steering}us '
+      'ch2(throttle)=${values.throttle}us',
+      scope: 'ReceiverBleClient',
+    );
     final frame = buildControlHeartbeatFrame(rfmId, values);
     final frameBytes = frame.toBytes();
     if (ReceiverLogging.controlEnabled) {

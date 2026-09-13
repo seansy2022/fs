@@ -49,7 +49,7 @@ ReceiverFrame buildControlHeartbeatFrame(
   final sanitized = values.sanitize();
   final data = <int>[
     ...rfmId,
-    // 0x02 协议规定 CH2 方向在前，CH1 油门紧随其后。
+    // 0x02 协议规定 CH1 方向在前，CH2 油门紧随其后。
     ...encodeWord(sanitized.steering),
     ...encodeWord(sanitized.throttle),
     for (final channel in sanitized.auxChannels.take(8)) ...encodeWord(channel),

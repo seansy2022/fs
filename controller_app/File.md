@@ -49,6 +49,7 @@ lib/src/provider/
 - `doc/`：需求、协议、问题记录。
 - `test/`：单元与 Widget 测试。
 - `test/fakes/`：测试用蓝牙仓库等替身对象，避免测试文件膨胀。
+- `test/settings/`：设置页跨模块交互与语言即时刷新回归测试。
 - `test/bluetooth/`：蓝牙设备删除与重连真实连接状态核验等独立交互流程测试。
 - `test/bluetooth/receiver_safety_confirmation_test.dart`：接收机切换确认弹窗及无需确认分支测试。
 - `../packages/rc_c_ble/test/receiver_upgrade_retry_test.dart`：升级长度指令 0x13 的超时重试与失败上限测试。

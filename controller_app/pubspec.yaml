@@ -84,6 +84,7 @@ flutter:
     - assets/wepb/
     - assets/icons/
     - assets/voice/
+    - assets/voice/processed/
     - lib/src/assets/
     - lib/src/assets/svg/
 

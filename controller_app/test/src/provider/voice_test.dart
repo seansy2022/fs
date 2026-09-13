@@ -11,7 +11,7 @@ void main() {
   test('default driving sound uses the supplied vehicle audio asset', () {
     expect(
       RaceSoundAssetMap.defaults.assetForCue(SoundCue.drivingLoop),
-      'voice/汽车行驶中.mp3',
+      'voice/processed/汽车行驶中_双段首尾无缝_4.40秒.wav',
     );
   });
 

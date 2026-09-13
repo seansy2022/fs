@@ -18,10 +18,11 @@ class AppLocaleController extends StateNotifier<AppLanguage> {
   /// 保存用户主动选择的语言，并立即驱动界面刷新。
   Future<void> setLanguage(AppLanguage language) async {
     _hasUserSelection = true;
+    // 先同步静态翻译入口，再通知界面重建，避免首帧仍读取旧语言。
+    AppText.setLanguage(language);
     if (state != language) {
       state = language;
     }
-    AppText.setLanguage(language);
     await _saveUserPreference(language);
   }
 
@@ -40,12 +41,12 @@ class AppLocaleController extends StateNotifier<AppLanguage> {
     }
     switch (storedCode) {
       case 'zh':
+        AppText.setLanguage(AppLanguage.chinese);
         state = AppLanguage.chinese;
-        AppText.setLanguage(state);
         break;
       case 'en':
+        AppText.setLanguage(AppLanguage.english);
         state = AppLanguage.english;
-        AppText.setLanguage(state);
         break;
     }
   }

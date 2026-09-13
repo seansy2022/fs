@@ -11,6 +11,7 @@ import '../../../app/app_routes.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
+import '../../../provider/app_locale_provider.dart';
 import '../../../provider/receiver_ble_mode_provider.dart';
 import '../models/app_settings_state.dart';
 import '../language/language_setting_section.dart';
@@ -64,11 +65,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final language = ref.watch(appLocaleProvider);
     return SettingsWorkspace(
       activeRoute: _activeRoute,
       onBack: () => Navigator.of(context).pop(),
       onMenuSelected: (route) => setState(() => _activeRoute = route),
       content: IndexedStack(
+        // 子页会被 IndexedStack 缓存；语言变化时重建一次以刷新静态翻译文案。
+        key: ValueKey<AppLanguage>(language),
         index: _contentIndex(_activeRoute),
         children: const [
           BasicSettingsContent(),
