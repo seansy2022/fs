@@ -139,6 +139,10 @@ class ReceiverSessionController {
 
   Future<void> stopControlLoop() => _client.stopControlLoop();
 
+  /// 用十帧全通道中位值安全结束当前控制会话。
+  Future<void> stopControlLoopWithNeutralFrames() =>
+      _client.stopControlLoopWithNeutralFrames();
+
   Stream<ReceiverUpgradeProgress> startUpgrade(List<int> firmwareBytes) {
     return _client.startUpgrade(Uint8List.fromList(firmwareBytes));
   }

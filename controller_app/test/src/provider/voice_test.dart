@@ -11,7 +11,7 @@ void main() {
   test('default driving sound uses the supplied vehicle audio asset', () {
     expect(
       RaceSoundAssetMap.defaults.assetForCue(SoundCue.drivingLoop),
-      'voice/汽车行驶中.mp3',
+      'voice/processed/汽车行驶中_59.4秒_320kbps.mp3',
     );
   });
 
@@ -175,10 +175,44 @@ void main() {
       expect(player.playBackgroundCount, 0);
     },
   );
+
+  test(
+    'background state stops sounds and resumes only background music',
+    () async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final player = _FakeRaceSoundPlayer();
+      final controller = ControlPresentationController(soundPlayer: player);
+      addTearDown(controller.dispose);
+
+      await controller.enterPage();
+      await controller.bindControlState(
+        const ControlScreenState(throttle: 0.4),
+      );
+      expect(player.playBackgroundCount, 1);
+      expect(player.playedEffects, isNotEmpty);
+
+      await controller.setAppForeground(false);
+      final effectCountWhileVisible = player.playedEffects.length;
+      expect(player.stopBackgroundCount, greaterThanOrEqualTo(1));
+      expect(player.stopEffectCount, greaterThanOrEqualTo(1));
+
+      await controller.bindControlState(
+        const ControlScreenState(throttle: 0.4, leftSignalOn: true),
+      );
+      expect(player.playedEffects, hasLength(effectCountWhileVisible));
+
+      await controller.setAppForeground(true);
+      expect(player.playBackgroundCount, 2);
+      expect(player.playedEffects, hasLength(effectCountWhileVisible));
+    },
+  );
 }
 
 class _FakeRaceSoundPlayer implements RaceSoundPlayer {
   int playBackgroundCount = 0;
+  int stopBackgroundCount = 0;
+  int stopEffectCount = 0;
+  final List<SoundCue> playedEffects = <SoundCue>[];
 
   @override
   Stream<void> get onEffectComplete => const Stream<void>.empty();
@@ -193,11 +227,18 @@ class _FakeRaceSoundPlayer implements RaceSoundPlayer {
   }
 
   @override
-  Future<bool> playEffect(SoundCue cue, {required bool loop}) async => true;
+  Future<bool> playEffect(SoundCue cue, {required bool loop}) async {
+    playedEffects.add(cue);
+    return true;
+  }
 
   @override
-  Future<void> stopBackground() async {}
+  Future<void> stopBackground() async {
+    stopBackgroundCount++;
+  }
 
   @override
-  Future<void> stopEffect() async {}
+  Future<void> stopEffect() async {
+    stopEffectCount++;
+  }
 }

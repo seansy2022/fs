@@ -132,7 +132,7 @@ class _ControlState extends State<Control> {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: (details) =>
+      onPanDown: (details) =>
           _updateValue(details.localPosition, emitWhenUnchanged: true),
       onPanStart: (details) {
         if (!_isDragging) {

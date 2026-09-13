@@ -4,6 +4,7 @@ import 'package:rc_ui/rc_ui.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../core/providers.dart';
+import '../../../provider/app_provider.dart';
 import '../controllers/settings_controller.dart';
 import '../models/app_settings_state.dart';
 import '../widgets/numeric_input_dialog.dart';
@@ -32,21 +33,26 @@ class AlarmSettingsContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
     final controller = ref.read(appSettingsProvider.notifier);
+    final batteryEnabled = ref.watch(
+      appFeatureFlagsProvider.select((flags) => flags.receiverBatteryEnabled),
+    );
 
     return SingleChildScrollView(
       child: Column(
         children: [
-          SettingsStrip(
-            child: _LabeledRow(
-              title: '模型低电压报警',
-              trailing: _AlarmToggleSwitch(
-                value: settings.lowVoltageEnabled,
-                onChanged: (value) =>
-                    controller.updateBatterySettings(enabled: value),
+          if (batteryEnabled) ...[
+            SettingsStrip(
+              child: _LabeledRow(
+                title: '模型低电压报警',
+                trailing: _AlarmToggleSwitch(
+                  value: settings.lowVoltageEnabled,
+                  onChanged: (value) =>
+                      controller.updateBatterySettings(enabled: value),
+                ),
               ),
             ),
-          ),
-          if (settings.lowVoltageEnabled) ...[
+          ],
+          if (batteryEnabled && settings.lowVoltageEnabled) ...[
             const SizedBox(height: 8),
             SettingsStrip(
               child: Padding(
@@ -212,7 +218,7 @@ class AlarmSettingsContent extends ConsumerWidget {
               ),
             ),
           ],
-          const SizedBox(height: 8),
+          if (batteryEnabled) const SizedBox(height: 8),
           SettingsStrip(
             child: _LabeledRow(
               title: '模型低信号报警',

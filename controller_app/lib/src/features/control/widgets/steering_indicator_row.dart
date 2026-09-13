@@ -91,7 +91,8 @@ class _SteeringIndicatorDial extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final clamped = value.clamp(-1.0, 1.0);
-    final targetTurns = clamped * (1 / 8); // +/-45deg
+    // 指针覆盖仪表完整刻度：最小 -120°，最大 +120°。
+    final targetTurns = clamped * (1 / 3);
     final scale = size / 96;
     final pointerWidth = 12 * scale;
     final pointerHeight = 26 * scale;

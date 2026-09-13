@@ -45,7 +45,10 @@ class ReceiverBleClient {
   static const Duration _bootReconnectTimeout = Duration(seconds: 20);
   static const Duration _bootReconnectRetryDelay = Duration(milliseconds: 700);
   static const Duration _upgradeLengthRetryDelay = Duration(milliseconds: 100);
+  static const int _maxUpgradeLengthTimeoutAttempts = 3;
   static const int _maxFinalUpgradeChunkAttempts = 10;
+  static const int _neutralStopFrameCount = 10;
+  static const Duration _neutralStopFrameInterval = Duration(milliseconds: 10);
 
   StreamSubscription<AdapterState>? _adapterSub;
   StreamSubscription<ReceiverLinkConnectionEvent>? _transportConnectionSub;
@@ -88,7 +91,6 @@ class ReceiverBleClient {
   bool _receiverInfoPollingEnabled = false;
   bool _receiverInfoReadInFlight = false;
   DateTime? _lastScanStopAt;
-  DateTime? _lastControlLogAt;
   Completer<void>? _scanAndConnectCancelCompleter;
 
   ReceiverConnectionState get connectionState => _connectionState;
@@ -310,7 +312,8 @@ class ReceiverBleClient {
     _controlBuffer.updateBase(values);
     if (ReceiverLogging.controlEnabled) {
       ReceiverLogging.phone(
-        '[control][base] ch1=${values.throttle} ch2=${values.steering} '
+        '[control][base] ch1(direction)=${values.steering} '
+        'ch2(throttle)=${values.throttle} '
         'ch3=${values.auxChannels[0]} ch4=${values.auxChannels[1]}',
         scope: 'ReceiverBleClient',
       );
@@ -350,6 +353,42 @@ class ReceiverBleClient {
   Future<void> stopControlLoop() async {
     _controlLoop?.cancel();
     _controlLoop = null;
+  }
+
+  /// 停止普通控制循环，并以十帧全通道中位值作为本次控制会话结尾。
+  Future<void> stopControlLoopWithNeutralFrames() async {
+    await stopControlLoop();
+    _controlBuffer.clear();
+    if (_connectionState != ReceiverConnectionState.connected) {
+      ReceiverLogging.phone(
+        '[control][neutral-stop] skipped state=$_connectionState',
+        scope: 'ReceiverBleClient',
+      );
+      return;
+    }
+    ReceiverLogging.phone(
+      '[control][neutral-stop] start frames=$_neutralStopFrameCount '
+      'interval=${_neutralStopFrameInterval.inMilliseconds}ms',
+      scope: 'ReceiverBleClient',
+    );
+    for (var index = 0; index < _neutralStopFrameCount; index++) {
+      try {
+        await _sendControlHeartbeat();
+      } catch (error) {
+        ReceiverLogging.phone(
+          '[control][neutral-stop] failed frame=${index + 1} error=$error',
+          scope: 'ReceiverBleClient',
+        );
+        return;
+      }
+      if (index < _neutralStopFrameCount - 1) {
+        await Future<void>.delayed(_neutralStopFrameInterval);
+      }
+    }
+    ReceiverLogging.phone(
+      '[control][neutral-stop] completed frames=$_neutralStopFrameCount',
+      scope: 'ReceiverBleClient',
+    );
   }
 
   Stream<ReceiverUpgradeProgress> startUpgrade(Uint8List firmwareBytes) async* {
@@ -533,13 +572,31 @@ class ReceiverBleClient {
   /// 循环发送 0x13 固件长度，直到接收器以 data[4] = 1 确认。
   Future<void> _sendUpgradeLengthUntilAccepted(int length) async {
     var attempt = 0;
+    var timeoutAttempts = 0;
     while (true) {
       attempt++;
-      final lengthFrame = await _sendRequest(
-        buildUpgradeLengthRequest(length),
-        matcher: (response) =>
-            response.command == ReceiverCommand.setUpgradeLength.id,
-      );
+      ReceiverFrame lengthFrame;
+      try {
+        lengthFrame = await _sendRequest(
+          buildUpgradeLengthRequest(length),
+          matcher: (response) =>
+              response.command == ReceiverCommand.setUpgradeLength.id,
+        );
+        timeoutAttempts = 0;
+      } on TimeoutException {
+        timeoutAttempts++;
+        ReceiverLogging.device(
+          '[upgrade][0x13] attempt=$attempt response timeout '
+          '($timeoutAttempts/$_maxUpgradeLengthTimeoutAttempts)',
+          scope: 'ReceiverBleClient',
+        );
+        if (timeoutAttempts >= _maxUpgradeLengthTimeoutAttempts) {
+          rethrow;
+        }
+        // Boot 重连后的首个通知可能延迟，短暂等待后安全重发长度指令。
+        await Future<void>.delayed(_upgradeLengthRetryDelay);
+        continue;
+      }
       final lengthState = parseUpgradeState(lengthFrame, stateIndex: 4);
       ReceiverLogging.device(
         '[upgrade][0x13] attempt=$attempt state=$lengthState '
@@ -701,17 +758,12 @@ class ReceiverBleClient {
   Future<void> _sendControlHeartbeat() async {
     final rfmId = _receiverInfo?.rfmId ?? _zeroRfmId;
     final values = _controlBuffer.consumeNextValues();
-    final now = DateTime.now();
-    if (ReceiverLogging.controlEnabled &&
-        (_lastControlLogAt == null ||
-            now.difference(_lastControlLogAt!) >= const Duration(seconds: 1))) {
-      _lastControlLogAt = now;
-      ReceiverLogging.phone(
-        '[control][heartbeat] ch1=${values.throttle} ch2=${values.steering} '
-        'ch3=${values.auxChannels[0]} ch4=${values.auxChannels[1]}',
-        scope: 'ReceiverBleClient',
-      );
-    }
+    // 真机调试时按协议通道顺序打印最终值，便于核对行程与微调后的实际输出。
+    ReceiverLogging.phone(
+      '[control][tx][0x02] ch1(direction)=${values.steering}us '
+      'ch2(throttle)=${values.throttle}us',
+      scope: 'ReceiverBleClient',
+    );
     final frame = buildControlHeartbeatFrame(rfmId, values);
     final frameBytes = frame.toBytes();
     if (ReceiverLogging.controlEnabled) {

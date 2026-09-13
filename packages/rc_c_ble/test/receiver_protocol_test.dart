@@ -86,7 +86,7 @@ void main() {
     expect(parseExitBleModeState(frame), 1);
   });
 
-  test('builds cmd 0x02 with steering before throttle', () {
+  test('builds cmd 0x02 with CH1 steering before CH2 throttle', () {
     final frame = buildControlHeartbeatFrame(
       Uint8List.fromList(const [0x11, 0x22, 0x33, 0x44]),
       const ReceiverControlValues(throttle: 1400, steering: 1600),
@@ -559,6 +559,39 @@ void main() {
       }
     },
   );
+
+  test('stopping control sends exactly ten all-neutral frames', () async {
+    final transport = _FakeTransport();
+    final client = ReceiverBleClient(transport: transport);
+
+    try {
+      await client.connect('dev-1');
+      await client.updateControlValues(
+        const ReceiverControlValues(
+          throttle: 1800,
+          steering: 1200,
+          auxChannels: [1000, 2000, 1100, 1900, 1200, 1800, 1300, 1700],
+        ),
+      );
+      await client.queueAuxChannelPulse(0, 2100);
+
+      await client.stopControlLoopWithNeutralFrames();
+
+      final heartbeatFrames = transport.sentFrames
+          .where(
+            (frame) => frame.command == ReceiverCommand.controlHeartbeat.id,
+          )
+          .toList(growable: false);
+      expect(heartbeatFrames, hasLength(10));
+      for (final frame in heartbeatFrames) {
+        for (final offset in <int>[4, 6, 8, 10, 12, 14, 16, 18, 20, 22]) {
+          expect(_decodeWord(frame.data, offset), 1500);
+        }
+      }
+    } finally {
+      await client.dispose();
+    }
+  });
 
   test('control loop can start before receiverInfo request succeeds', () async {
     final transport = _FakeTransport();

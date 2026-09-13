@@ -7,8 +7,10 @@ import 'package:rc_ui/rc_ui.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../app/app_route_observer.dart';
 import '../../../core/providers.dart';
 import '../../../provider/alert_message_provider.dart';
+import '../../../provider/app_provider.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
 import '../../../provider/control_presentation_provider.dart';
 import '../../../provider/control_provider.dart';
@@ -155,7 +157,7 @@ class ControlPage extends ConsumerStatefulWidget {
 }
 
 class _ControlPageState extends ConsumerState<ControlPage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
   static const _backgroundVideoAsset =
       'assets/wepb/control_bg_forward_loop.mp4';
   static const _overlayAnimationWidth = 136.0;
@@ -173,6 +175,9 @@ class _ControlPageState extends ConsumerState<ControlPage>
   bool _countdownCompleted = false;
   bool _activationInProgress = false;
   bool _controlSessionStopped = false;
+  bool _routeIsCurrent = true;
+  bool _appIsForeground = true;
+  ModalRoute<void>? _subscribedRoute;
 
   ControlController _getControlController() {
     final cached = _controlController;
@@ -210,6 +215,41 @@ class _ControlPageState extends ConsumerState<ControlPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_initializePage(presentationController));
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route == null || identical(route, _subscribedRoute)) {
+      return;
+    }
+    if (_subscribedRoute != null) {
+      appRouteObserver.unsubscribe(this);
+    }
+    _subscribedRoute = route;
+    appRouteObserver.subscribe(this, route);
+  }
+
+  /// 控制页被其他页面覆盖时，安全结束本次控制发送。
+  @override
+  void didPushNext() {
+    _routeIsCurrent = false;
+    unawaited(_suspendControlSession());
+  }
+
+  /// 上层页面返回后，重新倒计时再恢复控制发送。
+  @override
+  void didPopNext() {
+    _routeIsCurrent = true;
+    unawaited(_resumeControlSession());
+  }
+
+  /// 控制页自身退出时，安全结束本次控制发送。
+  @override
+  void didPop() {
+    _routeIsCurrent = false;
+    unawaited(_suspendControlSession());
   }
 
   /// 恢复本地运行状态后再开始倒计时，避免按默认状态发送控制数据。
@@ -312,8 +352,10 @@ class _ControlPageState extends ConsumerState<ControlPage>
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
+        _appIsForeground = false;
         unawaited(_suspendControlSession());
       case AppLifecycleState.resumed:
+        _appIsForeground = true;
         unawaited(_resumeControlSession());
         break;
     }
@@ -321,7 +363,10 @@ class _ControlPageState extends ConsumerState<ControlPage>
 
   /// 从后台恢复时重新开始安全倒计时，完成前不恢复控制输出。
   Future<void> _resumeControlSession() async {
-    if (!_controlSessionStopped || !mounted) {
+    if (!_controlSessionStopped ||
+        !_routeIsCurrent ||
+        !_appIsForeground ||
+        !mounted) {
       return;
     }
     _controlSessionStopped = false;
@@ -352,6 +397,8 @@ class _ControlPageState extends ConsumerState<ControlPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    appRouteObserver.unsubscribe(this);
+    _subscribedRoute = null;
     _countdownTimer?.cancel();
     _countdownTimer = null;
     final controlController = _controlController;
@@ -449,7 +496,12 @@ class _ControlPageState extends ConsumerState<ControlPage>
     final alertMessage = ref.watch(controlPageAlertMessageProvider);
 
     final connected = connectionState == ReceiverConnectionState.connected;
-    final batteryStatus = ref.watch(receiverBatteryStatusProvider);
+    final batteryEnabled = ref.watch(
+      appFeatureFlagsProvider.select((flags) => flags.receiverBatteryEnabled),
+    );
+    final batteryStatus = batteryEnabled
+        ? ref.watch(receiverBatteryStatusProvider)
+        : null;
     final batteryLevel = connected ? (batteryStatus?.iconPercent ?? 0) : 0;
     final rssi = connected ? connectedRssi : null;
 
@@ -559,6 +611,7 @@ class _ControlPageState extends ConsumerState<ControlPage>
                     _TopBar(
                       alertMessage: alertMessage,
                       battery: batteryLevel,
+                      batteryEnabled: batteryEnabled,
                       rssi: rssi,
                       onSettings: () {
                         Navigator.of(context).pushNamed(AppRoutes.settings);
@@ -643,6 +696,7 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.alertMessage,
     required this.battery,
+    required this.batteryEnabled,
     required this.rssi,
     required this.onSettings,
     required this.musicOn,
@@ -660,6 +714,7 @@ class _TopBar extends StatelessWidget {
 
   final String? alertMessage;
   final int battery;
+  final bool batteryEnabled;
   final int? rssi;
   final VoidCallback onSettings;
   final bool musicOn;
@@ -691,8 +746,14 @@ class _TopBar extends StatelessWidget {
                   width: 29,
                   height: 16,
                 ),
-                const SizedBox(width: 16),
-                BatteryWidget(value: battery.toDouble(), width: 29, height: 16),
+                if (batteryEnabled) ...[
+                  const SizedBox(width: 16),
+                  BatteryWidget(
+                    value: battery.toDouble(),
+                    width: 29,
+                    height: 16,
+                  ),
+                ],
               ],
             ),
             Expanded(
@@ -710,12 +771,6 @@ class _TopBar extends StatelessWidget {
             ),
             Row(
               children: [
-                _CircleIconBtn.svg(
-                  assetPath: 'assets/icons/sync_arrows.svg',
-                  active: directionOn,
-                  onTap: onDirection,
-                ),
-                const SizedBox(width: 16),
                 if (showThrottleTurnSignals && (leftTurnOn || rightTurnOn)) ...[
                   ThrottleTurnSignalButtons(
                     leftOn: leftTurnOn,
@@ -724,6 +779,12 @@ class _TopBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 16),
                 ],
+                _CircleIconBtn.svg(
+                  assetPath: 'assets/icons/sync_arrows.svg',
+                  active: directionOn,
+                  onTap: onDirection,
+                ),
+                const SizedBox(width: 16),
                 BluetoothSvgToggleButton(value: musicOn, onTap: onMusic),
                 const SizedBox(width: 16),
                 SoundSvgToggleButton(value: soundOn, onTap: onSound),
@@ -801,6 +862,7 @@ class _ControlSettingsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      key: const ValueKey<String>('control-settings-button'),
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: SizedBox(

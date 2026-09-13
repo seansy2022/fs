@@ -9,10 +9,11 @@ import '../core/app_vibration.dart';
 import '../core/receiver_battery_status.dart';
 import '../features/settings/models/app_settings_state.dart';
 import 'alert_audio_player.dart';
+import 'app_provider.dart';
 import 'app_settings_provider.dart';
 import 'device_status_provider.dart';
 
-typedef AlertVibration = Future<void> Function(Duration duration);
+typedef AlertVibration = Future<void> Function();
 typedef StopAlertVibration = Future<void> Function();
 
 final batteryAlertDurationProvider = Provider<Duration>((ref) {
@@ -24,7 +25,7 @@ final batteryAlertLanguageCodeProvider = Provider<String>((ref) {
 });
 
 final batteryAlertVibrationProvider = Provider<AlertVibration>((ref) {
-  return (duration) => AppVibration.alert(duration: duration);
+  return AppVibration.alert;
 });
 
 final batteryAlertStopVibrationProvider = Provider<StopAlertVibration>((ref) {
@@ -33,10 +34,17 @@ final batteryAlertStopVibrationProvider = Provider<StopAlertVibration>((ref) {
 
 final batteryAlertMonitorProvider = Provider<BatteryAlertMonitor>((ref) {
   final monitor = BatteryAlertMonitor(ref);
+  if (!ref.watch(appFeatureFlagsProvider).receiverBatteryEnabled) {
+    ref.onDispose(monitor.dispose);
+    return monitor;
+  }
   ref.listen(receiverBatteryStatusProvider, (_, next) {
     monitor.updateBatteryStatus(next);
   });
   ref.listen<AppSettingsState>(appSettingsProvider, (_, __) => monitor.sync());
+  ref.listen<bool>(appForegroundProvider, (_, foreground) {
+    monitor.updateAppForeground(foreground);
+  });
   ref.onDispose(monitor.dispose);
   return monitor;
 });
@@ -55,6 +63,13 @@ class BatteryAlertMonitor {
   ReceiverBatteryStatus? _batteryStatus;
   bool _isBelowThreshold = false;
   bool _sessionActive = false;
+
+  /// 息屏时只停止低电量语音，震动和报警周期保持原有行为。
+  void updateAppForeground(bool foreground) {
+    if (!foreground) {
+      unawaited(_player.stop());
+    }
+  }
 
   /// 同步最新换算后的电池状态，避免直接使用协议原始百分比。
   void updateBatteryStatus(ReceiverBatteryStatus? batteryStatus) {
@@ -90,7 +105,7 @@ class BatteryAlertMonitor {
   Future<void> _startSession() async {
     _sessionActive = true;
     final settings = _ref.read(appSettingsProvider);
-    if (settings.batteryVoice) {
+    if (settings.batteryVoice && _ref.read(appForegroundProvider)) {
       try {
         await _player.playLoop(
           _batteryAlertAsset(_ref.read(batteryAlertLanguageCodeProvider)),
@@ -99,7 +114,7 @@ class BatteryAlertMonitor {
     }
     if (settings.batteryVibration) {
       try {
-        await _vibrate(_ref.read(batteryAlertDurationProvider));
+        await _vibrate();
       } catch (_) {}
     }
     _sessionTimer = Timer(_ref.read(batteryAlertDurationProvider), () {

@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 
+import 'package:controller_app/src/core/localization/app_localizations.dart';
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
 import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
 import 'package:controller_app/src/provider/alert_message_provider.dart';
+import 'package:controller_app/src/provider/app_provider.dart';
 import 'package:controller_app/src/provider/app_settings_provider.dart';
 import 'package:controller_app/src/provider/effective_bluetooth_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +15,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('control page message ignores alarm switches and uses thresholds', () {
+  setUp(() {
+    AppText.setLanguage(AppLanguage.chinese);
+  });
+
+  test('disabled battery feature hides low battery warning', () {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     final settings = SettingsController()
       ..state = AppSettingsState.defaults().copyWith(
@@ -39,7 +45,45 @@ void main() {
         effectiveConnectedRssiProvider.overrideWith((ref) => -90),
       ],
     );
-    addTearDown(container.dispose);
+    addTearDown(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      container.dispose();
+    });
+
+    expect(container.read(controlPageAlertMessageProvider), '信号低！');
+  });
+
+  test('enabled battery feature keeps existing low battery warning', () {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final settings = SettingsController()
+      ..state = AppSettingsState.defaults().copyWith(
+        batteryAlertPercent: 30,
+        signalThreshold: 80,
+      );
+    final container = ProviderContainer(
+      overrides: [
+        appFeatureFlagsProvider.overrideWithValue(
+          const AppFeatureFlags(receiverBatteryEnabled: true),
+        ),
+        appSettingsProvider.overrideWith((ref) => settings),
+        appSettingsLoadedProvider.overrideWith((ref) => true),
+        effectiveReceiverInfoProvider.overrideWith((ref) {
+          return ReceiverInfo(
+            rfmId: Uint8List(4),
+            productModelCode: 1,
+            batteryLevel: 20,
+          );
+        }),
+        effectiveReceiverConnectionProvider.overrideWith((ref) {
+          return ReceiverConnectionState.connected;
+        }),
+        effectiveConnectedRssiProvider.overrideWith((ref) => -90),
+      ],
+    );
+    addTearDown(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      container.dispose();
+    });
 
     expect(container.read(controlPageAlertMessageProvider), '电量低！ 信号低！');
   });
@@ -68,7 +112,10 @@ void main() {
         effectiveConnectedRssiProvider.overrideWith((ref) => -90),
       ],
     );
-    addTearDown(container.dispose);
+    addTearDown(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      container.dispose();
+    });
 
     expect(container.read(controlPageAlertMessageProvider), '信号低！');
   });
@@ -97,7 +144,10 @@ void main() {
         effectiveConnectedRssiProvider.overrideWith((ref) => null),
       ],
     );
-    addTearDown(container.dispose);
+    addTearDown(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      container.dispose();
+    });
 
     expect(container.read(controlPageAlertMessageProvider), isNull);
   });

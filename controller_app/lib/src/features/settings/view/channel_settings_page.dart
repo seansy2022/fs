@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rc_ui/rc_ui.dart';
@@ -209,16 +208,15 @@ class _ChannelSettingsContentState
                   const _AuxLabel('名称'),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: _AuxNameField(
+                    child: _AuxNameButton(
                       key: ValueKey<String>('aux-name-$channelIndex'),
-                      value: channel.displayName,
-                      fallbackValue: '辅助${channelIndex - 1}',
-                      onEditingComplete: (value) {
-                        controller.updateChannel(
-                          channelIndex,
-                          channel.copyWith(displayName: value),
-                        );
-                      },
+                      label: AppText.tr(channel.displayName),
+                      onTap: () => _editAuxChannelName(
+                        context,
+                        controller,
+                        channelIndex,
+                        channel,
+                      ),
                     ),
                   ),
                 ],
@@ -605,6 +603,38 @@ class _ChannelSettingsContentState
     );
   }
 
+  /// 通过统一文本弹窗编辑 CH3/CH4 名称，空值恢复对应默认名称。
+  Future<void> _editAuxChannelName(
+    BuildContext context,
+    SettingsController controller,
+    int channelIndex,
+    ChannelSetting channel,
+  ) async {
+    final value = await TextInputDialog.show(
+      context,
+      title: AppText.tr('修改名称'),
+      initialValue: AppText.tr(channel.displayName),
+      maxLength: auxChannelNameMaxLength,
+    );
+    if (value == null) {
+      return;
+    }
+    final fallbackValue = '辅助${channelIndex - 1}';
+    final trimmedValue = value.trim();
+    final nextValue = trimmedValue.isEmpty
+        ? fallbackValue
+        : trimmedValue == AppText.tr(channel.displayName)
+        ? channel.displayName
+        : trimmedValue;
+    if (nextValue == channel.displayName) {
+      return;
+    }
+    controller.updateChannel(
+      channelIndex,
+      channel.copyWith(displayName: nextValue),
+    );
+  }
+
   /// 编辑多状态名称；空值在提交时自动恢复为对应默认名称。
   Future<void> _editMultiStateLabel(
     BuildContext context,
@@ -858,107 +888,36 @@ class _AuxSelectField extends StatelessWidget {
   }
 }
 
-class _AuxNameField extends StatefulWidget {
-  const _AuxNameField({
-    super.key,
-    required this.value,
-    required this.fallbackValue,
-    required this.onEditingComplete,
-  });
+class _AuxNameButton extends StatelessWidget {
+  const _AuxNameButton({super.key, required this.label, required this.onTap});
 
-  final String value;
-  final String fallbackValue;
-  final ValueChanged<String> onEditingComplete;
-
-  @override
-  State<_AuxNameField> createState() => _AuxNameFieldState();
-}
-
-class _AuxNameFieldState extends State<_AuxNameField> {
-  late final TextEditingController _controller = TextEditingController(
-    text: AppText.tr(widget.value),
-  );
-  late final FocusNode _focusNode = FocusNode()..addListener(_onFocusChanged);
-  late String _lastCommittedValue = widget.value;
-
-  @override
-  void didUpdateWidget(covariant _AuxNameField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.value == widget.value) {
-      return;
-    }
-    _lastCommittedValue = widget.value;
-    if (_focusNode.hasFocus || _controller.text == AppText.tr(widget.value)) {
-      return;
-    }
-    _controller.text = AppText.tr(widget.value);
-    _controller.selection = TextSelection.collapsed(
-      offset: _controller.text.length,
-    );
-  }
-
-  /// 输入框失去焦点时，将临时输入内容提交到设置状态。
-  void _onFocusChanged() {
-    if (!_focusNode.hasFocus) {
-      _commitValue();
-    }
-  }
-
-  /// 完成编辑后校验名称；空名称恢复默认值，其他内容保留原样。
-  void _commitValue() {
-    final rawValue = _controller.text.trim();
-    final value = rawValue.isEmpty
-        ? widget.fallbackValue
-        : rawValue == AppText.tr(widget.value)
-        ? widget.value
-        : rawValue;
-    if (_controller.text != value) {
-      _controller.text = value;
-      _controller.selection = TextSelection.collapsed(offset: value.length);
-    }
-    if (_lastCommittedValue == value) {
-      return;
-    }
-    _lastCommittedValue = value;
-    widget.onEditingComplete(value);
-  }
-
-  @override
-  void dispose() {
-    _focusNode
-      ..removeListener(_onFocusChanged)
-      ..dispose();
-    _controller.dispose();
-    super.dispose();
-  }
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: const Color(0x661B2D4D),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF0072FF), width: 0.9),
-      ),
-      alignment: Alignment.center,
-      child: TextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        inputFormatters: <TextInputFormatter>[
-          LengthLimitingTextInputFormatter(5),
-        ],
-        onSubmitted: (_) => _commitValue(),
-        style: const TextStyle(
-          color: AppColors.text,
-          fontSize: 14,
-          fontWeight: AppFonts.w600,
+    // 保留原名称输入框的视觉，仅将交互改为点击后打开编辑弹窗。
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        alignment: Alignment.centerLeft,
+        decoration: BoxDecoration(
+          color: const Color(0x661B2D4D),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: const Color(0xFF0072FF), width: 0.9),
         ),
-        decoration: const InputDecoration(
-          isDense: true,
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.zero,
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppColors.text,
+            fontSize: 14,
+            fontWeight: AppFonts.w600,
+          ),
         ),
       ),
     );

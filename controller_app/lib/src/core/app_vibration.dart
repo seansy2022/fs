@@ -4,19 +4,22 @@ import 'package:vibration/vibration.dart';
 class AppVibration {
   const AppVibration._();
 
-  static Future<void> alert({
-    Duration duration = const Duration(milliseconds: 500),
-  }) async {
+  static const _alertDuration = Duration(seconds: 2);
+  static const _lowAmplitude = 64;
+
+  /// 统一触发两秒低度报警震动；不支持振幅控制时使用系统默认强度。
+  static Future<void> alert() async {
     try {
       if (await Vibration.hasVibrator()) {
+        final hasAmplitudeControl = await Vibration.hasAmplitudeControl();
         await Vibration.vibrate(
-          duration: duration.inMilliseconds,
-          amplitude: 255,
+          duration: _alertDuration.inMilliseconds,
+          amplitude: hasAmplitudeControl ? _lowAmplitude : -1,
         );
         return;
       }
     } catch (_) {}
-    await HapticFeedback.heavyImpact();
+    await HapticFeedback.lightImpact();
   }
 
   static Future<void> stop() async {

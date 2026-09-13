@@ -9,10 +9,13 @@ import 'package:rc_ui/rc_ui.dart';
 import '../../../app/app_routes.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers.dart';
+import '../../../provider/app_provider.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
 import '../../../provider/device_status_provider.dart';
 import '../../../provider/effective_bluetooth_provider.dart';
 import '../../bluetooth/widgets/bluetooth_connect_feedback.dart';
+import '../../bluetooth/widgets/paired_device_delete_flow.dart';
+import '../../bluetooth/widgets/receiver_safety_confirmation.dart';
 import 'home_reconnect_dialog.dart';
 
 const _blueSvg = '''
@@ -167,7 +170,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     final connectedRssi = ref.watch(effectiveConnectedRssiProvider);
     final connectedDevice = bluetoothState.connectedDevice;
     final connected = connectionState == ReceiverConnectionState.connected;
-    final batteryStatus = ref.watch(receiverBatteryStatusProvider);
+    final batteryEnabled = ref.watch(
+      appFeatureFlagsProvider.select((flags) => flags.receiverBatteryEnabled),
+    );
+    final batteryStatus = batteryEnabled
+        ? ref.watch(receiverBatteryStatusProvider)
+        : null;
     final batteryLevel = batteryStatus?.displayPercent;
     final rssi = connected ? (connectedRssi ?? connectedDevice?.rssi) : null;
     final deviceName = connectedDevice?.name ?? '--';
@@ -229,19 +237,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          SizedBox(
-                            width: 112,
-                            height: 120,
-                            child: HomeMetric(
-                              label: AppText.tr('RX电量'),
-                              value: batteryLevel != null
-                                  ? '$batteryLevel'
-                                  : '--',
-                              unit: batteryLevel != null ? '%' : '',
-                              emphasize: connected,
+                          if (batteryEnabled) ...[
+                            SizedBox(
+                              width: 112,
+                              height: 120,
+                              child: HomeMetric(
+                                label: AppText.tr('RX电量'),
+                                value: batteryLevel != null
+                                    ? '$batteryLevel'
+                                    : '--',
+                                unit: batteryLevel != null ? '%' : '',
+                                emphasize: connected,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 64),
+                            const SizedBox(width: 64),
+                          ],
                           SizedBox(
                             width: 112,
                             height: 120,
@@ -541,7 +551,19 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
         if (target == null) {
           return;
         }
-        if (target.isConnected) {
+        final connectedRemoteId = ref
+            .read(bluetoothDomainControllerProvider)
+            .connectedDevice
+            ?.remoteId;
+        if (target.isConnected || connectedRemoteId == target.remoteId) {
+          return;
+        }
+        final confirmed = await confirmReceiverSwitchIfNeeded(
+          context,
+          connectedRemoteId: connectedRemoteId,
+          targetRemoteId: target.remoteId,
+        );
+        if (!confirmed || !context.mounted) {
           return;
         }
         final result = await showBluetoothConnectFeedback(
@@ -559,34 +581,17 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
         if (target == null) {
           return;
         }
-        final confirmed = await AlertIconWidget.show(
+        final currentState = ref.read(bluetoothDomainControllerProvider);
+        final isConnected =
+            target.isConnected ||
+            currentState.connectedDevice?.remoteId == target.remoteId;
+        await deletePairedDeviceWithFeedback(
           context,
-          title: '\u5220\u9664\u8bbe\u5907',
-          message:
-              '\u786e\u5b9a\u5220\u9664\u8bbe\u5907 ${target.name} \u5417\uff1f',
-          cancelText: '\u53d6\u6d88',
-          confirmText: '\u786e\u5b9a',
+          isConnected: isConnected,
+          disconnect: bluetoothController.disconnect,
+          remove: () =>
+              bluetoothController.removeRememberedDevice(target.remoteId),
         );
-        if (confirmed != true) {
-          return;
-        }
-        try {
-          if (target.isConnected) {
-            await bluetoothController.disconnect();
-          }
-          await bluetoothController.removeRememberedDevice(target.remoteId);
-        } catch (_) {
-          if (!context.mounted) {
-            return;
-          }
-          await AlertIconWidget.show(
-            context,
-            title: '\u5220\u9664\u5931\u8d25',
-            message:
-                '\u5220\u9664\u5386\u53f2\u8bbe\u5907\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5\u3002',
-            confirmText: '\u77e5\u9053\u4e86',
-          );
-        }
       },
       onClose: () => Navigator.of(context).pop(),
       footerText: context.tr('查找新设备'),
@@ -692,6 +697,21 @@ class _ScanDevicesDialogContentState
 
   Future<void> _connectDevice(ReceiverDeviceView target) async {
     if (!_sessionActive || !mounted) {
+      return;
+    }
+    final connectedRemoteId = ref
+        .read(bluetoothDomainControllerProvider)
+        .connectedDevice
+        ?.remoteId;
+    if (target.isConnected || connectedRemoteId == target.remoteId) {
+      return;
+    }
+    final confirmed = await confirmReceiverSwitchIfNeeded(
+      context,
+      connectedRemoteId: connectedRemoteId,
+      targetRemoteId: target.remoteId,
+    );
+    if (!confirmed || !_sessionActive || !mounted) {
       return;
     }
     final result = await showBluetoothConnectFeedback(

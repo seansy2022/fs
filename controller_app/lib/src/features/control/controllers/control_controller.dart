@@ -265,7 +265,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
     state = state.copyWith(loopActive: true);
   }
 
-  /// 停止后台或已退出页面的连续控制帧，不额外补发控制数据。
+  /// 页面不可见时先补发十帧全通道中位值，再停止连续控制帧。
   Future<void> suspendControlOutput() async {
     _controlOutputSuspended = true;
     _cancelGyroSync();
@@ -273,7 +273,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
     _touchThrottle = 0;
     _gyroSteering = 0;
     _gyroThrottle = 0;
-    await _repository.stopControlLoop();
+    await _repository.stopControlLoopWithNeutralFrames();
     if (!mounted) {
       return;
     }
@@ -591,6 +591,14 @@ class ControlController extends StateNotifier<ControlScreenState> {
           : finalSteeringUs,
       auxChannels: auxChannels,
     );
+    // 输出本次 _push 读取的 CH1 配置和各阶段结果，定位设置值是否实时生效。
+    debugPrint(
+      '[ControlOutput][push] ch1(direction) input=$effectiveSteering '
+      'low=${steeringSetting.lowPercent}% high=${steeringSetting.highPercent}% '
+      'center=${steeringSetting.trimPercent}us trimStep=${state.trim} '
+      'mapped=${steeringUs}us tankMix=${settings.tankMixingEnabled} '
+      'reversed=${steeringSetting.reversed} final=${values.steering}us',
+    );
     final lastPushedValues = _lastPushedValues;
     if (lastPushedValues != null &&
         lastPushedValues.throttle == values.throttle &&
@@ -600,7 +608,10 @@ class ControlController extends StateNotifier<ControlScreenState> {
     }
     if (settings.tankMixingEnabled) {
       // 输出最终发送给接收机的两路履带 PWM，便于核对混控、限幅和反向结果。
-      debugPrint('🚀ch1：${values.throttle}  🚀ch2：${values.steering}');
+      debugPrint(
+        '🚀ch1(direction)：${values.steering}  '
+        '🚀ch2(throttle)：${values.throttle}',
+      );
     }
     _lastPushedValues = values;
     await _repository.updateControlValues(values);
