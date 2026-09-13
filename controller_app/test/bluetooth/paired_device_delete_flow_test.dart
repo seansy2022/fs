@@ -61,7 +61,7 @@ void main() {
 
     expect(find.text('操作会导致失控，请确认安全！\n此设备正在使用，确定删除吗？'), findsOneWidget);
     final warningIcon = find.byKey(
-      const ValueKey<String>('paired-device-delete-warning-icon'),
+      const ValueKey<String>('receiver-safety-warning-icon'),
     );
     expect(warningIcon, findsOneWidget);
     expect(tester.getSize(warningIcon), const Size.square(40));

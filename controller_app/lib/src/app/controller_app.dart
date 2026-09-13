@@ -20,6 +20,7 @@ import '../features/settings/view/settings_page.dart';
 import '../features/startup/view/startup_page.dart';
 import '../shared/widgets/global_reconnect_overlay.dart';
 import 'app_routes.dart';
+import 'app_route_observer.dart';
 
 class ControllerApp extends ConsumerStatefulWidget {
   const ControllerApp({super.key});
@@ -61,6 +62,7 @@ class _ControllerAppState extends ConsumerState<ControllerApp>
     ref.watch(bluetoothDomainControllerProvider);
     ref.watch(globalReconnectControllerProvider);
     return MaterialApp(
+      navigatorObservers: [appRouteObserver],
       locale: language.locale,
       localizationsDelegates: const [
         AppLocalizations.delegate,

@@ -629,13 +629,17 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
       _setState(state.copyWith(isWorking: false, clearError: true));
       return true;
     } on TimeoutException {
+      final connected = await _waitForConnectedDevice(lastDevice.remoteId);
       _setState(
         state.copyWith(
           isWorking: false,
-          errorMessage: _deviceConnectFailedMessage(lastDevice.name),
+          errorMessage: connected
+              ? null
+              : _deviceConnectFailedMessage(lastDevice.name),
+          clearError: connected,
         ),
       );
-      return false;
+      return connected;
     } on ReceiverScanConnectCancelledException {
       _setState(state.copyWith(isWorking: false, clearError: true));
       return false;
@@ -774,6 +778,9 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
   }
 
   bool _isConnectedTo(String remoteId) {
+    if (_isRepositoryConnectedTo(remoteId)) {
+      return true;
+    }
     if (_connectionState != ReceiverConnectionState.connected) {
       return false;
     }
@@ -797,6 +804,18 @@ class BluetoothDomainController extends StateNotifier<BluetoothDomainState> {
     }
     final info = ref.read(receiverInfoProvider).valueOrNull;
     return info?.remoteId == remoteId;
+  }
+
+  /// 优先读取仓库同步快照；旧测试替身缺少 getter 时回退到异步领域状态。
+  bool _isRepositoryConnectedTo(String remoteId) {
+    try {
+      final repositoryInfo = _repository.receiverInfo;
+      return _repository.connectionState == ReceiverConnectionState.connected &&
+          (repositoryInfo?.remoteId == null ||
+              repositoryInfo?.remoteId == remoteId);
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> disconnect() async {

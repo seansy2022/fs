@@ -47,6 +47,8 @@ class ReceiverBleClient {
   static const Duration _upgradeLengthRetryDelay = Duration(milliseconds: 100);
   static const int _maxUpgradeLengthTimeoutAttempts = 3;
   static const int _maxFinalUpgradeChunkAttempts = 10;
+  static const int _neutralStopFrameCount = 10;
+  static const Duration _neutralStopFrameInterval = Duration(milliseconds: 10);
 
   StreamSubscription<AdapterState>? _adapterSub;
   StreamSubscription<ReceiverLinkConnectionEvent>? _transportConnectionSub;
@@ -351,6 +353,42 @@ class ReceiverBleClient {
   Future<void> stopControlLoop() async {
     _controlLoop?.cancel();
     _controlLoop = null;
+  }
+
+  /// 停止普通控制循环，并以十帧全通道中位值作为本次控制会话结尾。
+  Future<void> stopControlLoopWithNeutralFrames() async {
+    await stopControlLoop();
+    _controlBuffer.clear();
+    if (_connectionState != ReceiverConnectionState.connected) {
+      ReceiverLogging.phone(
+        '[control][neutral-stop] skipped state=$_connectionState',
+        scope: 'ReceiverBleClient',
+      );
+      return;
+    }
+    ReceiverLogging.phone(
+      '[control][neutral-stop] start frames=$_neutralStopFrameCount '
+      'interval=${_neutralStopFrameInterval.inMilliseconds}ms',
+      scope: 'ReceiverBleClient',
+    );
+    for (var index = 0; index < _neutralStopFrameCount; index++) {
+      try {
+        await _sendControlHeartbeat();
+      } catch (error) {
+        ReceiverLogging.phone(
+          '[control][neutral-stop] failed frame=${index + 1} error=$error',
+          scope: 'ReceiverBleClient',
+        );
+        return;
+      }
+      if (index < _neutralStopFrameCount - 1) {
+        await Future<void>.delayed(_neutralStopFrameInterval);
+      }
+    }
+    ReceiverLogging.phone(
+      '[control][neutral-stop] completed frames=$_neutralStopFrameCount',
+      scope: 'ReceiverBleClient',
+    );
   }
 
   Stream<ReceiverUpgradeProgress> startUpgrade(Uint8List firmwareBytes) async* {

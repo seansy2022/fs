@@ -79,6 +79,10 @@ class ReceiverRepository {
 
   Future<void> stopControlLoop() => session.stopControlLoop();
 
+  /// 用十帧全通道中位值安全结束当前控制会话。
+  Future<void> stopControlLoopWithNeutralFrames() =>
+      session.stopControlLoopWithNeutralFrames();
+
   Stream<ReceiverUpgradeProgress> startUpgrade(List<int> firmwareBytes) =>
       session.startUpgrade(firmwareBytes);
 

@@ -7,6 +7,7 @@ import 'package:rc_ui/rc_ui.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../app/app_route_observer.dart';
 import '../../../core/providers.dart';
 import '../../../provider/alert_message_provider.dart';
 import '../../../provider/app_provider.dart';
@@ -156,7 +157,7 @@ class ControlPage extends ConsumerStatefulWidget {
 }
 
 class _ControlPageState extends ConsumerState<ControlPage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
   static const _backgroundVideoAsset =
       'assets/wepb/control_bg_forward_loop.mp4';
   static const _overlayAnimationWidth = 136.0;
@@ -174,6 +175,9 @@ class _ControlPageState extends ConsumerState<ControlPage>
   bool _countdownCompleted = false;
   bool _activationInProgress = false;
   bool _controlSessionStopped = false;
+  bool _routeIsCurrent = true;
+  bool _appIsForeground = true;
+  ModalRoute<void>? _subscribedRoute;
 
   ControlController _getControlController() {
     final cached = _controlController;
@@ -211,6 +215,41 @@ class _ControlPageState extends ConsumerState<ControlPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_initializePage(presentationController));
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route == null || identical(route, _subscribedRoute)) {
+      return;
+    }
+    if (_subscribedRoute != null) {
+      appRouteObserver.unsubscribe(this);
+    }
+    _subscribedRoute = route;
+    appRouteObserver.subscribe(this, route);
+  }
+
+  /// 控制页被其他页面覆盖时，安全结束本次控制发送。
+  @override
+  void didPushNext() {
+    _routeIsCurrent = false;
+    unawaited(_suspendControlSession());
+  }
+
+  /// 上层页面返回后，重新倒计时再恢复控制发送。
+  @override
+  void didPopNext() {
+    _routeIsCurrent = true;
+    unawaited(_resumeControlSession());
+  }
+
+  /// 控制页自身退出时，安全结束本次控制发送。
+  @override
+  void didPop() {
+    _routeIsCurrent = false;
+    unawaited(_suspendControlSession());
   }
 
   /// 恢复本地运行状态后再开始倒计时，避免按默认状态发送控制数据。
@@ -313,8 +352,10 @@ class _ControlPageState extends ConsumerState<ControlPage>
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
+        _appIsForeground = false;
         unawaited(_suspendControlSession());
       case AppLifecycleState.resumed:
+        _appIsForeground = true;
         unawaited(_resumeControlSession());
         break;
     }
@@ -322,7 +363,10 @@ class _ControlPageState extends ConsumerState<ControlPage>
 
   /// 从后台恢复时重新开始安全倒计时，完成前不恢复控制输出。
   Future<void> _resumeControlSession() async {
-    if (!_controlSessionStopped || !mounted) {
+    if (!_controlSessionStopped ||
+        !_routeIsCurrent ||
+        !_appIsForeground ||
+        !mounted) {
       return;
     }
     _controlSessionStopped = false;
@@ -353,6 +397,8 @@ class _ControlPageState extends ConsumerState<ControlPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    appRouteObserver.unsubscribe(this);
+    _subscribedRoute = null;
     _countdownTimer?.cancel();
     _countdownTimer = null;
     final controlController = _controlController;
@@ -816,6 +862,7 @@ class _ControlSettingsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      key: const ValueKey<String>('control-settings-button'),
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: SizedBox(

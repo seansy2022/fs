@@ -15,6 +15,7 @@ import '../../../provider/device_status_provider.dart';
 import '../../../provider/effective_bluetooth_provider.dart';
 import '../../bluetooth/widgets/bluetooth_connect_feedback.dart';
 import '../../bluetooth/widgets/paired_device_delete_flow.dart';
+import '../../bluetooth/widgets/receiver_safety_confirmation.dart';
 import 'home_reconnect_dialog.dart';
 
 const _blueSvg = '''
@@ -550,7 +551,19 @@ class _PairedDevicesDialogContent extends ConsumerWidget {
         if (target == null) {
           return;
         }
-        if (target.isConnected) {
+        final connectedRemoteId = ref
+            .read(bluetoothDomainControllerProvider)
+            .connectedDevice
+            ?.remoteId;
+        if (target.isConnected || connectedRemoteId == target.remoteId) {
+          return;
+        }
+        final confirmed = await confirmReceiverSwitchIfNeeded(
+          context,
+          connectedRemoteId: connectedRemoteId,
+          targetRemoteId: target.remoteId,
+        );
+        if (!confirmed || !context.mounted) {
           return;
         }
         final result = await showBluetoothConnectFeedback(
@@ -684,6 +697,21 @@ class _ScanDevicesDialogContentState
 
   Future<void> _connectDevice(ReceiverDeviceView target) async {
     if (!_sessionActive || !mounted) {
+      return;
+    }
+    final connectedRemoteId = ref
+        .read(bluetoothDomainControllerProvider)
+        .connectedDevice
+        ?.remoteId;
+    if (target.isConnected || connectedRemoteId == target.remoteId) {
+      return;
+    }
+    final confirmed = await confirmReceiverSwitchIfNeeded(
+      context,
+      connectedRemoteId: connectedRemoteId,
+      targetRemoteId: target.remoteId,
+    );
+    if (!confirmed || !_sessionActive || !mounted) {
       return;
     }
     final result = await showBluetoothConnectFeedback(

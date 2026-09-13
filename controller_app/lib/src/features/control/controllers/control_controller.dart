@@ -265,7 +265,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
     state = state.copyWith(loopActive: true);
   }
 
-  /// 停止后台或已退出页面的连续控制帧，不额外补发控制数据。
+  /// 页面不可见时先补发十帧全通道中位值，再停止连续控制帧。
   Future<void> suspendControlOutput() async {
     _controlOutputSuspended = true;
     _cancelGyroSync();
@@ -273,7 +273,7 @@ class ControlController extends StateNotifier<ControlScreenState> {
     _touchThrottle = 0;
     _gyroSteering = 0;
     _gyroThrottle = 0;
-    await _repository.stopControlLoop();
+    await _repository.stopControlLoopWithNeutralFrames();
     if (!mounted) {
       return;
     }

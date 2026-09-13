@@ -49,18 +49,20 @@ lib/src/provider/
 - `doc/`：需求、协议、问题记录。
 - `test/`：单元与 Widget 测试。
 - `test/fakes/`：测试用蓝牙仓库等替身对象，避免测试文件膨胀。
-- `test/bluetooth/`：蓝牙设备删除等独立交互流程测试。
+- `test/bluetooth/`：蓝牙设备删除与重连真实连接状态核验等独立交互流程测试。
+- `test/bluetooth/receiver_safety_confirmation_test.dart`：接收机切换确认弹窗及无需确认分支测试。
 - `../packages/rc_c_ble/test/receiver_upgrade_retry_test.dart`：升级长度指令 0x13 的超时重试与失败上限测试。
 - `test/home_reconnect_flow_test.dart`：首页自动扫描上次蓝牙设备的启动链路测试。
 - `test/global_reconnect_provider_test.dart`：全局断线自动重连与取消链路测试。
 - `test/reconnect_overlay_view_test.dart`：重连遮罩在小尺寸屏幕下的布局测试。
-- `test/control_page_test.dart`：控制页倒计时、连接解锁和后台暂停的流程测试；3、2、1 每步为 500ms。
+- `test/control_page_test.dart`：控制页倒计时、连接解锁、路由离开和后台暂停的流程测试；离开时以十帧全通道 1500us 结束发送，3、2、1 每步为 500ms。
 - `test/tank_mixing_page_test.dart`：履带混控开关与数值输入禁用状态测试。
 - `../packages/rc_c_ble/lib/src/models/receiver_failsafe_config.dart`、`../packages/rc_c_ble/lib/src/protocol/receiver_failsafe_codec.dart`：失控保护配置与 0x07/0x08 编解码，使用 `0x0FFF` 表示保持；无效通道值规范化为 1500us 后全量回写。
 - `../packages/rc_c_ble/lib/src/transport/flutter_blue_receiver_transport.dart`、`../packages/rc_c_ble/test/flutter_blue_receiver_transport_test.dart`：BLE 接收帧转发；0x07、0x08、0x13 同帧回显也交由协议层处理。
 
 ### lib/src 分层
 - `app/`：应用装配与路由。
+- `app/app_route_observer.dart`：统一监听页面被覆盖、返回恢复等路由可见性变化。
 - `core/`：基础能力（常量、权限、基础 provider 出口）。
 - `provider/`：全局状态 provider（统一入口）。
 - `shared/`：跨 feature 复用组件。
@@ -71,6 +73,7 @@ lib/src/provider/
 - `features/home/view/`：首页。
 - `features/bluetooth/view/`：设备列表、配对页。
 - `features/bluetooth/widgets/paired_device_delete_flow.dart`：已配对设备删除流程；连接中的设备确认并断开后删除，未连接设备直接删除。
+- `features/bluetooth/widgets/receiver_safety_confirmation.dart`：删除连接中设备及切换接收机共用的黄色安全确认弹窗。
 - `features/control/view/`：控制页。
 - `features/control/controllers/`：控制页状态编排与通道输出映射。
 - `features/control/controllers/channel_output_mapper.dart`：CH1/CH2 百分比到 us 的分段映射工具。

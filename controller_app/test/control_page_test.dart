@@ -6,6 +6,8 @@ import 'package:controller_app/src/features/control/widgets/directional_steering
 import 'package:controller_app/src/features/control/widgets/floating_single_direction_control.dart';
 import 'package:controller_app/src/features/control/widgets/single_hand_control/floating_four_direction_control.dart';
 import 'package:controller_app/src/features/control/widgets/single_hand_control/four_direction_control.dart';
+import 'package:controller_app/src/app/app_route_observer.dart';
+import 'package:controller_app/src/app/app_routes.dart';
 import 'package:controller_app/src/provider/control_presentation_provider.dart';
 import 'package:controller_app/src/features/settings/controllers/settings_controller.dart';
 import 'package:controller_app/src/features/settings/models/app_settings_state.dart';
@@ -484,7 +486,7 @@ void main() {
     expect(repository.callOrder, <String>[
       'updateControlValues',
       'startControlLoop',
-      'stopControlLoop',
+      'stopControlLoopWithNeutralFrames',
     ]);
   });
 
@@ -574,52 +576,65 @@ void main() {
     ]);
   });
 
-  testWidgets('control page stops sending when app enters background', (
+  testWidgets(
+    'control page sends neutral frames before app enters background',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final repository = _FakeReceiverRepository();
+      final connectionStates = StreamController<ReceiverConnectionState>();
+      addTearDown(connectionStates.close);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            receiverRepositoryProvider.overrideWith((ref) => repository),
+            receiverConnectionProvider.overrideWith(
+              (ref) => connectionStates.stream,
+            ),
+            appSettingsProvider.overrideWith(
+              (ref) => _TestSettingsController(),
+            ),
+            gyroPromptProvider.overrideWith(
+              (ref) => Stream.value(const GyroPrompt.zero()),
+            ),
+          ],
+          child: const MaterialApp(home: ControlPage()),
+        ),
+      );
+      connectionStates.add(ReceiverConnectionState.connected);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+
+      expect(repository.callOrder, contains('startControlLoop'));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
+
+      expect(repository.callOrder.last, 'stopControlLoopWithNeutralFrames');
+      expect(
+        repository.callOrder.where(
+          (call) => call == 'stopControlLoopWithNeutralFrames',
+        ),
+        hasLength(1),
+      );
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(find.text('3'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+      expect(
+        repository.callOrder.where((call) => call == 'startControlLoop'),
+        hasLength(2),
+      );
+    },
+  );
+
+  testWidgets('control page sends neutral frames when it is removed', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues(const <String, Object>{});
-    final repository = _FakeReceiverRepository();
-    final connectionStates = StreamController<ReceiverConnectionState>();
-    addTearDown(connectionStates.close);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          receiverRepositoryProvider.overrideWith((ref) => repository),
-          receiverConnectionProvider.overrideWith(
-            (ref) => connectionStates.stream,
-          ),
-          appSettingsProvider.overrideWith((ref) => _TestSettingsController()),
-          gyroPromptProvider.overrideWith(
-            (ref) => Stream.value(const GyroPrompt.zero()),
-          ),
-        ],
-        child: const MaterialApp(home: ControlPage()),
-      ),
-    );
-    connectionStates.add(ReceiverConnectionState.connected);
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 3));
-    await tester.pump();
-
-    expect(repository.callOrder, contains('startControlLoop'));
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    await tester.pump();
-
-    expect(repository.callOrder.last, 'stopControlLoop');
-
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pump();
-    expect(find.text('3'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 3));
-    await tester.pump();
-    expect(
-      repository.callOrder.where((call) => call == 'startControlLoop'),
-      hasLength(2),
-    );
-  });
-
-  testWidgets('control page stops sending when it is removed', (tester) async {
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     final repository = _FakeReceiverRepository();
     final connectionStates = StreamController<ReceiverConnectionState>();
@@ -648,8 +663,62 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
-    expect(repository.callOrder.last, 'stopControlLoop');
+    expect(repository.callOrder, contains('stopControlLoopWithNeutralFrames'));
   });
+
+  testWidgets(
+    'opening settings stops control and returning restarts countdown',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      final repository = _FakeReceiverRepository();
+      final connectionStates = StreamController<ReceiverConnectionState>();
+      addTearDown(connectionStates.close);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            receiverRepositoryProvider.overrideWith((ref) => repository),
+            receiverConnectionProvider.overrideWith(
+              (ref) => connectionStates.stream,
+            ),
+            appSettingsProvider.overrideWith(
+              (ref) => _TestSettingsController(),
+            ),
+            gyroPromptProvider.overrideWith(
+              (ref) => Stream.value(const GyroPrompt.zero()),
+            ),
+          ],
+          child: MaterialApp(
+            navigatorObservers: [appRouteObserver],
+            routes: {
+              AppRoutes.settings: (_) => const Scaffold(body: Text('设置页')),
+            },
+            home: const ControlPage(),
+          ),
+        ),
+      );
+      connectionStates.add(ReceiverConnectionState.connected);
+      await tester.pump();
+      for (var index = 0; index < 3; index++) {
+        await tester.pump(const Duration(milliseconds: 500));
+      }
+
+      final settingsButton = tester.widget<GestureDetector>(
+        find.byKey(const ValueKey<String>('control-settings-button')),
+      );
+      settingsButton.onTap!();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('设置页'), findsOneWidget);
+      expect(repository.callOrder.last, 'stopControlLoopWithNeutralFrames');
+
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pump();
+
+      expect(find.text('3'), findsOneWidget);
+    },
+  );
 
   test(
     'low gear halves forward throttle output while high gear keeps full',
@@ -1607,6 +1676,11 @@ class _FakeReceiverRepository implements ReceiverRepository {
   @override
   Future<void> stopControlLoop() async {
     callOrder.add('stopControlLoop');
+  }
+
+  @override
+  Future<void> stopControlLoopWithNeutralFrames() async {
+    callOrder.add('stopControlLoopWithNeutralFrames');
   }
 
   @override

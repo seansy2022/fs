@@ -6,6 +6,7 @@ import '../../../provider/bluetooth_domain_provider.dart';
 import '../../../shared/widgets/app_page_scaffold.dart';
 import '../widgets/bluetooth_connect_feedback.dart';
 import '../widgets/paired_device_delete_flow.dart';
+import '../widgets/receiver_safety_confirmation.dart';
 
 class DeviceListPage extends ConsumerWidget {
   const DeviceListPage({super.key});
@@ -38,7 +39,19 @@ class DeviceListPage extends ConsumerWidget {
         emptyText: '\u6682\u65e0\u5386\u53f2\u8bbe\u5907',
         onTap: (item) async {
           final target = devices.firstWhere((d) => d.name == item.title);
-          if (target.isConnected) {
+          final connectedRemoteId = ref
+              .read(bluetoothDomainControllerProvider)
+              .connectedDevice
+              ?.remoteId;
+          if (target.isConnected || connectedRemoteId == target.remoteId) {
+            return;
+          }
+          final confirmed = await confirmReceiverSwitchIfNeeded(
+            context,
+            connectedRemoteId: connectedRemoteId,
+            targetRemoteId: target.remoteId,
+          );
+          if (!confirmed || !context.mounted) {
             return;
           }
           await showBluetoothConnectFeedback(

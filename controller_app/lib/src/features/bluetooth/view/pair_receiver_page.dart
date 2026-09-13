@@ -8,6 +8,7 @@ import '../../../core/providers.dart';
 import '../../../provider/bluetooth_domain_provider.dart';
 import '../../../shared/widgets/app_page_scaffold.dart';
 import '../widgets/bluetooth_connect_feedback.dart';
+import '../widgets/receiver_safety_confirmation.dart';
 
 class PairReceiverPage extends ConsumerStatefulWidget {
   const PairReceiverPage({super.key});
@@ -103,6 +104,21 @@ class _PairReceiverPageState extends ConsumerState<PairReceiverPage> {
 
   Future<void> _connect(ReceiverDeviceView device) async {
     if (!_sessionActive || !mounted) {
+      return;
+    }
+    final connectedRemoteId = ref
+        .read(bluetoothDomainControllerProvider)
+        .connectedDevice
+        ?.remoteId;
+    if (device.isConnected || connectedRemoteId == device.remoteId) {
+      return;
+    }
+    final confirmed = await confirmReceiverSwitchIfNeeded(
+      context,
+      connectedRemoteId: connectedRemoteId,
+      targetRemoteId: device.remoteId,
+    );
+    if (!confirmed || !_sessionActive || !mounted) {
       return;
     }
     final result = await showBluetoothConnectFeedback(
