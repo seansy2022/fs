@@ -33,8 +33,8 @@ class RaceSoundAssetMap {
     backgroundMusic: 'voice/background_music.mp3',
     launchLow: 'voice/launch_low.mp3',
     launchHigh: 'voice/launch_high.mp3',
-    // 使用已处理的双段无缝行驶音，避免素材内部出现短暂静音。
-    drivingLoop: 'voice/processed/汽车行驶中_双段首尾无缝_4.40秒.wav',
+    // 使用延长后的行驶音，降低单播放器重新开始循环的频率。
+    drivingLoop: 'voice/processed/汽车行驶中_59.4秒_320kbps.mp3',
     reverseLoop: 'voice/reverse_loop.mp3',
     brake: 'voice/brake.mp3',
     turnSignal: 'voice/turn_signal.mp3',
